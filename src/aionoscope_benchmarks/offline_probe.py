@@ -7,7 +7,6 @@ from time import perf_counter
 import torch
 from torch import nn
 from torch.nn import functional as F
-from torch.utils.data import DataLoader, TensorDataset
 
 from .probe_metrics import probe_compute_metrics, probe_compute_pairwise_confusion_torch
 from .schedules import cosine_schedule, update_learning_rate_
@@ -33,6 +32,17 @@ class CollectedProbeFeatures:
     dense_targets: torch.Tensor | None
     has_crops: bool
     timings: dict[str, float | int]
+
+
+@dataclass(frozen=True)
+class _StagedProbeLayer:
+    train_features: torch.Tensor
+    train_targets: torch.Tensor
+    train_dense_targets: torch.Tensor | None
+    val_features_by_seed: dict[int, torch.Tensor]
+    val_targets_by_seed: dict[int, torch.Tensor]
+    val_dense_targets_by_seed: dict[int, torch.Tensor | None]
+    val_has_crops_by_seed: dict[int, bool]
 
 
 def _validate_offline_probe_config(*, eval_config: OfflineProbeConfig) -> None:
@@ -259,6 +269,128 @@ def collect_probe_features_by_layer(
     )
 
 
+def _stage_probe_tensor(
+    *,
+    tensor: torch.Tensor,
+    device: torch.device,
+) -> torch.Tensor:
+    if tensor.device == device:
+        return tensor
+    return tensor.to(device, non_blocking=device.type == "cuda")
+
+
+def _tensor_on_device(*, tensor: torch.Tensor, device: torch.device) -> bool:
+    tensor_device = tensor.device
+    if tensor_device.type != device.type:
+        return False
+    if device.type != "cuda":
+        return tensor_device == device
+    if device.index is None:
+        return True
+    return tensor_device.index == device.index
+
+
+def _stage_probe_layer_multi_val(
+    *,
+    train_collected: CollectedProbeFeatures,
+    val_collected_by_seed: dict[int, CollectedProbeFeatures],
+    layer: int,
+    device: torch.device,
+) -> tuple[_StagedProbeLayer, dict[str, float | int]]:
+    total_start = perf_counter()
+    copy_s = 0.0
+
+    def stage(tensor: torch.Tensor) -> torch.Tensor:
+        nonlocal copy_s
+        copy_start = perf_counter()
+        staged = _stage_probe_tensor(tensor=tensor, device=device)
+        copy_s += perf_counter() - copy_start
+        return staged
+
+    train_features = stage(train_collected.features_by_layer[layer])
+    train_targets = stage(train_collected.class_targets)
+    train_dense_targets = (
+        stage(train_collected.dense_targets) if train_collected.dense_targets is not None else None
+    )
+
+    val_features_by_seed: dict[int, torch.Tensor] = {}
+    val_targets_by_seed: dict[int, torch.Tensor] = {}
+    val_dense_targets_by_seed: dict[int, torch.Tensor | None] = {}
+    val_has_crops_by_seed: dict[int, bool] = {}
+    for seed_value in sorted(int(seed_value) for seed_value in val_collected_by_seed):
+        collected = val_collected_by_seed[seed_value]
+        val_features_by_seed[seed_value] = stage(collected.features_by_layer[layer])
+        val_targets_by_seed[seed_value] = stage(collected.class_targets)
+        val_dense_targets_by_seed[seed_value] = (
+            stage(collected.dense_targets) if collected.dense_targets is not None else None
+        )
+        val_has_crops_by_seed[seed_value] = bool(collected.has_crops)
+
+    timings: dict[str, float | int] = {
+        "total_s": float(perf_counter() - total_start),
+        "copy_s": float(copy_s),
+        "validation_seed_count": int(len(val_features_by_seed)),
+    }
+    return (
+        _StagedProbeLayer(
+            train_features=train_features,
+            train_targets=train_targets,
+            train_dense_targets=train_dense_targets,
+            val_features_by_seed=val_features_by_seed,
+            val_targets_by_seed=val_targets_by_seed,
+            val_dense_targets_by_seed=val_dense_targets_by_seed,
+            val_has_crops_by_seed=val_has_crops_by_seed,
+        ),
+        timings,
+    )
+
+
+def _train_batch_index_iterator(
+    *,
+    num_samples: int,
+    batch_size: int,
+    device: torch.device,
+):
+    full_batches = num_samples // batch_size
+    if full_batches < 1:
+        raise ValueError(
+            f"Need at least one full train batch, got num_samples={num_samples} batch_size={batch_size}"
+        )
+    permutation = torch.empty(0, dtype=torch.int64, device=device)
+    batch_index = full_batches
+    while True:
+        if batch_index >= full_batches:
+            permutation = torch.randperm(num_samples, device=device)
+            batch_index = 0
+        start = batch_index * batch_size
+        batch_index += 1
+        yield permutation[start : start + batch_size]
+
+
+def _iter_eval_slices(*, num_samples: int, batch_size: int) -> Iterable[slice]:
+    effective_batch_size = _effective_eval_batch_size(batch_size)
+    for start in range(0, num_samples, effective_batch_size):
+        stop = min(num_samples, start + effective_batch_size)
+        yield slice(start, stop)
+
+
+def _forward_probe_batch(
+    *,
+    probe: nn.Module,
+    batch_features: torch.Tensor,
+) -> torch.Tensor:
+    if batch_features.dim() == 3:
+        size, num_crops, feature_dim = batch_features.size()
+        return probe(batch_features.reshape(size * num_crops, feature_dim)).reshape(
+            size, num_crops, -1
+        ).mean(dim=1)
+    if batch_features.dim() == 2:
+        return probe(batch_features)
+    raise ValueError(
+        f"Expected offline probe features to be 2D or 3D, got {tuple(batch_features.shape)}"
+    )
+
+
 def _evaluate_probe_features(
     *,
     probe: nn.Module,
@@ -274,49 +406,36 @@ def _evaluate_probe_features(
     dict[str, object] | None,
 ]:
     total_start = perf_counter()
+    if not _tensor_on_device(tensor=features, device=device):
+        raise ValueError(
+            "Evaluation features must already be staged on the probe device, "
+            f"got features.device={features.device} expected={device}"
+        )
+    if not _tensor_on_device(tensor=targets, device=device):
+        raise ValueError(
+            "Evaluation targets must already be staged on the probe device, "
+            f"got targets.device={targets.device} expected={device}"
+        )
     probe.eval()
     logits_batches: list[torch.Tensor] = []
-    target_batches: list[torch.Tensor] = []
 
-    feature_loader = DataLoader(
-        dataset=TensorDataset(features, targets),
-        batch_size=_effective_eval_batch_size(batch_size),
-        shuffle=False,
-        drop_last=False,
-        pin_memory=device.type == "cuda",
-    )
+    targets_t = targets.float()
 
     forward_start = perf_counter()
     with torch.inference_mode():
-        for batch_features, batch_targets in feature_loader:
-            if batch_features.dim() == 3:
-                size, num_crops, feature_dim = batch_features.size()
-                flat_features = batch_features.reshape(size * num_crops, feature_dim).to(
-                    device, non_blocking=True
-                )
-                logits = probe(flat_features).reshape(size, num_crops, -1).mean(dim=1)
-            elif batch_features.dim() == 2:
-                logits = probe(batch_features.to(device, non_blocking=True))
-            else:
-                raise ValueError(
-                    f"Expected offline probe features to be 2D or 3D, got {tuple(batch_features.shape)}"
-                )
+        for batch_slice in _iter_eval_slices(num_samples=int(features.size(0)), batch_size=batch_size):
+            batch_features = features[batch_slice]
+            logits = _forward_probe_batch(probe=probe, batch_features=batch_features)
             logits_batches.append(logits)
-            target_batches.append(batch_targets)
     forward_s = perf_counter() - forward_start
 
     probe.train()
-    numpy_start = perf_counter()
     logits_all = torch.cat(logits_batches, dim=0)
     predictions_t = logits_all.float().sigmoid()
-    targets_t = torch.cat(target_batches, dim=0).float()
-    predictions = predictions_t.cpu().numpy()
-    targets_np = targets_t.cpu().numpy()
-    numpy_s = perf_counter() - numpy_start
     metrics_start = perf_counter()
     metrics = probe_compute_metrics(
-        targets=targets_np,
-        predictions=predictions,
+        targets=targets_t,
+        predictions=predictions_t,
         class_names=class_names,
     )
     metrics_s = perf_counter() - metrics_start
@@ -335,8 +454,9 @@ def _evaluate_probe_features(
             {
                 "total_s": float(perf_counter() - total_start),
                 "forward_s": float(forward_s),
-                "numpy_s": float(numpy_s),
+                "numpy_s": 0.0,
                 "metrics_s": float(metrics_s),
+                "torchmetrics_s": float(metrics_s),
                 "pairwise_confusion_s": float(confusion_s),
             }
         )
@@ -354,6 +474,16 @@ def _evaluate_regression_features_streaming(
     timings: dict[str, float | int] | None = None,
 ) -> dict[str, torch.Tensor]:
     total_start = perf_counter()
+    if not _tensor_on_device(tensor=features, device=device):
+        raise ValueError(
+            "Evaluation features must already be staged on the probe device, "
+            f"got features.device={features.device} expected={device}"
+        )
+    if not _tensor_on_device(tensor=targets, device=device):
+        raise ValueError(
+            "Evaluation targets must already be staged on the probe device, "
+            f"got targets.device={targets.device} expected={device}"
+        )
     probe.eval()
     target_dim = int(targets.size(1))
     sum_sq_error = torch.zeros(target_dim, dtype=torch.float64, device=device)
@@ -365,31 +495,14 @@ def _evaluate_regression_features_streaming(
     sum_target_prediction = torch.zeros(target_dim, dtype=torch.float64, device=device)
     valid_count = torch.zeros(target_dim, dtype=torch.int64, device=device)
 
-    feature_loader = DataLoader(
-        dataset=TensorDataset(features, targets),
-        batch_size=_effective_eval_batch_size(batch_size),
-        shuffle=False,
-        drop_last=False,
-        pin_memory=device.type == "cuda",
-    )
-
     forward_start = perf_counter()
     with torch.inference_mode():
-        for batch_features, batch_targets in feature_loader:
-            if batch_features.dim() == 3:
-                size, num_crops, feature_dim = batch_features.size()
-                flat_features = batch_features.reshape(size * num_crops, feature_dim).to(
-                    device, non_blocking=True
-                )
-                predictions = probe(flat_features).reshape(size, num_crops, -1).mean(dim=1)
-            elif batch_features.dim() == 2:
-                predictions = probe(batch_features.to(device, non_blocking=True))
-            else:
-                raise ValueError(
-                    f"Expected offline probe features to be 2D or 3D, got {tuple(batch_features.shape)}"
-                )
+        for batch_slice in _iter_eval_slices(num_samples=int(features.size(0)), batch_size=batch_size):
+            batch_features = features[batch_slice]
+            batch_targets = targets[batch_slice]
+            predictions = _forward_probe_batch(probe=probe, batch_features=batch_features)
             predictions = predictions.float()
-            batch_targets = batch_targets.to(device, non_blocking=True).float()
+            batch_targets = batch_targets.float()
             valid = torch.isfinite(batch_targets)
             batch_targets = torch.nan_to_num(batch_targets, nan=0.0)
             predictions64 = predictions.to(torch.float64)
@@ -467,6 +580,7 @@ def _train_linear_classification_probe(
     val_has_crops: bool,
     compute_pairwise_confusion: bool = True,
     random_seed: int | None = None,
+    layer_staging_s: float = 0.0,
 ) -> dict[str, object]:
     total_start = perf_counter()
     _set_torch_random_seed(random_seed)
@@ -476,6 +590,20 @@ def _train_linear_classification_probe(
         raise ValueError(f"Expected val features to be 2D or 3D, got {tuple(val_features.shape)}")
     if train_targets.dim() != 2 or val_targets.dim() != 2:
         raise ValueError("Targets must be 2D")
+    if not _tensor_on_device(tensor=train_features, device=device) or not _tensor_on_device(
+        tensor=train_targets, device=device
+    ):
+        raise ValueError(
+            "Train classification tensors must already be staged on the probe device: "
+            f"features={train_features.device} targets={train_targets.device} expected={device}"
+        )
+    if not _tensor_on_device(tensor=val_features, device=device) or not _tensor_on_device(
+        tensor=val_targets, device=device
+    ):
+        raise ValueError(
+            "Validation classification tensors must already be staged on the probe device: "
+            f"features={val_features.device} targets={val_targets.device} expected={device}"
+        )
 
     feature_dim = int(train_features.size(1))
     train_size = int(train_features.size(0))
@@ -502,19 +630,11 @@ def _train_linear_classification_probe(
         warmup_steps=eval_config.learning_rate_warmup_steps,
         warmup_start_value=1e-6,
     )
-    train_feature_loader = DataLoader(
-        dataset=TensorDataset(train_features, train_targets),
+    train_index_iterator = _train_batch_index_iterator(
+        num_samples=train_size,
         batch_size=eval_config.batch_size,
-        shuffle=True,
-        drop_last=True,
-        pin_memory=device.type == "cuda",
+        device=device,
     )
-
-    def cycle(dataloader):
-        while True:
-            yield from dataloader
-
-    train_iterator = cycle(train_feature_loader)
     best_auc_metrics = None
     best_auc_step = None
     best_auc_pairwise_confusion = None
@@ -530,9 +650,9 @@ def _train_linear_classification_probe(
 
     for step in range(eval_config.steps):
         update_learning_rate_(optimizer, next(lr_schedule))
-        batch_features, batch_targets = next(train_iterator)
-        batch_features = batch_features.to(device, non_blocking=True)
-        batch_targets = batch_targets.to(device, non_blocking=True)
+        batch_indices = next(train_index_iterator)
+        batch_features = train_features.index_select(0, batch_indices)
+        batch_targets = train_targets.index_select(0, batch_indices)
         logits = probe(batch_features)
         loss = F.binary_cross_entropy_with_logits(logits, batch_targets)
         loss.backward()
@@ -616,9 +736,11 @@ def _train_linear_classification_probe(
                 "train_steps_s": float(total_s - eval_total_s),
                 "eval_total_s": float(eval_total_s),
                 "eval_calls": int(eval_calls),
+                "layer_staging_s": float(layer_staging_s),
                 "eval_forward_s": float(eval_forward_s),
                 "eval_numpy_s": float(eval_numpy_s),
                 "eval_metrics_s": float(eval_metrics_s),
+                "eval_torchmetrics_s": float(eval_metrics_s),
                 "eval_pairwise_confusion_s": float(eval_pairwise_confusion_s),
             }
         },
@@ -655,6 +777,7 @@ def _train_linear_regression_probe(
     val_has_crops: bool,
     log_per_target: bool,
     random_seed: int | None = None,
+    layer_staging_s: float = 0.0,
 ) -> dict[str, object]:
     total_start = perf_counter()
     _set_torch_random_seed(random_seed)
@@ -664,6 +787,20 @@ def _train_linear_regression_probe(
         raise ValueError(f"Expected val features to be 2D or 3D, got {tuple(val_features.shape)}")
     if train_targets.dim() != 2 or val_targets.dim() != 2:
         raise ValueError("Dense targets must be 2D")
+    if not _tensor_on_device(tensor=train_features, device=device) or not _tensor_on_device(
+        tensor=train_targets, device=device
+    ):
+        raise ValueError(
+            "Train regression tensors must already be staged on the probe device: "
+            f"features={train_features.device} targets={train_targets.device} expected={device}"
+        )
+    if not _tensor_on_device(tensor=val_features, device=device) or not _tensor_on_device(
+        tensor=val_targets, device=device
+    ):
+        raise ValueError(
+            "Validation regression tensors must already be staged on the probe device: "
+            f"features={val_features.device} targets={val_targets.device} expected={device}"
+        )
 
     feature_dim = int(train_features.size(1))
     train_size = int(train_features.size(0))
@@ -716,19 +853,11 @@ def _train_linear_regression_probe(
         warmup_steps=eval_config.learning_rate_warmup_steps,
         warmup_start_value=1e-6,
     )
-    train_feature_loader = DataLoader(
-        dataset=TensorDataset(train_features, train_targets),
+    train_index_iterator = _train_batch_index_iterator(
+        num_samples=train_size,
         batch_size=eval_config.batch_size,
-        shuffle=True,
-        drop_last=True,
-        pin_memory=device.type == "cuda",
+        device=device,
     )
-
-    def cycle(dataloader):
-        while True:
-            yield from dataloader
-
-    train_iterator = cycle(train_feature_loader)
     best_metrics = None
     best_steps = None
     eval_calls = 0
@@ -738,9 +867,9 @@ def _train_linear_regression_probe(
 
     for step in range(eval_config.steps):
         update_learning_rate_(optimizer, next(lr_schedule))
-        batch_features, batch_targets = next(train_iterator)
-        batch_features = batch_features.to(device, non_blocking=True)
-        batch_targets = batch_targets.to(device, non_blocking=True)
+        batch_indices = next(train_index_iterator)
+        batch_features = train_features.index_select(0, batch_indices)
+        batch_targets = train_targets.index_select(0, batch_indices)
         predictions = probe(batch_features)
         valid = torch.isfinite(batch_targets)
         if not torch.any(valid):
@@ -801,6 +930,7 @@ def _train_linear_regression_probe(
                 "train_steps_s": float((perf_counter() - total_start) - eval_total_s),
                 "eval_total_s": float(eval_total_s),
                 "eval_calls": int(eval_calls),
+                "layer_staging_s": float(layer_staging_s),
                 "eval_forward_s": float(eval_forward_s),
                 "eval_finalize_s": float(eval_finalize_s),
             }
@@ -865,6 +995,7 @@ def _train_linear_classification_probe_multi_val(
     device: torch.device,
     compute_pairwise_confusion: bool = True,
     random_seed: int | None = None,
+    layer_staging_s: float = 0.0,
 ) -> dict[int, dict[str, object]]:
     total_start = perf_counter()
     _set_torch_random_seed(random_seed)
@@ -872,6 +1003,13 @@ def _train_linear_classification_probe_multi_val(
         raise ValueError(f"Expected train features to be 2D, got {tuple(train_features.shape)}")
     if train_targets.dim() != 2:
         raise ValueError("Targets must be 2D")
+    if not _tensor_on_device(tensor=train_features, device=device) or not _tensor_on_device(
+        tensor=train_targets, device=device
+    ):
+        raise ValueError(
+            "Train classification tensors must already be staged on the probe device: "
+            f"features={train_features.device} targets={train_targets.device} expected={device}"
+        )
 
     validation_seed_values = _validate_multi_val_feature_dict(
         val_features_by_seed=val_features_by_seed,
@@ -888,6 +1026,14 @@ def _train_linear_classification_probe_multi_val(
             )
         if val_targets.dim() != 2:
             raise ValueError(f"Validation targets must be 2D for seed={seed_value}")
+        if not _tensor_on_device(tensor=val_features, device=device) or not _tensor_on_device(
+            tensor=val_targets, device=device
+        ):
+            raise ValueError(
+                "Validation classification tensors must already be staged on the probe device: "
+                f"seed={seed_value} features={val_features.device} "
+                f"targets={val_targets.device} expected={device}"
+            )
 
     feature_dim = int(train_features.size(1))
     train_size = int(train_features.size(0))
@@ -915,19 +1061,11 @@ def _train_linear_classification_probe_multi_val(
         warmup_steps=eval_config.learning_rate_warmup_steps,
         warmup_start_value=1e-6,
     )
-    train_feature_loader = DataLoader(
-        dataset=TensorDataset(train_features, train_targets),
+    train_index_iterator = _train_batch_index_iterator(
+        num_samples=train_size,
         batch_size=eval_config.batch_size,
-        shuffle=True,
-        drop_last=True,
-        pin_memory=device.type == "cuda",
+        device=device,
     )
-
-    def cycle(dataloader):
-        while True:
-            yield from dataloader
-
-    train_iterator = cycle(train_feature_loader)
     best_auc_metrics: dict[int, tuple[float, dict[str, float], float, dict[str, float]] | None] = {
         seed_value: None for seed_value in validation_seed_values
     }
@@ -951,9 +1089,9 @@ def _train_linear_classification_probe_multi_val(
 
     for step in range(eval_config.steps):
         update_learning_rate_(optimizer, next(lr_schedule))
-        batch_features, batch_targets = next(train_iterator)
-        batch_features = batch_features.to(device, non_blocking=True)
-        batch_targets = batch_targets.to(device, non_blocking=True)
+        batch_indices = next(train_index_iterator)
+        batch_features = train_features.index_select(0, batch_indices)
+        batch_targets = train_targets.index_select(0, batch_indices)
         logits = probe(batch_features)
         loss = F.binary_cross_entropy_with_logits(logits, batch_targets)
         loss.backward()
@@ -1053,9 +1191,11 @@ def _train_linear_classification_probe_multi_val(
                         + eval_pairwise_confusion_s_by_seed[seed_value]
                     ),
                     "eval_calls": int(eval_config.steps // eval_config.checkpoint_interval),
+                    "layer_staging_s": float(layer_staging_s),
                     "eval_forward_s": float(eval_forward_s_by_seed[seed_value]),
                     "eval_numpy_s": float(eval_numpy_s_by_seed[seed_value]),
                     "eval_metrics_s": float(eval_metrics_s_by_seed[seed_value]),
+                    "eval_torchmetrics_s": float(eval_metrics_s_by_seed[seed_value]),
                     "eval_pairwise_confusion_s": float(eval_pairwise_confusion_s_by_seed[seed_value]),
                     "validation_seed": int(seed_value),
                     "num_validation_seeds": int(len(validation_seed_values)),
@@ -1077,6 +1217,7 @@ def _train_linear_regression_probe_multi_val(
     device: torch.device,
     log_per_target: bool,
     random_seed: int | None = None,
+    layer_staging_s: float = 0.0,
 ) -> dict[int, dict[str, object]]:
     total_start = perf_counter()
     _set_torch_random_seed(random_seed)
@@ -1084,6 +1225,13 @@ def _train_linear_regression_probe_multi_val(
         raise ValueError(f"Expected train features to be 2D, got {tuple(train_features.shape)}")
     if train_targets.dim() != 2:
         raise ValueError("Dense targets must be 2D")
+    if not _tensor_on_device(tensor=train_features, device=device) or not _tensor_on_device(
+        tensor=train_targets, device=device
+    ):
+        raise ValueError(
+            "Train regression tensors must already be staged on the probe device: "
+            f"features={train_features.device} targets={train_targets.device} expected={device}"
+        )
 
     validation_seed_values = _validate_multi_val_feature_dict(
         val_features_by_seed=val_features_by_seed,
@@ -1100,6 +1248,14 @@ def _train_linear_regression_probe_multi_val(
             )
         if val_targets.dim() != 2:
             raise ValueError(f"Dense targets must be 2D for seed={seed_value}")
+        if not _tensor_on_device(tensor=val_features, device=device) or not _tensor_on_device(
+            tensor=val_targets, device=device
+        ):
+            raise ValueError(
+                "Validation regression tensors must already be staged on the probe device: "
+                f"seed={seed_value} features={val_features.device} "
+                f"targets={val_targets.device} expected={device}"
+            )
 
     feature_dim = int(train_features.size(1))
     train_size = int(train_features.size(0))
@@ -1152,19 +1308,11 @@ def _train_linear_regression_probe_multi_val(
         warmup_steps=eval_config.learning_rate_warmup_steps,
         warmup_start_value=1e-6,
     )
-    train_feature_loader = DataLoader(
-        dataset=TensorDataset(train_features, train_targets),
+    train_index_iterator = _train_batch_index_iterator(
+        num_samples=train_size,
         batch_size=eval_config.batch_size,
-        shuffle=True,
-        drop_last=True,
-        pin_memory=device.type == "cuda",
+        device=device,
     )
-
-    def cycle(dataloader):
-        while True:
-            yield from dataloader
-
-    train_iterator = cycle(train_feature_loader)
     best_metrics: dict[int, dict[str, torch.Tensor] | None] = {
         seed_value: None for seed_value in validation_seed_values
     }
@@ -1176,9 +1324,9 @@ def _train_linear_regression_probe_multi_val(
 
     for step in range(eval_config.steps):
         update_learning_rate_(optimizer, next(lr_schedule))
-        batch_features, batch_targets = next(train_iterator)
-        batch_features = batch_features.to(device, non_blocking=True)
-        batch_targets = batch_targets.to(device, non_blocking=True)
+        batch_indices = next(train_index_iterator)
+        batch_features = train_features.index_select(0, batch_indices)
+        batch_targets = train_targets.index_select(0, batch_indices)
         predictions = probe(batch_features)
         valid = torch.isfinite(batch_targets)
         if not torch.any(valid):
@@ -1260,6 +1408,7 @@ def _train_linear_regression_probe_multi_val(
                         eval_forward_s_by_seed[seed_value] + eval_finalize_s_by_seed[seed_value]
                     ),
                     "eval_calls": int(eval_config.steps // eval_config.checkpoint_interval),
+                    "layer_staging_s": float(layer_staging_s),
                     "eval_forward_s": float(eval_forward_s_by_seed[seed_value]),
                     "eval_finalize_s": float(eval_finalize_s_by_seed[seed_value]),
                     "validation_seed": int(seed_value),
@@ -1385,46 +1534,54 @@ def offline_probe_run_linear_multihead_by_layer_from_collected(
         )
 
     total_start = perf_counter()
-    train_features_by_layer = train_collected.features_by_layer
     train_targets = train_collected.class_targets
     train_dense_targets = train_collected.dense_targets
-    val_features_by_layer = val_collected.features_by_layer
     val_targets = val_collected.class_targets
     val_dense_targets = val_collected.dense_targets
     val_has_crops = val_collected.has_crops
 
     categorical: dict[int, dict[str, object]] = {}
-    for layer in layers_categorical:
-        categorical[layer] = _train_linear_classification_probe(
-            train_features=train_features_by_layer[layer],
-            train_targets=train_targets,
-            val_features=val_features_by_layer[layer],
-            val_targets=val_targets,
-            num_classes=num_classes,
-            class_names=class_names,
-            eval_config=eval_config,
-            device=device,
-            val_has_crops=val_has_crops,
-            compute_pairwise_confusion=layer in set(layers_confusion),
-            random_seed=_probe_seed_for_layer(
-                probe_seed=probe_seed,
-                layer=layer,
-                head="categorical",
-            ),
-        )
-
     dense: dict[int, dict[str, object]] = {}
-    if layers_dense and (train_dense_targets is not None or val_dense_targets is not None):
-        if train_dense_targets is None or val_dense_targets is None:
-            raise ValueError("Dense targets must be present in both train and val splits")
-        if dense_target_names is None or dense_log_per_target is None:
-            raise ValueError("Dense target metadata must be provided when running dense probes")
-        for layer in layers_dense:
+    layers_categorical_set = set(layers_categorical)
+    layers_dense_set = set(layers_dense)
+    layers_confusion_set = set(layers_confusion)
+    single_val_by_seed = {0: val_collected}
+    for layer in layers_all:
+        staged_layer, stage_timings = _stage_probe_layer_multi_val(
+            train_collected=train_collected,
+            val_collected_by_seed=single_val_by_seed,
+            layer=layer,
+            device=device,
+        )
+        if layer in layers_categorical_set:
+            categorical[layer] = _train_linear_classification_probe(
+                train_features=staged_layer.train_features,
+                train_targets=staged_layer.train_targets,
+                val_features=staged_layer.val_features_by_seed[0],
+                val_targets=staged_layer.val_targets_by_seed[0],
+                num_classes=num_classes,
+                class_names=class_names,
+                eval_config=eval_config,
+                device=device,
+                val_has_crops=val_has_crops,
+                compute_pairwise_confusion=layer in layers_confusion_set,
+                random_seed=_probe_seed_for_layer(
+                    probe_seed=probe_seed,
+                    layer=layer,
+                    head="categorical",
+                ),
+                layer_staging_s=float(stage_timings["total_s"]),
+            )
+        if layer in layers_dense_set and (train_dense_targets is not None or val_dense_targets is not None):
+            if train_dense_targets is None or val_dense_targets is None:
+                raise ValueError("Dense targets must be present in both train and val splits")
+            if dense_target_names is None or dense_log_per_target is None:
+                raise ValueError("Dense target metadata must be provided when running dense probes")
             dense[layer] = _train_linear_regression_probe(
-                train_features=train_features_by_layer[layer],
-                train_targets=train_dense_targets,
-                val_features=val_features_by_layer[layer],
-                val_targets=val_dense_targets,
+                train_features=staged_layer.train_features,
+                train_targets=staged_layer.train_dense_targets,
+                val_features=staged_layer.val_features_by_seed[0],
+                val_targets=staged_layer.val_dense_targets_by_seed[0],
                 target_names=dense_target_names,
                 eval_config=eval_config,
                 device=device,
@@ -1435,11 +1592,13 @@ def offline_probe_run_linear_multihead_by_layer_from_collected(
                     layer=layer,
                     head="dense",
                 ),
+                layer_staging_s=float(stage_timings["total_s"]),
             )
+        del staged_layer
 
-    example_val_features = val_features_by_layer[layers_all[0]]
+    example_val_features = val_collected.features_by_layer[layers_all[0]]
     val_num_crops = int(example_val_features.size(1)) if val_has_crops else 1
-    feature_dim = int(train_features_by_layer[layers_all[0]].size(-1))
+    feature_dim = int(train_collected.features_by_layer[layers_all[0]].size(-1))
     return {
         "categorical": categorical,
         "dense": dense,
@@ -1495,46 +1654,18 @@ def offline_probe_run_linear_multihead_by_layer_multi_val_from_collected(
                 f"seed={seed_value} expected={layers_all} got={sorted(collected.features_by_layer)}"
             )
 
-    train_features_by_layer = train_collected.features_by_layer
     train_targets = train_collected.class_targets
     train_dense_targets = train_collected.dense_targets
 
     categorical_by_seed: dict[int, dict[int, dict[str, object]]] = {
         seed_value: {} for seed_value in validation_seed_values
     }
-    for layer in layers_categorical:
-        per_seed_layer_results = _train_linear_classification_probe_multi_val(
-            train_features=train_features_by_layer[layer],
-            train_targets=train_targets,
-            val_features_by_seed={
-                seed_value: val_collected_by_seed[seed_value].features_by_layer[layer]
-                for seed_value in validation_seed_values
-            },
-            val_targets_by_seed={
-                seed_value: val_collected_by_seed[seed_value].class_targets
-                for seed_value in validation_seed_values
-            },
-            val_has_crops_by_seed={
-                seed_value: val_collected_by_seed[seed_value].has_crops
-                for seed_value in validation_seed_values
-            },
-            num_classes=num_classes,
-            class_names=class_names,
-            eval_config=eval_config,
-            device=device,
-            compute_pairwise_confusion=layer in set(layers_confusion),
-            random_seed=_probe_seed_for_layer(
-                probe_seed=probe_seed,
-                layer=layer,
-                head="categorical",
-            ),
-        )
-        for seed_value, result in per_seed_layer_results.items():
-            categorical_by_seed[seed_value][layer] = result
-
     dense_by_seed: dict[int, dict[int, dict[str, object]]] = {
         seed_value: {} for seed_value in validation_seed_values
     }
+    layers_categorical_set = set(layers_categorical)
+    layers_dense_set = set(layers_dense)
+    layers_confusion_set = set(layers_confusion)
     dense_targets_available = bool(train_dense_targets is not None)
     if layers_dense and (train_dense_targets is not None):
         if dense_target_names is None or dense_log_per_target is None:
@@ -1544,22 +1675,44 @@ def offline_probe_run_linear_multihead_by_layer_multi_val_from_collected(
                 raise ValueError(
                     f"Dense targets must be present in all validation splits, missing seed={seed_value}"
                 )
-        for layer in layers_dense:
+    elif layers_dense:
+        dense_targets_available = False
+
+    for layer in layers_all:
+        staged_layer, stage_timings = _stage_probe_layer_multi_val(
+            train_collected=train_collected,
+            val_collected_by_seed=val_collected_by_seed,
+            layer=layer,
+            device=device,
+        )
+        if layer in layers_categorical_set:
+            per_seed_layer_results = _train_linear_classification_probe_multi_val(
+                train_features=staged_layer.train_features,
+                train_targets=staged_layer.train_targets,
+                val_features_by_seed=staged_layer.val_features_by_seed,
+                val_targets_by_seed=staged_layer.val_targets_by_seed,
+                val_has_crops_by_seed=staged_layer.val_has_crops_by_seed,
+                num_classes=num_classes,
+                class_names=class_names,
+                eval_config=eval_config,
+                device=device,
+                compute_pairwise_confusion=layer in layers_confusion_set,
+                random_seed=_probe_seed_for_layer(
+                    probe_seed=probe_seed,
+                    layer=layer,
+                    head="categorical",
+                ),
+                layer_staging_s=float(stage_timings["total_s"]),
+            )
+            for seed_value, result in per_seed_layer_results.items():
+                categorical_by_seed[seed_value][layer] = result
+        if layer in layers_dense_set and dense_targets_available:
             per_seed_layer_results = _train_linear_regression_probe_multi_val(
-                train_features=train_features_by_layer[layer],
-                train_targets=train_dense_targets,
-                val_features_by_seed={
-                    seed_value: val_collected_by_seed[seed_value].features_by_layer[layer]
-                    for seed_value in validation_seed_values
-                },
-                val_targets_by_seed={
-                    seed_value: val_collected_by_seed[seed_value].dense_targets
-                    for seed_value in validation_seed_values
-                },
-                val_has_crops_by_seed={
-                    seed_value: val_collected_by_seed[seed_value].has_crops
-                    for seed_value in validation_seed_values
-                },
+                train_features=staged_layer.train_features,
+                train_targets=staged_layer.train_dense_targets,
+                val_features_by_seed=staged_layer.val_features_by_seed,
+                val_targets_by_seed=staged_layer.val_dense_targets_by_seed,
+                val_has_crops_by_seed=staged_layer.val_has_crops_by_seed,
                 target_names=dense_target_names,
                 eval_config=eval_config,
                 device=device,
@@ -1569,18 +1722,18 @@ def offline_probe_run_linear_multihead_by_layer_multi_val_from_collected(
                     layer=layer,
                     head="dense",
                 ),
+                layer_staging_s=float(stage_timings["total_s"]),
             )
             for seed_value, result in per_seed_layer_results.items():
                 dense_by_seed[seed_value][layer] = result
-    elif layers_dense:
-        dense_targets_available = False
+        del staged_layer
 
     results_by_seed: dict[int, dict[str, object]] = {}
     for seed_value in validation_seed_values:
         collected = val_collected_by_seed[seed_value]
         example_val_features = collected.features_by_layer[layers_all[0]]
         val_num_crops = int(example_val_features.size(1)) if collected.has_crops else 1
-        feature_dim = int(train_features_by_layer[layers_all[0]].size(-1))
+        feature_dim = int(train_collected.features_by_layer[layers_all[0]].size(-1))
         results_by_seed[seed_value] = {
             "categorical": categorical_by_seed[seed_value],
             "dense": dense_by_seed[seed_value],

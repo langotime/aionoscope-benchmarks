@@ -2,33 +2,67 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-import numpy as np
 import torch
-from sklearn.metrics import average_precision_score, roc_auc_score
+
+try:
+    from torchmetrics.functional.classification import (
+        multilabel_auroc,
+        multilabel_average_precision,
+    )
+except ImportError as exc:  # pragma: no cover - exercised when env is unsynced
+    multilabel_auroc = None
+    multilabel_average_precision = None
+    _TORCHMETRICS_IMPORT_ERROR = exc
+else:
+    _TORCHMETRICS_IMPORT_ERROR = None
 
 
 def probe_compute_metrics(
-    *, targets: np.ndarray, predictions: np.ndarray, class_names: list[str]
+    *, targets: torch.Tensor, predictions: torch.Tensor, class_names: list[str]
 ) -> tuple[float, dict[str, float], float, dict[str, float]]:
+    if _TORCHMETRICS_IMPORT_ERROR is not None:
+        raise ImportError(
+            "probe_compute_metrics requires torchmetrics. "
+            "Install project dependencies so torchmetrics is importable."
+        ) from _TORCHMETRICS_IMPORT_ERROR
+    if not isinstance(targets, torch.Tensor):
+        target_device = predictions.device if isinstance(predictions, torch.Tensor) else None
+        targets = torch.as_tensor(targets, device=target_device)
+    if not isinstance(predictions, torch.Tensor):
+        predictions = torch.as_tensor(predictions, device=targets.device)
     if targets.shape != predictions.shape:
         raise ValueError(
             "Probe targets/predictions shape mismatch: "
-            f"targets={targets.shape}, predictions={predictions.shape}"
+            f"targets={tuple(targets.shape)}, predictions={tuple(predictions.shape)}"
         )
-    if targets.ndim != 2:
-        raise ValueError(f"Probe targets must be 2D [N, C], got: {targets.shape}")
+    if targets.dim() != 2:
+        raise ValueError(f"Probe targets must be 2D [N, C], got: {tuple(targets.shape)}")
+    if targets.device != predictions.device:
+        raise ValueError(
+            "Probe targets/predictions device mismatch: "
+            f"targets={targets.device}, predictions={predictions.device}"
+        )
     if not class_names:
         raise ValueError("class_names is required to compute probe metrics")
 
-    num_classes = targets.shape[1]
+    num_classes = int(targets.size(1))
     if len(class_names) != num_classes:
         raise ValueError(f"Expected {num_classes} class names, got {len(class_names)}")
 
+    targets_f = targets.to(dtype=torch.float32)
+    unique_targets = torch.unique(targets_f)
+    invalid_targets = torch.any((unique_targets != 0.0) & (unique_targets != 1.0))
+    if bool(invalid_targets):
+        raise ValueError(
+            "AUROC/AUPRC require binary targets in {0,1}. "
+            f"Got unique values: {unique_targets.tolist()!r}"
+        )
+
     invalid_classes = []
+    sample_count = int(targets_f.size(0))
     for class_index, class_name in enumerate(class_names):
-        class_targets = targets[:, class_index]
-        positive_count = int(np.count_nonzero(class_targets))
-        negative_count = class_targets.size - positive_count
+        positive_count = int(targets_f[:, class_index].sum().item())
+        negative_count = sample_count - positive_count
         if positive_count == 0 or negative_count == 0:
             invalid_classes.append(f"{class_name} (pos={positive_count}, neg={negative_count})")
     if invalid_classes:
@@ -37,20 +71,37 @@ def probe_compute_metrics(
             + ", ".join(invalid_classes)
         )
 
-    per_class_auc = {}
-    per_class_auprc = {}
-    for class_index, class_name in enumerate(class_names):
-        class_targets = targets[:, class_index]
-        class_predictions = predictions[:, class_index]
-        per_class_auc[class_name] = float(
-            roc_auc_score(y_true=class_targets, y_score=class_predictions)
-        )
-        per_class_auprc[class_name] = float(
-            average_precision_score(y_true=class_targets, y_score=class_predictions)
-        )
+    predictions_f = predictions.to(dtype=torch.float32)
+    if torch.any(predictions_f < 0.0) or torch.any(predictions_f > 1.0):
+        raise ValueError("AUROC/AUPRC require predicted probabilities in [0, 1].")
 
-    macro_auc = float(np.mean(list(per_class_auc.values())))
-    macro_auprc = float(np.mean(list(per_class_auprc.values())))
+    targets_i = targets_f.to(dtype=torch.int64)
+    per_class_auc_t = multilabel_auroc(
+        predictions_f,
+        targets_i,
+        num_labels=num_classes,
+        average=None,
+        thresholds=None,
+        validate_args=False,
+    )
+    per_class_auprc_t = multilabel_average_precision(
+        predictions_f,
+        targets_i,
+        num_labels=num_classes,
+        average=None,
+        thresholds=None,
+        validate_args=False,
+    )
+    per_class_auc = {
+        class_name: float(value)
+        for class_name, value in zip(class_names, per_class_auc_t.tolist(), strict=True)
+    }
+    per_class_auprc = {
+        class_name: float(value)
+        for class_name, value in zip(class_names, per_class_auprc_t.tolist(), strict=True)
+    }
+    macro_auc = float(per_class_auc_t.mean().item())
+    macro_auprc = float(per_class_auprc_t.mean().item())
     return macro_auc, per_class_auc, macro_auprc, per_class_auprc
 
 
@@ -121,4 +172,3 @@ def probe_build_group_to_classes(
         for group_name in groups:
             group_to_classes[group_name].append(class_name)
     return {group: sorted(classes) for group, classes in group_to_classes.items()}
-
