@@ -1,0 +1,15 @@
+models:
+  - MantisV2
+  - TabPFN
+  - TabICL
+  - MOMENT
+  - TiRex
+  - Chronos2
+  - TTM
+  - Moirai
+  - Toto
+  - TiViT-H
+  - TiConvNext
+  - NuTime
+  - T-Loss
+

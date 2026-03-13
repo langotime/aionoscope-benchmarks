@@ -1,0 +1,44 @@
+[project]
+name = "aionoscope-benchmarks"
+version = "0.1.0"
+description = "Foundational-model offline probes for Aionoscope balanced basic-components."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "aiono",
+    "accelerate>=1.10",
+    "einops>=0.8",
+    "huggingface-hub>=0.24,<0.25",
+    "numpy>=1.25,<2",
+    "open_clip_torch>=2.32",
+    "pandas>=2.1,<2.3",
+    "pillow>=11.3",
+    "pyyaml>=6.0",
+    "safetensors>=0.4,<1.0",
+    "scikit-learn>=1.7",
+    "scipy>=1.16",
+    "timm>=1.0",
+    "torch>=2.9",
+    "torchvision>=0.24",
+    "tqdm>=4.67",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["aionoscope_benchmarks*"]
+
+[tool.uv.sources]
+aiono = { path = "../aionoscope", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
