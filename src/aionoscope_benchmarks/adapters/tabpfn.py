@@ -29,6 +29,7 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
         super().__init__()
         self._split_feature_cache: dict[str, dict[int, torch.Tensor]] = {}
         self._class_names: list[str] = []
+        self._classifiers: list[object] = []
         self.resolved_model_version = "v2.5"
         self.probe_train_split: dict[str, torch.Tensor] | None = None
         self.probe_val_split: dict[str, torch.Tensor] | None = None
@@ -116,25 +117,18 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
 
         self._class_names = [str(name) for name in manifest["class_names"]]
         train_x = self._reduce_inputs(train_split["x"])
-        val_x = self._reduce_inputs(val_split["x"])
         train_y = train_split["y_cls"].to(dtype=torch.int64).cpu().numpy()
         train_probe_indices = self._sample_probe_indices(
             train_x.shape[0],
             sample_cap=self.probe_train_sample_cap,
             seed=self.fit_seed + 10_000,
         )
-        val_probe_indices = self._sample_probe_indices(
-            val_x.shape[0],
-            sample_cap=self.probe_val_sample_cap,
-            seed=self.fit_seed + 20_000,
-        )
         probe_train_x = train_x[train_probe_indices]
-        probe_val_x = val_x[val_probe_indices]
 
         train_features = np.empty((probe_train_x.shape[0], train_y.shape[1]), dtype=np.float32)
-        val_features = np.empty((probe_val_x.shape[0], train_y.shape[1]), dtype=np.float32)
         device = "cuda" if torch.cuda.is_available() else "cpu"
         resolved_version = self.resolved_model_version
+        classifiers: list[object] = []
 
         def _build_classifier(class_index: int):
             kwargs = {
@@ -171,19 +165,40 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
                 classifier = _build_classifier(class_index)
                 classifier.fit(train_x[fit_indices], y_binary[fit_indices])
             train_features[:, class_index] = self._positive_proba(classifier, probe_train_x)
-            val_features[:, class_index] = self._positive_proba(classifier, probe_val_x)
+            classifiers.append(classifier)
 
         self.resolved_model_version = resolved_version
+        self._classifiers = classifiers
         self._split_feature_cache = {
             "train": {0: torch.from_numpy(train_features)},
-            "val": {0: torch.from_numpy(val_features)},
         }
         self.probe_train_split = {
             key: value[train_probe_indices] for key, value in train_split.items()
         }
+        self.update_probe_val_split(val_split=val_split)
+
+    def update_probe_val_split(
+        self,
+        *,
+        val_split: dict[str, torch.Tensor],
+    ) -> dict[str, torch.Tensor]:
+        if not self._classifiers:
+            raise RuntimeError("TabPFN classifiers are not prepared yet")
+        val_x = self._reduce_inputs(val_split["x"])
+        val_probe_indices = self._sample_probe_indices(
+            val_x.shape[0],
+            sample_cap=self.probe_val_sample_cap,
+            seed=self.fit_seed + 20_000,
+        )
+        probe_val_x = val_x[val_probe_indices]
+        val_features = np.empty((probe_val_x.shape[0], len(self._class_names)), dtype=np.float32)
+        for class_index, classifier in enumerate(self._classifiers):
+            val_features[:, class_index] = self._positive_proba(classifier, probe_val_x)
+        self._split_feature_cache["val"] = {0: torch.from_numpy(val_features)}
         self.probe_val_split = {
             key: value[val_probe_indices] for key, value in val_split.items()
         }
+        return self.probe_val_split
 
     def make_representation_fn(
         self,

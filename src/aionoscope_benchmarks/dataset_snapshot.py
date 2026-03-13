@@ -69,7 +69,11 @@ class DatasetManifest:
     channels: list[str]
     channel_size: int
     train_seed: int
-    val_seed: int
+    validation_seed_values: list[int]
+    validation_seed_offset: int
+    validation_generator_seeds: list[int]
+    validation_seed_to_generator_seed: dict[str, int]
+    validation_seed_count: int
     batch_size: int
     train_batches: int
     val_batches: int
@@ -111,6 +115,68 @@ def _require_str(mapping: dict[str, Any], key: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{key} must be a non-empty string, got {value!r}")
     return value
+
+
+def _require_int_list(mapping: dict[str, Any], key: str) -> list[int]:
+    value = mapping.get(key)
+    if not isinstance(value, list) or not value:
+        raise ValueError(f"{key} must be a non-empty list of ints, got {value!r}")
+    out: list[int] = []
+    for item in value:
+        if not isinstance(item, int):
+            raise ValueError(f"{key} must contain only ints, got {item!r}")
+        out.append(int(item))
+    if len(set(out)) != len(out):
+        raise ValueError(f"{key} must not contain duplicates, got {out}")
+    return out
+
+
+def _normalize_int_values(values: list[int] | tuple[int, ...], *, name: str) -> list[int]:
+    out = [int(value) for value in values]
+    if not out:
+        raise ValueError(f"{name} must be non-empty")
+    if len(set(out)) != len(out):
+        raise ValueError(f"{name} must not contain duplicates, got {out}")
+    return out
+
+
+def _resolve_validation_seed_config(
+    *,
+    toyts: dict[str, Any],
+    train_seed: int,
+) -> tuple[list[int], int, list[int], dict[str, int]]:
+    if "validation_seed_values" in toyts:
+        validation_seed_values = _require_int_list(toyts, "validation_seed_values")
+        validation_seed_offset = int(toyts.get("validation_seed_offset", 0))
+    elif "val_seed" in toyts:
+        validation_seed_values = [_require_int(toyts, "val_seed")]
+        validation_seed_offset = int(toyts.get("validation_seed_offset", 0))
+    else:
+        raise ValueError("toyts must define either validation_seed_values or val_seed")
+
+    validation_generator_seeds = [
+        int(validation_seed_offset) + int(seed_value) for seed_value in validation_seed_values
+    ]
+    if int(train_seed) in validation_generator_seeds:
+        raise ValueError(
+            "Train seed overlaps with at least one validation generator seed. "
+            "Use validation_seed_offset (for example 100) to separate the ranges. "
+            f"train_seed={int(train_seed)} validation_generator_seeds={validation_generator_seeds}"
+        )
+    validation_seed_to_generator_seed = {
+        str(seed_value): int(generator_seed)
+        for seed_value, generator_seed in zip(
+            validation_seed_values,
+            validation_generator_seeds,
+            strict=True,
+        )
+    }
+    return (
+        validation_seed_values,
+        int(validation_seed_offset),
+        validation_generator_seeds,
+        validation_seed_to_generator_seed,
+    )
 
 
 def _parse_manifest_components(cfg: dict[str, Any]) -> tuple[dict[str, Any], list[str], list[dict[str, Any]]]:
@@ -446,14 +512,16 @@ def _generate_split(
     return {"x": x_all, "y_cls": y_cls_all, "y_dense": y_dense_all}
 
 
-def build_runtime_splits(
+def build_runtime_splits_by_validation_seed(
     *,
     config_path: Path = DATASET_CONFIG_PATH,
     device: torch.device | None = None,
     batch_size: int = 256,
     train_batches: int | None = None,
     val_batches: int | None = None,
-) -> tuple[dict[str, Any], dict[str, torch.Tensor], dict[str, torch.Tensor]]:
+    validation_seed_values: list[int] | None = None,
+    validation_seed_offset: int | None = None,
+) -> tuple[dict[str, Any], dict[str, torch.Tensor], dict[int, dict[str, torch.Tensor]]]:
     if batch_size <= 0:
         raise ValueError(f"batch_size must be > 0, got {batch_size}")
     cfg_text = config_path.read_text(encoding="utf-8")
@@ -468,7 +536,40 @@ def build_runtime_splits(
     if not isinstance(channels, list) or not channels:
         raise ValueError("channels must be a non-empty list")
     train_seed = _require_int(toyts, "train_seed")
-    val_seed = _require_int(toyts, "val_seed")
+    (
+        resolved_validation_seed_values,
+        resolved_validation_seed_offset,
+        resolved_validation_generator_seeds,
+        resolved_validation_seed_to_generator_seed,
+    ) = _resolve_validation_seed_config(
+        toyts=toyts,
+        train_seed=int(train_seed),
+    )
+    if validation_seed_values is not None:
+        resolved_validation_seed_values = _normalize_int_values(
+            validation_seed_values,
+            name="validation_seed_values",
+        )
+    if validation_seed_offset is not None:
+        resolved_validation_seed_offset = int(validation_seed_offset)
+    resolved_validation_generator_seeds = [
+        int(resolved_validation_seed_offset) + int(seed_value)
+        for seed_value in resolved_validation_seed_values
+    ]
+    if int(train_seed) in resolved_validation_generator_seeds:
+        raise ValueError(
+            "Train seed overlaps with at least one validation generator seed after overrides. "
+            "Use validation_seed_offset (for example 100) to separate the ranges. "
+            f"train_seed={int(train_seed)} validation_generator_seeds={resolved_validation_generator_seeds}"
+        )
+    resolved_validation_seed_to_generator_seed = {
+        str(seed_value): int(generator_seed)
+        for seed_value, generator_seed in zip(
+            resolved_validation_seed_values,
+            resolved_validation_generator_seeds,
+            strict=True,
+        )
+    }
     resolved_train_batches = (
         int(train_batches)
         if train_batches is not None
@@ -498,7 +599,11 @@ def build_runtime_splits(
         channels=[str(channel) for channel in channels],
         channel_size=int(channel_size),
         train_seed=int(train_seed),
-        val_seed=int(val_seed),
+        validation_seed_values=list(resolved_validation_seed_values),
+        validation_seed_offset=int(resolved_validation_seed_offset),
+        validation_generator_seeds=list(resolved_validation_generator_seeds),
+        validation_seed_to_generator_seed=dict(resolved_validation_seed_to_generator_seed),
+        validation_seed_count=int(len(resolved_validation_seed_values)),
         batch_size=int(batch_size),
         train_batches=int(resolved_train_batches),
         val_batches=int(resolved_val_batches),
@@ -535,20 +640,45 @@ def build_runtime_splits(
         dense_target_names=dense_target_names,
         seq_len=int(channel_size),
     )
-    val = _generate_split(
-        pipeline=pipeline,
-        split_name="val",
-        seed=int(val_seed),
-        device=actual_device,
-        batch_size=int(batch_size),
-        num_batches=int(resolved_val_batches),
-        view_name=view_name,
-        class_names=component_keys,
-        dense_targets_cfg=dense_targets_cfg,
-        dense_target_names=dense_target_names,
-        seq_len=int(channel_size),
+    val_splits: dict[int, dict[str, torch.Tensor]] = {}
+    for seed_value, generator_seed in zip(
+        resolved_validation_seed_values,
+        resolved_validation_generator_seeds,
+        strict=True,
+    ):
+        val_splits[int(seed_value)] = _generate_split(
+            pipeline=pipeline,
+            split_name=f"val[{int(seed_value)}->g{int(generator_seed)}]",
+            seed=int(generator_seed),
+            device=actual_device,
+            batch_size=int(batch_size),
+            num_batches=int(resolved_val_batches),
+            view_name=view_name,
+            class_names=component_keys,
+            dense_targets_cfg=dense_targets_cfg,
+            dense_target_names=dense_target_names,
+            seq_len=int(channel_size),
+        )
+    return asdict(manifest), train, val_splits
+
+
+def build_runtime_splits(
+    *,
+    config_path: Path = DATASET_CONFIG_PATH,
+    device: torch.device | None = None,
+    batch_size: int = 256,
+    train_batches: int | None = None,
+    val_batches: int | None = None,
+) -> tuple[dict[str, Any], dict[str, torch.Tensor], dict[str, torch.Tensor]]:
+    manifest, train, val_splits = build_runtime_splits_by_validation_seed(
+        config_path=config_path,
+        device=device,
+        batch_size=batch_size,
+        train_batches=train_batches,
+        val_batches=val_batches,
     )
-    return asdict(manifest), train, val
+    first_seed_value = int(manifest["validation_seed_values"][0])
+    return manifest, train, val_splits[first_seed_value]
 
 
 def _parse_args() -> argparse.Namespace:
@@ -583,22 +713,41 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Optional override for val batch count",
     )
+    parser.add_argument(
+        "--validation-seed-value",
+        action="append",
+        dest="validation_seed_values",
+        type=int,
+        default=None,
+        help="Optional validation seed value override; can be repeated",
+    )
+    parser.add_argument(
+        "--validation-seed-offset",
+        type=int,
+        default=None,
+        help="Optional validation generator-seed offset override",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = _parse_args()
-    manifest, train, val = build_runtime_splits(
+    manifest, train, val_splits = build_runtime_splits_by_validation_seed(
         config_path=args.config,
         device=torch.device(str(args.device)),
         batch_size=int(args.batch_size),
         train_batches=args.train_batches,
         val_batches=args.val_batches,
+        validation_seed_values=args.validation_seed_values,
+        validation_seed_offset=args.validation_seed_offset,
     )
     summary = {
         "manifest": manifest,
         "train": {key: list(value.shape) for key, value in train.items()},
-        "val": {key: list(value.shape) for key, value in val.items()},
+        "val_by_seed": {
+            str(seed_value): {key: list(value.shape) for key, value in split.items()}
+            for seed_value, split in sorted(val_splits.items())
+        },
     }
     print(json.dumps(summary, indent=2))
 

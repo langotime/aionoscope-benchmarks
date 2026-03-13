@@ -55,6 +55,13 @@ class FrozenTimeSeriesAdapter(nn.Module, ABC):
     ) -> None:
         del manifest, train_split, val_split
 
+    def update_probe_val_split(
+        self,
+        *,
+        val_split: dict[str, torch.Tensor],
+    ) -> dict[str, torch.Tensor]:
+        return val_split
+
     @abstractmethod
     def forward_layer_dict(
         self,

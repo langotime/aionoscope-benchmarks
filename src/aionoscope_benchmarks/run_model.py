@@ -1,16 +1,22 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
+from time import perf_counter, time
 
 import torch
 import yaml
 from torch.utils.data import DataLoader, TensorDataset
 
 from .constants import DATASET_CONFIG_PATH, MODEL_RESULTS_ROOT, PROBE_CONFIG_PATH
-from .dataset_snapshot import build_runtime_splits
+from .dataset_snapshot import build_runtime_splits_by_validation_seed
 from .model_registry import create_adapter
-from .offline_probe import OfflineProbeConfig, offline_probe_run_linear_multihead_by_layer
+from .offline_probe import (
+    OfflineProbeConfig,
+    collect_probe_features_by_layer,
+    offline_probe_run_linear_multihead_by_layer_multi_val_from_collected,
+)
 from .results import build_model_result, write_model_result
 
 
@@ -32,6 +38,15 @@ def _load_probe_config(path: Path) -> tuple[OfflineProbeConfig, dict[str, object
     return config, raw
 
 
+def _make_split_loader(
+    *,
+    split: dict[str, torch.Tensor],
+    batch_size: int,
+) -> DataLoader:
+    dataset = TensorDataset(split["x"], split["y_cls"], split["y_dense"])
+    return DataLoader(dataset, batch_size=batch_size, shuffle=False, drop_last=False)
+
+
 def run_single_model(
     *,
     model_name: str,
@@ -41,52 +56,125 @@ def run_single_model(
     device: torch.device | None = None,
     encode_batch_size: int | None = None,
     layers: list[int] | None = None,
+    train_batches: int | None = None,
+    val_batches: int | None = None,
+    validation_seed_values: list[int] | None = None,
+    validation_seed_offset: int | None = None,
+    probe_seed: int | None = 0,
 ) -> Path:
+    run_started_at_unix = float(time())
+    run_start = perf_counter()
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
 
     actual_device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    runtime_summary: dict[str, object] = {
+        "started_at_unix": float(run_started_at_unix),
+        "device": str(actual_device),
+        "device_type": str(actual_device.type),
+        "process_id": int(os.getpid()),
+    }
+    if actual_device.type == "cuda":
+        cuda_index = actual_device.index
+        if cuda_index is None:
+            cuda_index = int(torch.cuda.current_device())
+        runtime_summary["cuda_device_index"] = int(cuda_index)
+        runtime_summary["cuda_device_name"] = str(torch.cuda.get_device_name(cuda_index))
+
     probe_config, probe_config_raw = _load_probe_config(probe_config_path)
-    manifest, train, val = build_runtime_splits(
+    dataset_build_start = perf_counter()
+    manifest, train, val_splits = build_runtime_splits_by_validation_seed(
         config_path=dataset_config_path,
         device=actual_device,
         batch_size=int(probe_config.batch_size),
+        train_batches=train_batches,
+        val_batches=val_batches,
+        validation_seed_values=validation_seed_values,
+        validation_seed_offset=validation_seed_offset,
     )
+    runtime_summary["dataset_build_s"] = float(perf_counter() - dataset_build_start)
+    validation_seed_order = [int(seed_value) for seed_value in manifest["validation_seed_values"]]
+    validation_seed_to_generator_seed = {
+        int(seed_value): int(generator_seed)
+        for seed_value, generator_seed in manifest["validation_seed_to_generator_seed"].items()
+    }
+
+    adapter_load_start = perf_counter()
     spec, adapter = create_adapter(model_name)
     adapter = adapter.to(actual_device)
     adapter.eval()
-    adapter.prepare(manifest=manifest, train_split=train, val_split=val)
-    probe_train = getattr(adapter, "probe_train_split", train)
-    probe_val = getattr(adapter, "probe_val_split", val)
+    runtime_summary["adapter_load_s"] = float(perf_counter() - adapter_load_start)
 
+    first_seed_value = int(validation_seed_order[0])
+    first_val_split = val_splits[first_seed_value]
+    adapter_prepare_start = perf_counter()
+    adapter.prepare(manifest=manifest, train_split=train, val_split=first_val_split)
+    runtime_summary["adapter_prepare_s"] = float(perf_counter() - adapter_prepare_start)
+
+    probe_train = getattr(adapter, "probe_train_split", None) or train
     selected_layers = tuple(int(layer) for layer in (layers or adapter.available_layers))
     if not selected_layers:
         raise ValueError(f"Adapter for {model_name} returned no layers")
     batch_size = int(encode_batch_size or adapter.default_encode_batch_size)
 
-    train_dataset = TensorDataset(probe_train["x"], probe_train["y_cls"], probe_train["y_dense"])
-    val_dataset = TensorDataset(probe_val["x"], probe_val["y_cls"], probe_val["y_dense"])
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, drop_last=False)
-
-    probe_results = offline_probe_run_linear_multihead_by_layer(
+    collect_train_start = perf_counter()
+    train_collected = collect_probe_features_by_layer(
         encoder=adapter,
-        train_representation_fn=adapter.make_representation_fn(layers=selected_layers, split="train"),
-        val_representation_fn=adapter.make_representation_fn(layers=selected_layers, split="val"),
-        train_loader=train_loader,
-        val_loader=val_loader,
+        representation_fn=adapter.make_representation_fn(layers=selected_layers, split="train"),
+        layers=selected_layers,
+        loader=_make_split_loader(split=probe_train, batch_size=batch_size),
+        device=actual_device,
+        auto_mixed_precision=adapter.autocast_context(actual_device),
+        allow_crops=False,
+    )
+    runtime_summary["collect_train_s"] = float(perf_counter() - collect_train_start)
+
+    val_collected_by_seed: dict[int, object] = {}
+    collect_val_total_start = perf_counter()
+    collect_val_by_seed_s: dict[str, float] = {}
+    for index, seed_value in enumerate(validation_seed_order, start=1):
+        collect_val_seed_start = perf_counter()
+        raw_val_split = val_splits[int(seed_value)]
+        if index == 1 and getattr(adapter, "probe_val_split", None) is not None:
+            probe_val = adapter.probe_val_split
+        else:
+            probe_val = adapter.update_probe_val_split(val_split=raw_val_split)
+        val_collected_by_seed[int(seed_value)] = collect_probe_features_by_layer(
+            encoder=adapter,
+            representation_fn=adapter.make_representation_fn(layers=selected_layers, split="val"),
+            layers=selected_layers,
+            loader=_make_split_loader(split=probe_val, batch_size=batch_size),
+            device=actual_device,
+            auto_mixed_precision=adapter.autocast_context(actual_device),
+            allow_crops=True,
+        )
+        collect_val_by_seed_s[str(int(seed_value))] = float(perf_counter() - collect_val_seed_start)
+    runtime_summary["collect_val_total_s"] = float(perf_counter() - collect_val_total_start)
+    runtime_summary["collect_val_by_validation_seed_s"] = collect_val_by_seed_s
+
+    offline_probe_start = perf_counter()
+    probe_results_by_validation_seed = offline_probe_run_linear_multihead_by_layer_multi_val_from_collected(
+        train_collected=train_collected,
+        val_collected_by_seed=val_collected_by_seed,
         num_classes=len(manifest["class_names"]),
         class_names=list(manifest["class_names"]),
         eval_config=probe_config,
         device=actual_device,
-        auto_mixed_precision=adapter.autocast_context(actual_device),
         layers_categorical=selected_layers,
         layers_dense=selected_layers,
         layers_confusion=tuple(),
         dense_target_names=list(manifest["dense_target_names"]),
         dense_log_per_target=True,
+        probe_seed=probe_seed,
     )
+    runtime_summary["offline_probe_s"] = float(perf_counter() - offline_probe_start)
+    runtime_summary["layers_evaluated_count"] = int(len(selected_layers))
+    runtime_summary["validation_seed_count"] = int(len(validation_seed_order))
+    runtime_summary["finished_at_unix"] = float(time())
+    runtime_summary["total_wall_s"] = float(perf_counter() - run_start)
 
+    probe_config_payload = dict(probe_config_raw)
+    probe_config_payload["probe_seed"] = None if probe_seed is None else int(probe_seed)
     payload = build_model_result(
         model_name=spec.name,
         model_slug=spec.slug,
@@ -95,10 +183,14 @@ def run_single_model(
         source=spec.source,
         import_path=spec.import_path,
         dataset_manifest=manifest,
-        probe_config=probe_config_raw,
+        probe_config=probe_config_payload,
         layers=list(selected_layers),
         adapter_metadata=adapter.adapter_metadata(),
-        probe_results=probe_results,
+        probe_results_by_validation_seed=probe_results_by_validation_seed,
+        validation_seed_values=validation_seed_order,
+        validation_seed_to_generator_seed=validation_seed_to_generator_seed,
+        probe_seed=probe_seed,
+        runtime_summary=runtime_summary,
     )
     out_path = out_dir / f"{spec.slug}.json"
     write_model_result(out_path=out_path, payload=payload)
@@ -146,6 +238,38 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Optional explicit layer id; can be repeated",
     )
+    parser.add_argument(
+        "--train-batches",
+        type=int,
+        default=None,
+        help="Optional override for train batch count",
+    )
+    parser.add_argument(
+        "--val-batches",
+        type=int,
+        default=None,
+        help="Optional override for validation batch count per seed",
+    )
+    parser.add_argument(
+        "--validation-seed-value",
+        action="append",
+        dest="validation_seed_values",
+        type=int,
+        default=None,
+        help="Optional validation seed value override; can be repeated",
+    )
+    parser.add_argument(
+        "--validation-seed-offset",
+        type=int,
+        default=None,
+        help="Optional validation generator-seed offset override",
+    )
+    parser.add_argument(
+        "--probe-seed",
+        type=int,
+        default=0,
+        help="Fixed probe-training seed reused across validation-seed runs",
+    )
     return parser.parse_args()
 
 
@@ -159,6 +283,11 @@ def main() -> None:
         device=torch.device(str(args.device)),
         encode_batch_size=args.encode_batch_size,
         layers=args.layers,
+        train_batches=args.train_batches,
+        val_batches=args.val_batches,
+        validation_seed_values=args.validation_seed_values,
+        validation_seed_offset=args.validation_seed_offset,
+        probe_seed=args.probe_seed,
     )
     print(out_path)
 

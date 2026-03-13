@@ -64,9 +64,13 @@ files on disk.
 Those fixed settings are:
 
 - training seed: `0`
-- validation seed: `1`
+- validation seed values: `0..9`
+- validation generator-seed offset: `+100`, so the actual validation generator seeds are `100..109`
 - training set: `256` batches x `256` samples = `65,536` examples
-- validation set: `256` batches x `256` samples = `65,536` examples
+- validation set per seed: `256` batches x `256` samples = `65,536` examples
+
+The `+100` offset is deliberate: it keeps the validation generator seeds disjoint from the
+training seed range while still preserving the human-facing validation seed pool `0..9`.
 
 ### What the models have to predict
 
@@ -117,6 +121,9 @@ Then open `http://localhost:8000/results/dashboard.html`. The page loads
 `results/models/*.json`, computes the same 6 radar panels and 4 layer curves in
 browser-side JavaScript with Apache ECharts, and lets you filter models plus
 switch the best-layer selector between `AUROC`, `AUPRC`, `R2`, and `Pearson`.
+When the JSON contains repeated validation runs, the dashboard plots the
+per-layer / per-category median and shows sample standard deviation (`ddof=1`)
+in tooltips, with shaded `± std` bands on the layer curves.
 
 For the full foundational sweep used in the current results, use
 `scripts/run_foundational_sequential.py`. It dispatches each model into the
@@ -136,6 +143,11 @@ Artifacts:
 *   Sequential runner: `scripts/run_foundational_sequential.py`
 
 Results summary:
+
+The table below is the original single-validation-seed snapshot from `2026-03-13`.
+The benchmark code now targets the `10`-seed validation pool described above, but the
+checked-in JSON snapshot has not been rerun yet, so these rows should be treated as
+legacy `n=1` reference numbers.
 
 | Model | Layers tested | Best AUROC layer | Macro AUROC | Best AUPRC layer | Macro AUPRC | Best R2 layer | Macro R2 | Best Pearson layer | Macro Pearson |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -157,9 +169,12 @@ Benchmark gotchas:
 
 *   The interactive charts use absolute values, not step deltas.
 *   The benchmark code now generates Aiono data online at runtime. It does not depend on a checked-in `results/datasets/*` snapshot; each run rebuilds the same deterministic finite split in memory from the YAML config and seeds.
-*   The dashboard lets you choose the layer selector per model: `best_auc.layer`, `best_auprc.layer`, best macro `R2`, or best macro `Pearson`. Do not confuse those selector views with the oracle-over-layer summaries stored in the JSON payloads.
+*   The validation protocol now evaluates the same fixed train split against validation seed values `0..9`, mapped to generator seeds `100..109` so train and validation seeds do not overlap.
+*   Probe training randomness is held fixed with `probe_seed=0` across those validation runs, so the reported spread reflects the validation-seed sweep rather than probe reinitialization noise.
+*   Every metric value in the new JSON schema stores the full validation-seed array plus `median/std`, and the dashboard visualizes those aggregated values. The historical checked-in snapshot predates this schema and therefore behaves like `n=1`.
+*   The dashboard lets you choose the layer selector per model: `best_auc.layer`, `best_auprc.layer`, best macro `R2`, or best macro `Pearson`. Those best-layer choices are taken from the metric medians across validation runs. Do not confuse those selector views with the oracle-over-layer summaries stored in the JSON payloads.
 *   The dense regression panels are labeled `Regression By Component Type` and `Regression By Parameter Type`, and they use absolute `R2` and Pearson, not `MSE`. `MSE` varied too much across target types to be useful on a shared dashboard scale.
-*   Negative `R2` values are clipped to `0` in the dashboard charts only so the useful range stays readable. Tooltips still expose the raw `R2`, and the JSON files plus the summary table keep the raw values.
+*   Negative `R2` values are clipped to `0` in the dashboard charts only so the useful range stays readable. Tooltips still expose the raw `R2` median and its standard deviation, and the JSON files keep the raw values.
 *   `TabPFN` and `TabICL` are not natural frozen layerwise encoders. In this benchmark they use fallback adapters that expose a synthetic single `layer 0`, downsample each time series to `128` tabular features, train one-vs-rest classifiers, and cap both probe train and probe val subsets at `2048` samples.
 *   `TabPFN` could not use the gated `v2.5` checkpoint in an unattended run, so the benchmark falls back to the public `v2` model.
 *   `TTM` peaks at different layers for different selectors, notably AUROC vs AUPRC (`13` vs `12`).

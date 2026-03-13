@@ -372,7 +372,9 @@
         <p>
           Single-page ECharts view over the frozen-feature offline-probe JSON outputs in
           <code>results/models/</code>. The page computes the same 6 radar panels and 4 layer
-          curves in browser-side JavaScript, without calling the Python plotting code.
+          curves in browser-side JavaScript, without calling the Python plotting code. When JSONs
+          contain repeated validation runs, the charts use <code>median ± std</code> across the
+          validation-seed pool.
         </p>
       </div>
       <div class="panel hero-card">
@@ -423,8 +425,9 @@
         <div class="control-block">
           <span class="control-label">Notes</span>
           <div class="help-text">
-            Radar charts use the current best-layer rule. Layer curves always show every layer,
-            but the current best layer is highlighted with a larger point.
+            Radar charts use the current best-layer rule and plot the median across validation
+            runs. Layer curves show the median line with a shaded <code>± std</code> band, and
+            the current best layer is highlighted with a larger point.
           </div>
         </div>
       </div>
@@ -435,9 +438,11 @@
 
       <p class="help-text">
         Negative R2 values are clipped to <code>0</code> in the radar and layer-curve plots only,
-        matching the benchmark visualization convention. Tooltips still show the raw unclipped R2.
-        For automatic JSON discovery, serve this repo with a static file server so the browser can
-        fetch <code>results/models/</code>.
+        matching the benchmark visualization convention. Tooltips still show the raw unclipped R2
+        median together with its standard deviation. Standard deviation uses sample
+        <code>ddof=1</code> when multiple validation runs are present. For automatic JSON
+        discovery, serve this repo with a static file server so the browser can fetch
+        <code>results/models/</code>.
       </p>
 
       <div id="model-picker" class="model-picker"></div>
@@ -446,48 +451,48 @@
     <section class="section">
       <div class="section-header">
         <h2>Radar Panels</h2>
-        <p>Absolute values at the current best layer for each selected model</p>
+        <p>Absolute median values at the current best layer for each selected model</p>
       </div>
       <div class="chart-grid-radar">
         <div class="panel chart-card">
           <div class="chart-card-header">
             <div class="chart-card-title">Categorical Signal AUROC</div>
-            <div class="chart-card-note">Per-class AUROC, excluding <code>constant</code></div>
+            <div class="chart-card-note">Per-class median AUROC, excluding <code>constant</code></div>
           </div>
           <div id="chart-radar-auroc" class="chart"></div>
         </div>
         <div class="panel chart-card">
           <div class="chart-card-header">
             <div class="chart-card-title">Regression By Component Type (R2)</div>
-            <div class="chart-card-note">Median per component type</div>
+            <div class="chart-card-note">Median across targets per component type</div>
           </div>
           <div id="chart-radar-r2-signal" class="chart"></div>
         </div>
         <div class="panel chart-card">
           <div class="chart-card-header">
             <div class="chart-card-title">Regression By Parameter Type (R2)</div>
-            <div class="chart-card-note">Median per parameter type</div>
+            <div class="chart-card-note">Median across targets per parameter type</div>
           </div>
           <div id="chart-radar-r2-metric" class="chart"></div>
         </div>
         <div class="panel chart-card">
           <div class="chart-card-header">
             <div class="chart-card-title">Categorical Signal AUPRC</div>
-            <div class="chart-card-note">Per-class AUPRC, excluding <code>constant</code></div>
+            <div class="chart-card-note">Per-class median AUPRC, excluding <code>constant</code></div>
           </div>
           <div id="chart-radar-auprc" class="chart"></div>
         </div>
         <div class="panel chart-card">
           <div class="chart-card-header">
             <div class="chart-card-title">Regression By Component Type (Pearson)</div>
-            <div class="chart-card-note">Median per component type</div>
+            <div class="chart-card-note">Median across targets per component type</div>
           </div>
           <div id="chart-radar-pearson-signal" class="chart"></div>
         </div>
         <div class="panel chart-card">
           <div class="chart-card-header">
             <div class="chart-card-title">Regression By Parameter Type (Pearson)</div>
-            <div class="chart-card-note">Median per parameter type</div>
+            <div class="chart-card-note">Median across targets per parameter type</div>
           </div>
           <div id="chart-radar-pearson-metric" class="chart"></div>
         </div>
@@ -497,34 +502,34 @@
     <section class="section">
       <div class="section-header">
         <h2>Layer Curves</h2>
-        <p>Macro metrics across all evaluated layers for the selected models</p>
+        <p>Median macro metrics across all evaluated layers, with shaded <code>± std</code></p>
       </div>
       <div class="chart-grid-line">
         <div class="panel chart-card">
           <div class="chart-card-header">
             <div class="chart-card-title">Macro AUROC By Layer</div>
-            <div class="chart-card-note">Categorical probe summary</div>
+            <div class="chart-card-note">Categorical probe summary, median line + std band</div>
           </div>
           <div id="chart-line-auroc" class="chart line"></div>
         </div>
         <div class="panel chart-card">
           <div class="chart-card-header">
             <div class="chart-card-title">Macro AUPRC By Layer</div>
-            <div class="chart-card-note">Categorical probe summary</div>
+            <div class="chart-card-note">Categorical probe summary, median line + std band</div>
           </div>
           <div id="chart-line-auprc" class="chart line"></div>
         </div>
         <div class="panel chart-card">
           <div class="chart-card-header">
             <div class="chart-card-title">Macro Pearson By Layer</div>
-            <div class="chart-card-note">Dense probe summary</div>
+            <div class="chart-card-note">Dense probe summary, median line + std band</div>
           </div>
           <div id="chart-line-pearson" class="chart line"></div>
         </div>
         <div class="panel chart-card">
           <div class="chart-card-header">
             <div class="chart-card-title">Macro R2 By Layer</div>
-            <div class="chart-card-note">Dense probe summary, clipped at <code>0</code> for plotting</div>
+            <div class="chart-card-note">Dense probe summary, median line + std band, clipped at <code>0</code> for plotting</div>
           </div>
           <div id="chart-line-r2" class="chart line"></div>
         </div>
@@ -669,6 +674,56 @@
       return ordered[middle];
     }
 
+    function sampleStd(values) {
+      if (values.length <= 1) {
+        return 0;
+      }
+      const mean = values.reduce((sum, value) => sum + Number(value), 0) / values.length;
+      const variance =
+        values.reduce((sum, value) => sum + Math.pow(Number(value) - mean, 2), 0) / (values.length - 1);
+      return Math.sqrt(Math.max(variance, 0));
+    }
+
+    function isStatPayload(value) {
+      return Boolean(
+        value &&
+          typeof value === "object" &&
+          !Array.isArray(value) &&
+          Array.isArray(value.values) &&
+          Object.prototype.hasOwnProperty.call(value, "median") &&
+          Object.prototype.hasOwnProperty.call(value, "std")
+      );
+    }
+
+    function statValues(value) {
+      if (isStatPayload(value)) {
+        return value.values.map((item) => Number(item));
+      }
+      return [Number(value)];
+    }
+
+    function statMedian(value) {
+      return isStatPayload(value) ? Number(value.median) : Number(value);
+    }
+
+    function statStd(value) {
+      return isStatPayload(value) ? Number(value.std) : 0;
+    }
+
+    function makeSeedStatsFromValues(values) {
+      const numeric = values.map((value) => Number(value));
+      return {
+        values: numeric,
+        median: median(numeric),
+        std: sampleStd(numeric),
+        n: numeric.length
+      };
+    }
+
+    function formatStatSummary(value) {
+      return `${formatMetricValue(statMedian(value))} ± ${formatMetricValue(statStd(value))}`;
+    }
+
     function formatMetricValue(value) {
       return Number(value).toFixed(4);
     }
@@ -695,6 +750,15 @@
         return "Best Pearson";
       }
       return selectorKey;
+    }
+
+    function rgbaWithAlpha(hexColor, alpha) {
+      const hex = String(hexColor).replace("#", "");
+      const expanded = hex.length === 3 ? hex.split("").map((ch) => ch + ch).join("") : hex;
+      const red = parseInt(expanded.slice(0, 2), 16);
+      const green = parseInt(expanded.slice(2, 4), 16);
+      const blue = parseInt(expanded.slice(4, 6), 16);
+      return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
     }
 
     function getBestLayerSelector() {
@@ -741,8 +805,8 @@
         .filter((signal) => String(signal) !== "constant")
         .map((signal) => ({
           signal: String(signal),
-          auroc: Number(payload.best_auc.per_class_auc[signal]),
-          auprc: Number(payload.best_auprc.per_class_auprc[signal]),
+          auroc: payload.best_auc.per_class_auc[signal],
+          auprc: payload.best_auprc.per_class_auprc[signal],
           layer: Number(layer)
         }));
     }
@@ -755,22 +819,39 @@
           target,
           target_signal: String(spec.signal),
           target_metric: String(spec.metric),
-          r2: Number(payload.per_target_r2[target]),
-          pearson: Number(payload.per_target_pearson[target]),
+          r2: payload.per_target_r2[target],
+          pearson: payload.per_target_pearson[target],
           layer: Number(layer)
         };
       });
     }
 
-    function aggregateDenseValuesByGroup(rows, metricName, groupKey, categories) {
+    function aggregateDenseStatsByGroup(rows, metricName, groupKey, categories) {
       return categories.map((category) => {
-        const values = rows
+        const stats = rows
           .filter((row) => String(row[groupKey]) === String(category))
-          .map((row) => Number(row[metricName]));
-        if (!values.length) {
+          .map((row) => row[metricName]);
+        if (!stats.length) {
           throw new Error(`Missing dense rows for ${groupKey}=${category} and metric=${metricName}`);
         }
-        return median(values);
+        const seedCount = Math.max(...stats.map((value) => statValues(value).length));
+        const perSeedGroupValues = [];
+        for (let index = 0; index < seedCount; index += 1) {
+          const valuesAtSeed = stats.map((value) => {
+            const values = statValues(value);
+            if (values.length === 1 && seedCount > 1) {
+              return Number(values[0]);
+            }
+            if (values.length !== seedCount) {
+              throw new Error(
+                `Inconsistent validation-run counts while aggregating ${metricName} for ${groupKey}=${category}`
+              );
+            }
+            return Number(values[index]);
+          });
+          perSeedGroupValues.push(median(valuesAtSeed));
+        }
+        return makeSeedStatsFromValues(perSeedGroupValues);
       });
     }
 
@@ -860,15 +941,15 @@
       }
 
       const dataByModel = {};
-      const rawByModel = {};
+      const statsByModel = {};
       const layerByModel = {};
 
       results.forEach((result) => {
         const name = modelName(result);
         const layer = selectedLayerForResult(result, selectorKey);
-        const { plottedValues, rawValues } = seriesBuilder(result, layer, categories);
+        const { plottedValues, stats } = seriesBuilder(result, layer, categories);
         dataByModel[name] = plottedValues;
-        rawByModel[name] = rawValues;
+        statsByModel[name] = stats;
         layerByModel[name] = layer;
       });
 
@@ -887,14 +968,15 @@
           confine: true,
           formatter: (param) => {
             const name = param.name || param.seriesName;
-            const rawValues = rawByModel[name] || param.value;
+            const stats = statsByModel[name] || [];
             const plottedValues = dataByModel[name] || param.value;
             const layer = layerByModel[name];
             const rows = categories.map((category, index) => {
-              const raw = Number(rawValues[index]);
+              const raw = statMedian(stats[index]);
+              const rawStd = statStd(stats[index]);
               const plotted = Number(plottedValues[index]);
               const clipped = Math.abs(raw - plotted) > 1e-12;
-              return `${category}: ${formatMetricValue(raw)}${clipped ? ` (plot ${formatMetricValue(plotted)})` : ""}`;
+              return `${category}: ${formatMetricValue(raw)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plotted)})` : ""}`;
             });
             return [
               `<strong>${name}</strong>`,
@@ -961,66 +1043,125 @@
       };
     }
 
-    function lineSeries(result, metricKey, selectorKey) {
-      const name = modelName(result);
-      const color = colorForModel(name);
-      const selectedLayer = selectedLayerForResult(result, selectorKey);
+    function metricStatsByLayer(result, metricKey) {
       let layers = [];
-      let rawValues = [];
+      let stats = [];
 
       if (metricKey === "auroc") {
         const categorical = result.results.categorical;
         layers = Object.keys(categorical).map(Number).sort((a, b) => a - b);
-        rawValues = layers.map((layer) => Number(categorical[String(layer)].best_auc.macro_auc));
+        stats = layers.map((layer) => categorical[String(layer)].best_auc.macro_auc);
       } else if (metricKey === "auprc") {
         const categorical = result.results.categorical;
         layers = Object.keys(categorical).map(Number).sort((a, b) => a - b);
-        rawValues = layers.map((layer) => Number(categorical[String(layer)].best_auprc.macro_auprc));
+        stats = layers.map((layer) => categorical[String(layer)].best_auprc.macro_auprc);
       } else if (metricKey === "macro_pearson") {
         const dense = result.results.dense;
         layers = Object.keys(dense).map(Number).sort((a, b) => a - b);
-        rawValues = layers.map((layer) => Number(dense[String(layer)].macro_pearson));
+        stats = layers.map((layer) => dense[String(layer)].macro_pearson);
       } else if (metricKey === "macro_r2") {
         const dense = result.results.dense;
         layers = Object.keys(dense).map(Number).sort((a, b) => a - b);
-        rawValues = layers.map((layer) => Number(dense[String(layer)].macro_r2));
+        stats = layers.map((layer) => dense[String(layer)].macro_r2);
       } else {
         throw new Error("Unsupported line metric: " + metricKey);
       }
 
-      return {
-        name,
-        type: "line",
-        smooth: false,
-        showSymbol: true,
-        symbolSize: 6,
-        emphasis: {
-          focus: "series"
+      return { layers, stats };
+    }
+
+    function lineSeriesGroup(result, metricKey, selectorKey) {
+      const name = modelName(result);
+      const color = colorForModel(name);
+      const selectedLayer = selectedLayerForResult(result, selectorKey);
+      const { layers, stats } = metricStatsByLayer(result, metricKey);
+      const medians = stats.map((value) => statMedian(value));
+      const stds = stats.map((value) => statStd(value));
+      const clippedMetric = metricKey === "macro_r2";
+      const plottedMedians = medians.map((value) => (clippedMetric ? clippedValue(value, 0.0) : value));
+      const plottedLowers = medians.map((value, index) => {
+        const lower = value - stds[index];
+        return clippedMetric ? clippedValue(lower, 0.0) : lower;
+      });
+      const plottedUppers = medians.map((value, index) => {
+        const upper = value + stds[index];
+        return clippedMetric ? clippedValue(upper, 0.0) : upper;
+      });
+      const bandDelta = plottedUppers.map((value, index) => Math.max(0, value - plottedLowers[index]));
+      const stackName = `band:${name}:${metricKey}`;
+
+      return [
+        {
+          name: `${name} lower`,
+          type: "line",
+          stack: stackName,
+          symbol: "none",
+          silent: true,
+          lineStyle: {
+            opacity: 0
+          },
+          areaStyle: {
+            opacity: 0
+          },
+          tooltip: {
+            show: false
+          },
+          data: layers.map((layer, index) => [layer, plottedLowers[index]])
         },
-        lineStyle: {
-          width: 2.2,
-          color
+        {
+          name: `${name} std`,
+          type: "line",
+          stack: stackName,
+          symbol: "none",
+          silent: true,
+          lineStyle: {
+            opacity: 0
+          },
+          areaStyle: {
+            color: rgbaWithAlpha(color, 0.16)
+          },
+          tooltip: {
+            show: false
+          },
+          data: layers.map((layer, index) => [layer, bandDelta[index]])
         },
-        itemStyle: {
-          color
-        },
-        data: layers.map((layer, index) => {
-          const rawValue = rawValues[index];
-          const plottedValue = metricKey === "macro_r2" ? clippedValue(rawValue, 0.0) : rawValue;
-          const isSelected = Number(layer) === Number(selectedLayer);
-          return {
-            value: [layer, plottedValue],
-            rawValue,
-            selectedLayer,
-            symbolSize: isSelected ? 11 : 5,
-            itemStyle: {
-              color,
-              borderColor: "#ffffff",
-              borderWidth: isSelected ? 2 : 0
-            }
-          };
-        })
-      };
+        {
+          name,
+          type: "line",
+          smooth: false,
+          showSymbol: true,
+          symbolSize: 6,
+          emphasis: {
+            focus: "series"
+          },
+          lineStyle: {
+            width: 2.2,
+            color
+          },
+          itemStyle: {
+            color
+          },
+          data: layers.map((layer, index) => {
+            const stat = stats[index];
+            const rawValue = medians[index];
+            const plottedValue = plottedMedians[index];
+            const isSelected = Number(layer) === Number(selectedLayer);
+            return {
+              value: [layer, plottedValue],
+              rawValue,
+              rawStd: stds[index],
+              rawStat: stat,
+              selectedLayer,
+              symbolSize: isSelected ? 11 : 5,
+              itemStyle: {
+                color,
+                borderColor: "#ffffff",
+                borderWidth: isSelected ? 2 : 0
+              }
+            };
+          })
+        }
+      ];
     }
 
     function buildLineOption({ title, yName, results, selectorKey, metricKey, yMin, yMax, clippedNote = false }) {
@@ -1043,19 +1184,21 @@
           formatter: (params) => {
             const axisValue = params.length ? params[0].axisValue : "?";
             const rows = params
+              .filter((param) => param.data && param.data.rawStat)
               .slice()
               .sort((left, right) => {
-                const a = Number(left.data.rawValue);
-                const b = Number(right.data.rawValue);
+                const a = statMedian(left.data.rawStat);
+                const b = statMedian(right.data.rawStat);
                 return b - a;
               })
               .map((param) => {
                 const rawValue = Number(param.data.rawValue);
+                const rawStd = Number(param.data.rawStd || 0);
                 const plottedValue = Number(param.data.value[1]);
                 const clipped = Math.abs(rawValue - plottedValue) > 1e-12;
                 const selectedSuffix =
                   Number(param.data.selectedLayer) === Number(axisValue) ? " [selected layer]" : "";
-                return `${param.marker}${param.seriesName}: ${formatMetricValue(rawValue)}${clipped ? ` (plot ${formatMetricValue(plottedValue)})` : ""}${selectedSuffix}`;
+                return `${param.marker}${param.seriesName}: ${formatMetricValue(rawValue)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plottedValue)})` : ""}${selectedSuffix}`;
               });
             return [`<strong>Layer ${axisValue}</strong>`, ...rows].join("<br>");
           }
@@ -1097,7 +1240,7 @@
             }
           }
         },
-        series: results.map((result) => lineSeries(result, metricKey, selectorKey))
+        series: results.flatMap((result) => lineSeriesGroup(result, metricKey, selectorKey))
       };
     }
 
@@ -1149,15 +1292,16 @@
             0.75,
             ...results.flatMap((result) => {
               const layer = selectedLayerForResult(result, selectorKey);
-              return selectedCategoricalRows(result, layer).map((row) => row.auroc);
+              return selectedCategoricalRows(result, layer).map((row) => statMedian(row.auroc));
             })
           ),
           seriesBuilder: (result, layer, categories) => {
             const bySignal = Object.fromEntries(
               selectedCategoricalRows(result, layer).map((row) => [row.signal, row])
             );
-            const rawValues = categories.map((category) => Number(bySignal[category].auroc));
-            return { rawValues, plottedValues: rawValues };
+            const stats = categories.map((category) => bySignal[category].auroc);
+            const plottedValues = stats.map((value) => statMedian(value));
+            return { stats, plottedValues };
           }
         }),
         true
@@ -1175,8 +1319,9 @@
             const bySignal = Object.fromEntries(
               selectedCategoricalRows(result, layer).map((row) => [row.signal, row])
             );
-            const rawValues = categories.map((category) => Number(bySignal[category].auprc));
-            return { rawValues, plottedValues: rawValues };
+            const stats = categories.map((category) => bySignal[category].auprc);
+            const plottedValues = stats.map((value) => statMedian(value));
+            return { stats, plottedValues };
           }
         }),
         true
@@ -1193,9 +1338,9 @@
           forcedMin: 0.0,
           seriesBuilder: (result, layer, categories) => {
             const rows = denseRowsAtLayer(result, layer);
-            const rawValues = aggregateDenseValuesByGroup(rows, "r2", "target_signal", categories);
-            const plottedValues = rawValues.map((value) => clippedValue(value, 0.0));
-            return { rawValues, plottedValues };
+            const stats = aggregateDenseStatsByGroup(rows, "r2", "target_signal", categories);
+            const plottedValues = stats.map((value) => clippedValue(statMedian(value), 0.0));
+            return { stats, plottedValues };
           }
         }),
         true
@@ -1212,9 +1357,9 @@
           forcedMin: 0.0,
           seriesBuilder: (result, layer, categories) => {
             const rows = denseRowsAtLayer(result, layer);
-            const rawValues = aggregateDenseValuesByGroup(rows, "r2", "target_metric", categories);
-            const plottedValues = rawValues.map((value) => clippedValue(value, 0.0));
-            return { rawValues, plottedValues };
+            const stats = aggregateDenseStatsByGroup(rows, "r2", "target_metric", categories);
+            const plottedValues = stats.map((value) => clippedValue(statMedian(value), 0.0));
+            return { stats, plottedValues };
           }
         }),
         true
@@ -1230,8 +1375,9 @@
           categories: denseSignalCategories,
           seriesBuilder: (result, layer, categories) => {
             const rows = denseRowsAtLayer(result, layer);
-            const rawValues = aggregateDenseValuesByGroup(rows, "pearson", "target_signal", categories);
-            return { rawValues, plottedValues: rawValues };
+            const stats = aggregateDenseStatsByGroup(rows, "pearson", "target_signal", categories);
+            const plottedValues = stats.map((value) => statMedian(value));
+            return { stats, plottedValues };
           }
         }),
         true
@@ -1247,8 +1393,9 @@
           categories: denseMetricCategories,
           seriesBuilder: (result, layer, categories) => {
             const rows = denseRowsAtLayer(result, layer);
-            const rawValues = aggregateDenseValuesByGroup(rows, "pearson", "target_metric", categories);
-            return { rawValues, plottedValues: rawValues };
+            const stats = aggregateDenseStatsByGroup(rows, "pearson", "target_metric", categories);
+            const plottedValues = stats.map((value) => statMedian(value));
+            return { stats, plottedValues };
           }
         }),
         true
@@ -1259,8 +1406,8 @@
       const r2Max = Math.max(
         0.05,
         ...results.flatMap((result) => {
-          const dense = result.results.dense;
-          return Object.keys(dense).map((layer) => clippedValue(dense[layer].macro_r2, 0.0) * 1.05);
+          const { stats } = metricStatsByLayer(result, "macro_r2");
+          return stats.map((value) => clippedValue(statMedian(value) + statStd(value), 0.0) * 1.05);
         })
       );
 
