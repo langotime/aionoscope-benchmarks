@@ -6,12 +6,16 @@ import torch
 from sklearn.metrics import average_precision_score, roc_auc_score
 
 import aionoscope_benchmarks.offline_probe as offline_probe_module
+import aionoscope_benchmarks.probe_metrics as probe_metrics_module
 from aionoscope_benchmarks.offline_probe import (
     CollectedProbeFeatures,
     OfflineProbeConfig,
     offline_probe_run_linear_multihead_by_layer_multi_val_from_collected,
 )
-from aionoscope_benchmarks.probe_metrics import probe_compute_metrics
+from aionoscope_benchmarks.probe_metrics import (
+    ensure_probe_metric_dependencies_available,
+    probe_compute_metrics,
+)
 
 
 CUDA_AVAILABLE = torch.cuda.is_available()
@@ -141,6 +145,18 @@ def test_probe_compute_metrics_matches_sklearn(device: torch.device) -> None:
         sum(expected_auprc.values()) / len(expected_auprc),
         abs=1e-6,
     )
+
+
+def test_probe_metric_dependency_guard_is_human_readable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        probe_metrics_module,
+        "_TORCHMETRICS_IMPORT_ERROR",
+        ModuleNotFoundError("No module named 'torchmetrics'"),
+    )
+    with pytest.raises(ImportError, match="Offline probe categorical metrics require torchmetrics"):
+        ensure_probe_metric_dependencies_available()
 
 
 @pytest.mark.parametrize(

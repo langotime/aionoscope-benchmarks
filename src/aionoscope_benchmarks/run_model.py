@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from time import perf_counter, time
 
@@ -17,7 +19,27 @@ from .offline_probe import (
     collect_probe_features_by_layer,
     offline_probe_run_linear_multihead_by_layer_multi_val_from_collected,
 )
+from .probe_metrics import ensure_probe_metric_dependencies_available
 from .results import build_model_result, write_model_result
+
+
+def _utc_timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def _format_elapsed_s(value: float) -> str:
+    value = float(value)
+    if value < 60.0:
+        return f"{value:.1f}s"
+    minutes, seconds = divmod(value, 60.0)
+    if minutes < 60.0:
+        return f"{int(minutes)}m {seconds:.1f}s"
+    hours, minutes = divmod(minutes, 60.0)
+    return f"{int(hours)}h {int(minutes)}m {seconds:.1f}s"
+
+
+def _log_run(model_name: str, message: str) -> None:
+    print(f"[{_utc_timestamp()}] [{model_name}] {message}", file=sys.stderr, flush=True)
 
 
 def _load_probe_config(path: Path) -> tuple[OfflineProbeConfig, dict[str, object]]:
@@ -68,6 +90,11 @@ def run_single_model(
     torch.backends.cudnn.allow_tf32 = True
 
     actual_device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    _log_run(
+        model_name,
+        f"start: device={actual_device} dataset_config={dataset_config_path.name} "
+        f"probe_config={probe_config_path.name} out_dir={out_dir}",
+    )
     runtime_summary: dict[str, object] = {
         "started_at_unix": float(run_started_at_unix),
         "device": str(actual_device),
@@ -81,8 +108,19 @@ def run_single_model(
         runtime_summary["cuda_device_index"] = int(cuda_index)
         runtime_summary["cuda_device_name"] = str(torch.cuda.get_device_name(cuda_index))
 
+    _log_run(model_name, "phase: preflight dependency checks")
+    ensure_probe_metric_dependencies_available()
+    _log_run(model_name, "preflight ready: probe metric dependencies import successfully")
+
+    _log_run(model_name, "phase: load probe config")
     probe_config, probe_config_raw = _load_probe_config(probe_config_path)
+    _log_run(
+        model_name,
+        f"probe config ready: steps={probe_config.steps} batch_size={probe_config.batch_size} "
+        f"checkpoint_interval={probe_config.checkpoint_interval}",
+    )
     dataset_build_start = perf_counter()
+    _log_run(model_name, "phase: build online dataset splits")
     manifest, train, val_splits = build_runtime_splits_by_validation_seed(
         config_path=dataset_config_path,
         device=actual_device,
@@ -91,6 +129,8 @@ def run_single_model(
         val_batches=val_batches,
         validation_seed_values=validation_seed_values,
         validation_seed_offset=validation_seed_offset,
+        show_progress_bar=False,
+        progress_callback=lambda message: _log_run(model_name, f"dataset: {message}"),
     )
     runtime_summary["dataset_build_s"] = float(perf_counter() - dataset_build_start)
     validation_seed_order = [int(seed_value) for seed_value in manifest["validation_seed_values"]]
@@ -98,18 +138,39 @@ def run_single_model(
         int(seed_value): int(generator_seed)
         for seed_value, generator_seed in manifest["validation_seed_to_generator_seed"].items()
     }
+    _log_run(
+        model_name,
+        "dataset ready: "
+        f"train_batches={manifest['train_batches']} "
+        f"val_batches={manifest['val_batches']} "
+        f"validation_seeds={validation_seed_order} "
+        f"generator_seeds={[validation_seed_to_generator_seed[seed] for seed in validation_seed_order]} "
+        f"in {_format_elapsed_s(runtime_summary['dataset_build_s'])}",
+    )
 
     adapter_load_start = perf_counter()
+    _log_run(model_name, "phase: load adapter")
     spec, adapter = create_adapter(model_name)
     adapter = adapter.to(actual_device)
     adapter.eval()
     runtime_summary["adapter_load_s"] = float(perf_counter() - adapter_load_start)
+    _log_run(
+        model_name,
+        f"adapter ready: checkpoint={spec.checkpoint} layers={len(adapter.available_layers)} "
+        f"encode_batch_size={adapter.default_encode_batch_size} "
+        f"in {_format_elapsed_s(runtime_summary['adapter_load_s'])}",
+    )
 
     first_seed_value = int(validation_seed_order[0])
     first_val_split = val_splits[first_seed_value]
     adapter_prepare_start = perf_counter()
+    _log_run(model_name, "phase: adapter prepare")
     adapter.prepare(manifest=manifest, train_split=train, val_split=first_val_split)
     runtime_summary["adapter_prepare_s"] = float(perf_counter() - adapter_prepare_start)
+    _log_run(
+        model_name,
+        f"adapter prepare done in {_format_elapsed_s(runtime_summary['adapter_prepare_s'])}",
+    )
 
     probe_train = getattr(adapter, "probe_train_split", None) or train
     selected_layers = tuple(int(layer) for layer in (layers or adapter.available_layers))
@@ -118,6 +179,11 @@ def run_single_model(
     batch_size = int(encode_batch_size or adapter.default_encode_batch_size)
 
     collect_train_start = perf_counter()
+    _log_run(
+        model_name,
+        f"phase: collect train features across {len(selected_layers)} layers "
+        f"(encode_batch_size={batch_size})",
+    )
     train_collected = collect_probe_features_by_layer(
         encoder=adapter,
         representation_fn=adapter.make_representation_fn(layers=selected_layers, split="train"),
@@ -128,10 +194,20 @@ def run_single_model(
         allow_crops=False,
     )
     runtime_summary["collect_train_s"] = float(perf_counter() - collect_train_start)
+    _log_run(
+        model_name,
+        f"train features ready: samples={train_collected.timings.get('samples')} "
+        f"batches={train_collected.timings.get('batches')} "
+        f"in {_format_elapsed_s(runtime_summary['collect_train_s'])}",
+    )
 
     val_collected_by_seed: dict[int, object] = {}
     collect_val_total_start = perf_counter()
     collect_val_by_seed_s: dict[str, float] = {}
+    _log_run(
+        model_name,
+        f"phase: collect validation features for {len(validation_seed_order)} validation seeds",
+    )
     for index, seed_value in enumerate(validation_seed_order, start=1):
         collect_val_seed_start = perf_counter()
         raw_val_split = val_splits[int(seed_value)]
@@ -149,10 +225,26 @@ def run_single_model(
             allow_crops=True,
         )
         collect_val_by_seed_s[str(int(seed_value))] = float(perf_counter() - collect_val_seed_start)
+        generator_seed = validation_seed_to_generator_seed[int(seed_value)]
+        _log_run(
+            model_name,
+            f"validation features {index}/{len(validation_seed_order)} "
+            f"seed={int(seed_value)} generator_seed={int(generator_seed)} "
+            f"done in {_format_elapsed_s(collect_val_by_seed_s[str(int(seed_value))])}",
+        )
     runtime_summary["collect_val_total_s"] = float(perf_counter() - collect_val_total_start)
     runtime_summary["collect_val_by_validation_seed_s"] = collect_val_by_seed_s
+    _log_run(
+        model_name,
+        f"validation feature collection done in {_format_elapsed_s(runtime_summary['collect_val_total_s'])}",
+    )
 
     offline_probe_start = perf_counter()
+    _log_run(
+        model_name,
+        f"phase: run offline probes across {len(selected_layers)} layers "
+        f"and {len(validation_seed_order)} validation seeds",
+    )
     probe_results_by_validation_seed = offline_probe_run_linear_multihead_by_layer_multi_val_from_collected(
         train_collected=train_collected,
         val_collected_by_seed=val_collected_by_seed,
@@ -166,8 +258,13 @@ def run_single_model(
         dense_target_names=list(manifest["dense_target_names"]),
         dense_log_per_target=True,
         probe_seed=probe_seed,
+        progress_callback=lambda message: _log_run(model_name, f"probe: {message}"),
     )
     runtime_summary["offline_probe_s"] = float(perf_counter() - offline_probe_start)
+    _log_run(
+        model_name,
+        f"offline probes done in {_format_elapsed_s(runtime_summary['offline_probe_s'])}",
+    )
     runtime_summary["layers_evaluated_count"] = int(len(selected_layers))
     runtime_summary["validation_seed_count"] = int(len(validation_seed_order))
     runtime_summary["finished_at_unix"] = float(time())
@@ -193,7 +290,12 @@ def run_single_model(
         runtime_summary=runtime_summary,
     )
     out_path = out_dir / f"{spec.slug}.json"
+    _log_run(model_name, f"phase: write result JSON to {out_path}")
     write_model_result(out_path=out_path, payload=payload)
+    _log_run(
+        model_name,
+        f"done: wrote {out_path.name} in {_format_elapsed_s(runtime_summary['total_wall_s'])}",
+    )
     return out_path
 
 

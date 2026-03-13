@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import sys
 
 import torch
 
@@ -17,14 +18,20 @@ else:
     _TORCHMETRICS_IMPORT_ERROR = None
 
 
+def ensure_probe_metric_dependencies_available() -> None:
+    if _TORCHMETRICS_IMPORT_ERROR is None:
+        return
+    raise ImportError(
+        "Offline probe categorical metrics require torchmetrics in the active benchmark environment. "
+        f"Interpreter: {sys.executable}. "
+        "Install benchmark dependencies into this model-specific venv before running the benchmark."
+    ) from _TORCHMETRICS_IMPORT_ERROR
+
+
 def probe_compute_metrics(
     *, targets: torch.Tensor, predictions: torch.Tensor, class_names: list[str]
 ) -> tuple[float, dict[str, float], float, dict[str, float]]:
-    if _TORCHMETRICS_IMPORT_ERROR is not None:
-        raise ImportError(
-            "probe_compute_metrics requires torchmetrics. "
-            "Install project dependencies so torchmetrics is importable."
-        ) from _TORCHMETRICS_IMPORT_ERROR
+    ensure_probe_metric_dependencies_available()
     if not isinstance(targets, torch.Tensor):
         target_device = predictions.device if isinstance(predictions, torch.Tensor) else None
         targets = torch.as_tensor(targets, device=target_device)

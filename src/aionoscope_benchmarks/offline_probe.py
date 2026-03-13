@@ -75,6 +75,10 @@ def _effective_eval_batch_size(batch_size: int) -> int:
     return max(int(batch_size), min(8192, int(batch_size) * 32))
 
 
+def _format_elapsed_s(value: float) -> str:
+    return f"{float(value):.1f}s"
+
+
 def _split_offline_probe_batch(
     batch: object,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
@@ -1629,6 +1633,7 @@ def offline_probe_run_linear_multihead_by_layer_multi_val_from_collected(
     dense_target_names: list[str] | None = None,
     dense_log_per_target: bool | None = None,
     probe_seed: int | None = None,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> dict[int, dict[str, object]]:
     _validate_offline_probe_config(eval_config=eval_config)
     layers_all = _validate_layer_sets(
@@ -1678,7 +1683,16 @@ def offline_probe_run_linear_multihead_by_layer_multi_val_from_collected(
     elif layers_dense:
         dense_targets_available = False
 
-    for layer in layers_all:
+    total_start = perf_counter()
+    if progress_callback is not None:
+        progress_callback(
+            "start: "
+            f"{len(layers_all)} layers, {len(validation_seed_values)} validation seeds, "
+            f"categorical={len(layers_categorical_set)}, dense={len(layers_dense_set)}"
+        )
+
+    for layer_index, layer in enumerate(layers_all, start=1):
+        layer_start = perf_counter()
         staged_layer, stage_timings = _stage_probe_layer_multi_val(
             train_collected=train_collected,
             val_collected_by_seed=val_collected_by_seed,
@@ -1727,6 +1741,17 @@ def offline_probe_run_linear_multihead_by_layer_multi_val_from_collected(
             for seed_value, result in per_seed_layer_results.items():
                 dense_by_seed[seed_value][layer] = result
         del staged_layer
+        if progress_callback is not None:
+            heads: list[str] = []
+            if layer in layers_categorical_set:
+                heads.append("categorical")
+            if layer in layers_dense_set and dense_targets_available:
+                heads.append("dense")
+            progress_callback(
+                f"layer {layer_index}/{len(layers_all)} id={layer} "
+                f"heads={'+'.join(heads) or 'none'} "
+                f"done in {_format_elapsed_s(perf_counter() - layer_start)}"
+            )
 
     results_by_seed: dict[int, dict[str, object]] = {}
     for seed_value in validation_seed_values:
@@ -1749,6 +1774,8 @@ def offline_probe_run_linear_multihead_by_layer_multi_val_from_collected(
                 "collect_val": dict(collected.timings),
             },
         }
+    if progress_callback is not None:
+        progress_callback(f"done in {_format_elapsed_s(perf_counter() - total_start)}")
     return results_by_seed
 
 

@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -468,7 +469,10 @@ def _generate_split(
     dense_targets_cfg: list[dict[str, Any]],
     dense_target_names: list[str],
     seq_len: int,
+    show_progress_bar: bool = False,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> dict[str, torch.Tensor]:
+    split_start = time.perf_counter()
     num_samples = batch_size * num_batches
     x_all = torch.empty((num_samples, 1, seq_len), dtype=torch.float32)
     y_cls_all = torch.empty((num_samples, len(class_names)), dtype=torch.float32)
@@ -488,7 +492,11 @@ def _generate_split(
         pin_memory=False,
         num_workers=0,
     )
-    iterator = tqdm(loader, total=num_batches, desc=f"{split_name} online", leave=False)
+    iterator = (
+        tqdm(loader, total=num_batches, desc=f"{split_name} online", leave=False)
+        if show_progress_bar
+        else loader
+    )
     for batch_index, views in enumerate(iterator):
         if not isinstance(views, dict):
             raise ValueError(
@@ -509,6 +517,10 @@ def _generate_split(
         )
         y_cls_all[start:end] = y_cls.detach().to("cpu")
         y_dense_all[start:end] = y_dense.detach().to("cpu")
+    if progress_callback is not None:
+        progress_callback(
+            f"{split_name}: generated {num_samples} samples in {time.perf_counter() - split_start:.1f}s"
+        )
     return {"x": x_all, "y_cls": y_cls_all, "y_dense": y_dense_all}
 
 
@@ -521,6 +533,8 @@ def build_runtime_splits_by_validation_seed(
     val_batches: int | None = None,
     validation_seed_values: list[int] | None = None,
     validation_seed_offset: int | None = None,
+    show_progress_bar: bool = False,
+    progress_callback: Callable[[str], None] | None = None,
 ) -> tuple[dict[str, Any], dict[str, torch.Tensor], dict[int, dict[str, torch.Tensor]]]:
     if batch_size <= 0:
         raise ValueError(f"batch_size must be > 0, got {batch_size}")
@@ -639,6 +653,8 @@ def build_runtime_splits_by_validation_seed(
         dense_targets_cfg=dense_targets_cfg,
         dense_target_names=dense_target_names,
         seq_len=int(channel_size),
+        show_progress_bar=show_progress_bar,
+        progress_callback=progress_callback,
     )
     val_splits: dict[int, dict[str, torch.Tensor]] = {}
     for seed_value, generator_seed in zip(
@@ -658,6 +674,8 @@ def build_runtime_splits_by_validation_seed(
             dense_targets_cfg=dense_targets_cfg,
             dense_target_names=dense_target_names,
             seq_len=int(channel_size),
+            show_progress_bar=show_progress_bar,
+            progress_callback=progress_callback,
         )
     return asdict(manifest), train, val_splits
 
@@ -676,6 +694,7 @@ def build_runtime_splits(
         batch_size=batch_size,
         train_batches=train_batches,
         val_batches=val_batches,
+        show_progress_bar=False,
     )
     first_seed_value = int(manifest["validation_seed_values"][0])
     return manifest, train, val_splits[first_seed_value]
@@ -740,6 +759,7 @@ def main() -> None:
         val_batches=args.val_batches,
         validation_seed_values=args.validation_seed_values,
         validation_seed_offset=args.validation_seed_offset,
+        show_progress_bar=True,
     )
     summary = {
         "manifest": manifest,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import sys
 import torch
 import torch.nn.functional as F
 
@@ -125,12 +126,20 @@ class TabICLAdapter(FrozenTimeSeriesAdapter):
         train_features = np.empty((probe_train_x.shape[0], train_y.shape[1]), dtype=np.float32)
         device = "cuda" if torch.cuda.is_available() else "cpu"
         classifiers: list[object] = []
+        total_labels = len(self._class_names)
+        log_every = max(1, (total_labels + 3) // 4)
 
         for class_index, _class_name in enumerate(self._class_names):
-            print(
-                f"[TabICL] fitting one-vs-rest label {class_index + 1}/{len(self._class_names)}",
-                flush=True,
-            )
+            if (
+                class_index == 0
+                or class_index + 1 == total_labels
+                or (class_index + 1) % log_every == 0
+            ):
+                print(
+                    f"[TabICL] adapter prepare progress: label {class_index + 1}/{total_labels}",
+                    file=sys.stderr,
+                    flush=True,
+                )
             y_binary = train_y[:, class_index]
             fit_indices = self._sample_fit_indices(
                 y_binary,

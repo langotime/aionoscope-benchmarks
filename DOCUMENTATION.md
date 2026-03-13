@@ -20,6 +20,12 @@ uv sync
 
 The full foundational sweep uses multiple pinned virtual environments because the model families do not share one compatible dependency set. The repo already encodes those interpreter paths in `scripts/run_foundational_sequential.py`.
 
+`aionoscope_benchmarks.run_model` now performs a preflight dependency check before dataset generation or adapter loading. In particular, categorical probe metrics require `torchmetrics` in the active model-specific environment. If a model env drifts out of sync, repair it directly, for example:
+
+```bash
+uv pip install --python .venv-chronos/bin/python 'torchmetrics>=1.9,<2'
+```
+
 ## Common Commands
 
 Run one model in the current environment:

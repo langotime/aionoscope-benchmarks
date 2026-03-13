@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import sys
 import torch
 import torch.nn.functional as F
 
@@ -129,6 +130,8 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         resolved_version = self.resolved_model_version
         classifiers: list[object] = []
+        total_labels = len(self._class_names)
+        log_every = max(1, (total_labels + 3) // 4)
 
         def _build_classifier(class_index: int):
             kwargs = {
@@ -143,10 +146,16 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
             return TabPFNClassifier.create_default_for_version(ModelVersion.V2_5, **kwargs)
 
         for class_index, _class_name in enumerate(self._class_names):
-            print(
-                f"[TabPFN] fitting one-vs-rest label {class_index + 1}/{len(self._class_names)}",
-                flush=True,
-            )
+            if (
+                class_index == 0
+                or class_index + 1 == total_labels
+                or (class_index + 1) % log_every == 0
+            ):
+                print(
+                    f"[TabPFN] adapter prepare progress: label {class_index + 1}/{total_labels}",
+                    file=sys.stderr,
+                    flush=True,
+                )
             y_binary = train_y[:, class_index]
             fit_indices = self._sample_fit_indices(
                 y_binary,
