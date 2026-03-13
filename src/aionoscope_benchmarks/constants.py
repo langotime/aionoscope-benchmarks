@@ -19,6 +19,8 @@ FOUNDATIONAL_MODELS = (
     "MOMENT",
     "TiRex",
     "Chronos2",
+    "LeNEPA-Aiono",
+    "LeNEPA-CauKer2M",
     "TTM",
     "Moirai",
     "Toto",

@@ -83,6 +83,16 @@ Changing this file changes the benchmark contract and must be treated as a bench
 
 `configs/models_foundational.yaml` is the human-facing sweep list. The code-level source of truth for metadata and adapters is `src/aionoscope_benchmarks/model_registry.py`.
 
+The two LeNEPA entries (`LeNEPA-Aiono` and `LeNEPA-CauKer2M`) run in the base `core`
+environment. On first use, their adapters download the published `inference.py`,
+`lenepa_encoder_config.json`, and `lenepa_encoder.safetensors` files from the
+checkpoint repository on Hugging Face and then reuse the local cache on subsequent runs.
+They expose zero-indexed benchmark layers `0..8`; layer `0` is the tokenizer output and
+layer `8` is the post-final-layer-norm encoder output, matching the published export
+contract before mean pooling.
+More generally, adapters that expose a distinct embedding stream use layer `0` for that
+embedding and number transformer-style encoder blocks from `1`.
+
 ## Validation Seed Semantics
 
 The benchmark distinguishes:
@@ -142,6 +152,10 @@ To add a new model:
 5. Run at least one benchmark invocation and verify that a JSON result is produced and the dashboard can read it.
 
 Use `prepare()` and `update_probe_val_split()` only for benchmark-facing preprocessing that the adapter genuinely needs.
+
+If a model repo already publishes a self-contained inference bundle, prefer importing
+that bundle through `huggingface_hub` instead of copying the upstream inference code into
+this repo.
 
 ## Repo Conventions
 

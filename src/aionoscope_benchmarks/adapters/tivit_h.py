@@ -22,7 +22,7 @@ class TiViTHAdapter(FrozenTimeSeriesAdapter):
 
         self.model = CLIPVisionModel.from_pretrained(self.checkpoint)
         self.model.eval()
-        self.num_layers = int(len(self.model.vision_model.encoder.layers))
+        self.num_layers = int(len(self.model.vision_model.encoder.layers)) + 1
         self.image_size = int(self.model.config.image_size)
         self.stride_fraction = 0.1
         self.aggregation = "mean"
@@ -40,6 +40,10 @@ class TiViTHAdapter(FrozenTimeSeriesAdapter):
         payload["preprocess"] = (
             "TiViT ts2image transform with robust scaling, sqrt patch size, stride 0.1, "
             "and CLIP mean/std normalization"
+        )
+        payload["layer_layout"] = (
+            "layer 0 is the CLIP vision embedding stream; "
+            "layers 1..N are transformer block outputs"
         )
         return payload
 
@@ -67,10 +71,9 @@ class TiViTHAdapter(FrozenTimeSeriesAdapter):
             raise ValueError("TiViT-H CLIP model did not return hidden states")
 
         batch_size = int(x.size(0))
-        block_states = hidden_states[1:]
         reps: dict[int, torch.Tensor] = {}
         for layer in requested_layers:
-            state = block_states[int(layer)]
+            state = hidden_states[int(layer)]
             if num_channels > 1:
                 state = state.reshape(batch_size, num_channels, *state.shape[1:]).mean(dim=1)
             reps[int(layer)] = state.mean(dim=1).float()

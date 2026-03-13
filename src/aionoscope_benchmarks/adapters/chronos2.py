@@ -23,7 +23,7 @@ class Chronos2Adapter(FrozenTimeSeriesAdapter):
         pipe = Chronos2Pipeline.from_pretrained(self.checkpoint, device_map=device_map)
         self.model = pipe.model
         self.model.eval()
-        self.num_layers = int(len(self.model.encoder.block))
+        self.num_layers = int(len(self.model.encoder.block)) + 1
 
     @property
     def available_layers(self) -> tuple[int, ...]:
@@ -35,6 +35,10 @@ class Chronos2Adapter(FrozenTimeSeriesAdapter):
         payload["input_patch_size"] = int(self.model.chronos_config.input_patch_size)
         payload["uses_reg_token"] = bool(self.model.chronos_config.use_reg_token)
         payload["preprocess"] = "squeeze channel dimension; mean-pool non-output encoder tokens"
+        payload["layer_layout"] = (
+            "layer 0 is the encoder input embedding stream; "
+            "layers 1..N are encoder block outputs"
+        )
         return payload
 
     def _build_encoder_inputs(
@@ -109,7 +113,9 @@ class Chronos2Adapter(FrozenTimeSeriesAdapter):
 
         hidden_states = self.model.encoder.dropout(input_embeds)
         reps: dict[int, torch.Tensor] = {}
-        for layer_index, layer_module in enumerate(self.model.encoder.block):
+        if 0 in requested_layers:
+            reps[0] = self._pool_hidden(hidden_states, attention_mask).float()
+        for layer_index, layer_module in enumerate(self.model.encoder.block, start=1):
             layer_outputs = layer_module(
                 hidden_states,
                 position_ids=position_ids,

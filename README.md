@@ -153,6 +153,17 @@ The table below is the original single-validation-seed snapshot from `2026-03-13
 The benchmark code now targets the `10`-seed validation pool described above, but the
 checked-in JSON snapshot has not been rerun yet, so these rows should be treated as
 legacy `n=1` reference numbers.
+They also predate the current embedding-aware layer numbering, where some adapters now
+reserve layer `0` for the embedding stream, so the checked-in best-layer ids are legacy
+indices rather than current ones.
+
+The foundational registry now also includes `LeNEPA-Aiono` and `LeNEPA-CauKer2M`.
+Those checkpoints were added after this checked-in snapshot, so they do not yet have
+checked-in JSON artifacts or rows in the table below.
+Embedding-aware adapters now reserve layer `0` for the embedding stream. For both
+LeNEPA adapters, benchmark layers run from `0..8`: layer `0` is the tokenizer
+/ embedding output, layers `1..7` are intermediate transformer-block outputs, and layer
+`8` is the encoder output after the published final layer norm before mean pooling.
 
 | Model | Layers tested | Best AUROC layer | Macro AUROC | Best AUPRC layer | Macro AUPRC | Best R2 layer | Macro R2 | Best Pearson layer | Macro Pearson |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |

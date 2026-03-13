@@ -38,6 +38,18 @@
   - Import from: `chronos-forecasting`; the official docs use `from chronos import Chronos2Pipeline`.
   - Paper note: the paper pins `chronos-forecasting==2.0.0` and then reads the 4th layer for its own zero-shot comparison.
 
+- `LeNEPA-Aiono`
+  - Source code: `https://huggingface.co/Natively-TS-Understanding/lenepa-encoder-aiono`
+  - Official checkpoint: `https://huggingface.co/Natively-TS-Understanding/lenepa-encoder-aiono`
+  - Import from: the published Hugging Face `inference.py` bundle; the benchmark loads that self-contained file via `huggingface_hub` and calls `load_lenepa_encoder(...)`.
+  - Note: this is the balanced Aiono encoder-only export with a fixed `[B, 1, 5000]` input contract, `patch_size=25`, and `8` transformer blocks. In the benchmark, layer `0` is the tokenizer output and layer `8` is the post-final-layer-norm output.
+
+- `LeNEPA-CauKer2M`
+  - Source code: `https://huggingface.co/Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256-steps200k`
+  - Official checkpoint: `https://huggingface.co/Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256-steps200k`
+  - Import from: the published Hugging Face `inference.py` bundle; the benchmark loads that self-contained file via `huggingface_hub` and calls `load_lenepa_encoder(...)`.
+  - Note: this is the CauKer2M encoder-only export with per-patch normalization inside the tokenizer, a fixed `[B, 1, 5000]` input contract, and `8` transformer blocks. In the benchmark, layer `0` is the tokenizer output and layer `8` is the post-final-layer-norm output.
+
 - `TTM (TinyTimeMixers, latest r2.1 release)`
   - Source code: `https://github.com/ibm-granite/granite-tsfm`
   - Official checkpoint: `https://huggingface.co/ibm-granite/granite-timeseries-ttm-r2`

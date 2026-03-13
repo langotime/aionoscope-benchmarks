@@ -37,7 +37,7 @@ class MoiraiAdapter(FrozenTimeSeriesAdapter):
 
     @property
     def available_layers(self) -> tuple[int, ...]:
-        return tuple(range(int(self.model.num_layers)))
+        return tuple(range(int(self.model.num_layers) + 1))
 
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
@@ -47,6 +47,10 @@ class MoiraiAdapter(FrozenTimeSeriesAdapter):
         payload["preprocess"] = (
             "transpose to [B,T,C]; crop to last max_seq_len or left-pad with zeros; "
             "pack tokens with MoiraiForecast._convert; mean-pool observed non-prediction tokens"
+        )
+        payload["layer_layout"] = (
+            "layer 0 is the encoder input embedding stream; "
+            "layers 1..N are transformer block outputs"
         )
         return payload
 
@@ -119,7 +123,11 @@ class MoiraiAdapter(FrozenTimeSeriesAdapter):
         pool_mask = observed_mask.any(dim=-1) & ~prediction_mask
 
         reps: dict[int, torch.Tensor] = {}
-        for layer_index, layer in enumerate(self.model.encoder.layers):
+        if 0 in requested_layers:
+            weight = pool_mask.unsqueeze(-1).to(dtype=hidden_states.dtype)
+            denom = weight.sum(dim=1).clamp_min(1.0)
+            reps[0] = ((hidden_states * weight).sum(dim=1) / denom).float()
+        for layer_index, layer in enumerate(self.model.encoder.layers, start=1):
             hidden_states = layer(
                 hidden_states,
                 attention_mask,

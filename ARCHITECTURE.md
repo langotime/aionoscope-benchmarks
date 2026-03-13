@@ -28,6 +28,11 @@ Every benchmarked model is wrapped by a `FrozenTimeSeriesAdapter` implementation
 - report stable adapter metadata for the result JSON.
 
 The benchmark pipeline treats all models through this adapter boundary rather than through model-specific probe code paths.
+When a model is published as a self-contained Hugging Face inference bundle, the adapter
+may download and import that published bundle directly via `huggingface_hub` instead of
+depending on a separate pip package or vendored external repo.
+When an adapter can expose an explicit embedding stream, layer `0` is reserved for that
+embedding representation and subsequent encoder blocks start at layer `1`.
 
 ### Offline probes operate on collected features
 

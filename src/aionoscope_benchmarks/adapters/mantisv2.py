@@ -25,7 +25,7 @@ class MantisV2Adapter(FrozenTimeSeriesAdapter):
             device="cuda" if torch.cuda.is_available() else "cpu",
         ).from_pretrained(self.checkpoint)
         self.model.eval()
-        self.num_layers = int(len(self.model.transf_unit.transformer.layers))
+        self.num_layers = int(len(self.model.transf_unit.transformer.layers)) + 1
 
     @property
     def available_layers(self) -> tuple[int, ...]:
@@ -35,6 +35,10 @@ class MantisV2Adapter(FrozenTimeSeriesAdapter):
         payload = super().adapter_metadata()
         payload["output_token"] = "combined"
         payload["preprocess"] = "right-pad sequence length to nearest multiple of num_patches"
+        payload["layer_layout"] = (
+            "layer 0 is the tokenizer-plus-CLS embedding stream; "
+            "layers 1..N are transformer block outputs"
+        )
         return payload
 
     def forward_layer_dict(
@@ -59,7 +63,12 @@ class MantisV2Adapter(FrozenTimeSeriesAdapter):
         hidden = hidden[:, None, :, :]
 
         reps: dict[int, torch.Tensor] = {}
-        for layer_index, layer in enumerate(self.model.transf_unit.transformer.layers):
+        if 0 in requested_layers:
+            layer_tokens = hidden[:, 0, :, :]
+            cls_token = layer_tokens[:, -1, :]
+            mean_token = layer_tokens[:, :-1, :].mean(dim=1)
+            reps[0] = torch.cat([cls_token, mean_token], dim=1).float()
+        for layer_index, layer in enumerate(self.model.transf_unit.transformer.layers, start=1):
             hidden = layer(hidden)
             if layer_index in requested_layers:
                 layer_tokens = hidden[:, 0, :, :]

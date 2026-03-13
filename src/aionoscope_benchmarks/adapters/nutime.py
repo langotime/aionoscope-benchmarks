@@ -61,7 +61,7 @@ class NuTimeAdapter(FrozenTimeSeriesAdapter):
 
     @property
     def available_layers(self) -> tuple[int, ...]:
-        return tuple(range(self.transformer_depth))
+        return tuple(range(self.transformer_depth + 1))
 
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
@@ -73,6 +73,10 @@ class NuTimeAdapter(FrozenTimeSeriesAdapter):
         payload["preprocess"] = (
             "resize input to demo transform_size; run WindowNormEncoder; use WinT cls-token representation "
             "after each transformer block"
+        )
+        payload["layer_layout"] = (
+            "layer 0 is the token embedding stream after WindowNormEncoder and positional encoding; "
+            "layers 1..N are transformer block outputs"
         )
         return payload
 
@@ -106,9 +110,15 @@ class NuTimeAdapter(FrozenTimeSeriesAdapter):
         hidden_states = self._build_tokens(x)
 
         reps: dict[int, torch.Tensor] = {}
-        for layer_index in range(self.transformer_depth):
+        if 0 in requested_layers:
+            state = backbone.norm(hidden_states)
+            if backbone.pool_mode == "cls":
+                reps[0] = state[:, 0, :].float()
+            else:
+                reps[0] = state.mean(dim=1).float()
+        for layer_index in range(1, self.transformer_depth + 1):
             attn, ls1, dp1, ff, ls2, dp2 = backbone.transformer.layers[
-                layer_index * 6 : layer_index * 6 + 6
+                (layer_index - 1) * 6 : (layer_index - 1) * 6 + 6
             ]
             hidden_states = dp1(ls1(attn(hidden_states))) + hidden_states
             hidden_states = dp2(ls2(ff(hidden_states))) + hidden_states

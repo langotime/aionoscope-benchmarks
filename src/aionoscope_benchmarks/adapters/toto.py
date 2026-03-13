@@ -26,7 +26,7 @@ class TotoAdapter(FrozenTimeSeriesAdapter):
 
     @property
     def available_layers(self) -> tuple[int, ...]:
-        return tuple(range(int(self.model.num_layers)))
+        return tuple(range(int(self.model.num_layers) + 1))
 
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
@@ -36,6 +36,10 @@ class TotoAdapter(FrozenTimeSeriesAdapter):
         payload["preprocess"] = (
             "squeeze channel dimension; left-pad to a multiple of patch stride; "
             "use Toto patch embedding and transformer; mean-pool valid patch tokens"
+        )
+        payload["layer_layout"] = (
+            "layer 0 is the patch embedding stream; "
+            "layers 1..N are transformer block outputs"
         )
         return payload
 
@@ -86,13 +90,18 @@ class TotoAdapter(FrozenTimeSeriesAdapter):
         )
 
         reps: dict[int, torch.Tensor] = {}
-        for layer_index, layer in enumerate(self.model.transformer.layers):
+        if 0 in requested_layers:
+            weight = patch_valid.unsqueeze(-1).to(dtype=hidden_states.dtype)
+            denom = weight.sum(dim=(1, 2)).clamp_min(1.0)
+            reps[0] = ((hidden_states * weight).sum(dim=(1, 2)) / denom).float()
+        for block_index, layer in enumerate(self.model.transformer.layers):
             hidden_states = layer(
-                layer_index,
+                block_index,
                 hidden_states,
                 None if layer.attention_axis == AttentionAxis.TIME else spacewise_attention_mask,
                 None,
             )
+            layer_index = block_index + 1
             if layer_index in requested_layers:
                 weight = patch_valid.unsqueeze(-1).to(dtype=hidden_states.dtype)
                 denom = weight.sum(dim=(1, 2)).clamp_min(1.0)

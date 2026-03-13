@@ -21,7 +21,7 @@ class MomentAdapter(FrozenTimeSeriesAdapter):
 
         self.model = MOMENTPipeline.from_pretrained(self.checkpoint)
         self.model.eval()
-        self.num_layers = int(len(self.model.encoder.block))
+        self.num_layers = int(len(self.model.encoder.block)) + 1
 
     @property
     def available_layers(self) -> tuple[int, ...]:
@@ -33,7 +33,7 @@ class MomentAdapter(FrozenTimeSeriesAdapter):
         *,
         layers: tuple[int, ...] | None = None,
     ) -> dict[int, torch.Tensor]:
-        requested_layers = layers or self.available_layers
+        requested_layers = tuple(int(layer) for layer in (layers or self.available_layers))
         batch_size, n_channels, seq_len = x.shape
         input_mask = torch.ones((batch_size, seq_len), device=x.device, dtype=torch.long)
 
@@ -55,11 +55,9 @@ class MomentAdapter(FrozenTimeSeriesAdapter):
         hidden_states = outputs.hidden_states
         if hidden_states is None:
             raise ValueError("MOMENT encoder did not return hidden states")
-        # hidden_states[0] is the input embedding stream; hidden_states[1:] are block outputs.
-        block_states = hidden_states[1:]
         reps: dict[int, torch.Tensor] = {}
         for layer in requested_layers:
-            state = block_states[int(layer)]
+            state = hidden_states[int(layer)]
             state = state.reshape((batch_size, n_channels, n_patches, self.model.config.d_model))
             state = state.mean(dim=1)
             mask = patch_view_mask.unsqueeze(-1).to(dtype=state.dtype)
@@ -67,3 +65,10 @@ class MomentAdapter(FrozenTimeSeriesAdapter):
             reps[int(layer)] = pooled.float()
         return reps
 
+    def adapter_metadata(self) -> dict[str, object]:
+        payload = super().adapter_metadata()
+        payload["layer_layout"] = (
+            "layer 0 is the encoder input embedding stream; "
+            "layers 1..N are transformer block outputs"
+        )
+        return payload
