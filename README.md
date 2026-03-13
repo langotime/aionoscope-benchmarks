@@ -11,6 +11,11 @@ Current scope:
 - one JSON result per model
 - interactive browser dashboard from those JSON results
 
+Additional docs:
+
+- `ARCHITECTURE.md` for the stable benchmark design and execution model
+- `DOCUMENTATION.md` for operational details, result schema expectations, and workflow notes
+
 ## Dataset In Plain English
 
 You do not need to know Aiono internals to read these benchmark results. In this repo,
