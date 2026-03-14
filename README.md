@@ -24,13 +24,32 @@ Aiono is simply the synthetic signal generator used to create the evaluation set
 For this benchmark, each example is:
 
 - one single-channel time series
-- `5000` samples long at `500 Hz` sampling rate
-- about `10` seconds of signal
+- generated at `500 Hz` sampling rate
+- materialized at the exact benchmark sequence length for the current model, not at one fixed global length
 - produced by rendering a small number of primitive signal components into one final observed waveform
 
 In Aiono terms, the final observed waveform is the `mix` view. In plain English, that
 just means "take the enabled components, render them, and add them together into one
 1D signal."
+
+### Exact sequence lengths per model
+
+The benchmark now resolves sequence length from the adapter before dataset generation.
+Adapters are expected to fail fast on any length mismatch rather than silently cropping,
+padding, or waveform-resampling the benchmark data.
+
+Current exact lengths:
+
+- `8192`: `Chronos2`
+- `5000`: `LeNEPA-Aiono`, `LeNEPA-CauKer2M`, `LeNEPA-CauKer-5k`, `TiViT-H`, `TiConvNext`, `T-Loss`
+- `4096`: `Toto`
+- `2048`: `TiRex`
+- `512`: `MantisV2`, `MOMENT`, `TTM`, `Moirai`
+- `176`: `NuTime`
+- `128`: `TabPFN`, `TabICL`
+
+That means signal duration is now model-dependent. At `500 Hz`, durations range from
+`0.256` seconds for the tabular fallbacks up to `16.384` seconds for `Chronos2`.
 
 ### What gets mixed into each signal
 
@@ -62,12 +81,13 @@ This gives a cleaner probe benchmark for comparing representations across many d
 signal families.
 
 Each benchmark run regenerates the same finite evaluation split on the fly from
-Aiono using fixed seeds and fixed sizes. The split is materialized only in RAM for
-the current run; the normal workflow does not require cached `train.pt` / `val.pt`
-files on disk.
+Aiono using fixed seeds, fixed batch counts, and the current model's exact benchmark
+sequence length. The split is materialized only in RAM for the current run; the
+normal workflow does not require cached `train.pt` / `val.pt` files on disk.
 
 Those fixed settings are:
 
+- sequence length policy: exact per-model, resolved before dataset generation
 - training seed: `0`
 - validation seed values: `0..9`
 - validation generator-seed offset: `+100`, so the actual validation generator seeds are `100..109`
@@ -113,7 +133,8 @@ uv run python -m aionoscope_benchmarks.run_many --model all
 ```
 
 `run_model` and `run_many` build the balanced ToyTS/Aiono split at runtime via
-`aiono.datasets.SynthBatchIterableDataset`, then keep the finite train/val tensors
+`aiono.datasets.SynthBatchIterableDataset`. `run_model` loads the adapter first,
+resolves that model's exact benchmark sequence length, then keeps the finite train/val tensors
 only in process memory for that benchmark run.
 
 Interactive browser view:
@@ -153,11 +174,13 @@ The table below is the original single-validation-seed snapshot from `2026-03-13
 The benchmark code now targets the `10`-seed validation pool described above, but the
 checked-in JSON snapshot has not been rerun yet, so these rows should be treated as
 legacy `n=1` reference numbers.
+They also predate the current model-native exact-sequence-length contract; the historical
+snapshot used one shared `5000`-sample dataset for every model.
 They also predate the current embedding-aware layer numbering, where some adapters now
 reserve layer `0` for the embedding stream, so the checked-in best-layer ids are legacy
 indices rather than current ones.
 
-The foundational registry now also includes `LeNEPA-Aiono` and `LeNEPA-CauKer2M`.
+The foundational registry now also includes `LeNEPA-Aiono`, `LeNEPA-CauKer2M`, and `LeNEPA-CauKer-5k`.
 Those checkpoints were added after this checked-in snapshot, so they do not yet have
 checked-in JSON artifacts or rows in the table below.
 Embedding-aware adapters now reserve layer `0` for the embedding stream. For both
@@ -191,7 +214,8 @@ Benchmark gotchas:
 *   The dashboard lets you choose the layer selector per model: `best_auc.layer`, `best_auprc.layer`, best macro `R2`, or best macro `Pearson`. Those best-layer choices are taken from the metric medians across validation runs. Do not confuse those selector views with the oracle-over-layer summaries stored in the JSON payloads.
 *   The dense regression panels are labeled `Regression By Component Type` and `Regression By Parameter Type`, and they use absolute `R2` and Pearson, not `MSE`. `MSE` varied too much across target types to be useful on a shared dashboard scale.
 *   Negative `R2` values are clipped to `0` in the dashboard charts only so the useful range stays readable. Tooltips still expose the raw `R2` median and its standard deviation, and the JSON files keep the raw values.
-*   `TabPFN` and `TabICL` are not natural frozen layerwise encoders. In this benchmark they use fallback adapters that expose a synthetic single `layer 0`, downsample each time series to `128` tabular features, train one-vs-rest classifiers, and cap both probe train and probe val subsets at `2048` samples.
+*   `TabPFN` and `TabICL` are not natural frozen layerwise encoders. In this benchmark they use fallback adapters that expose a synthetic single `layer 0`, run on exact `128`-sample waveforms as tabular features, train one-vs-rest classifiers, and cap both probe train and probe val subsets at `2048` samples.
 *   `TabPFN` could not use the gated `v2.5` checkpoint in an unattended run, so the benchmark falls back to the public `v2` model.
+*   Model-native exact lengths can materially increase RAM usage because the benchmark still materializes finite train/validation tensors in memory. `Chronos2` is the most extreme case because its exact context length is `8192`.
 *   `TTM` peaks at different layers for different selectors, notably AUROC vs AUPRC (`13` vs `12`).
 *   The TiViT image-backbone wrappers are the slowest and heaviest foundational runs on the full balanced online-generated split, especially `TiConvNext`.

@@ -23,6 +23,8 @@ class TotoAdapter(FrozenTimeSeriesAdapter):
         loaded = Toto.from_pretrained(self.checkpoint, map_location=device)
         self.model = loaded.model
         self.model.eval()
+        self.benchmark_sequence_length = 4096
+        self.benchmark_sequence_length_source = "official_toto_open_base_quickstart_context_length"
 
     @property
     def available_layers(self) -> tuple[int, ...]:
@@ -34,7 +36,8 @@ class TotoAdapter(FrozenTimeSeriesAdapter):
         payload["patch_stride"] = int(self.model.patch_embed.stride)
         payload["embed_dim"] = int(self.model.embed_dim)
         payload["preprocess"] = (
-            "squeeze channel dimension; left-pad to a multiple of patch stride; "
+            "expect exact benchmark length 4096, matching the official Toto Open Base quick-start context; "
+            "squeeze channel dimension; "
             "use Toto patch embedding and transformer; mean-pool valid patch tokens"
         )
         payload["layer_layout"] = (
@@ -47,15 +50,12 @@ class TotoAdapter(FrozenTimeSeriesAdapter):
         self,
         x: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        from toto.data.util.dataset import pad_array, pad_id_mask, replace_extreme_values
+        from toto.data.util.dataset import replace_extreme_values
 
+        self.validate_benchmark_input(x, channels=1)
         series = replace_extreme_values(x.to(dtype=torch.float32))
         padding_mask = torch.ones_like(series, dtype=torch.bool)
         id_mask = torch.zeros_like(series, dtype=torch.long)
-        patch_stride = int(self.model.patch_embed.stride)
-        series = pad_array(series, patch_stride)
-        padding_mask = pad_array(padding_mask, patch_stride).to(dtype=torch.bool)
-        id_mask = pad_id_mask(id_mask, patch_stride)
         return series, padding_mask, id_mask
 
     def forward_layer_dict(

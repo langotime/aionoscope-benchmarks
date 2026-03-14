@@ -9,7 +9,11 @@ import pytest
 import torch
 
 from aionoscope_benchmarks.adapters import lenepa as lenepa_module
-from aionoscope_benchmarks.adapters.lenepa import LeNEPAAionoAdapter, LeNEPACauKer2MAdapter
+from aionoscope_benchmarks.adapters.lenepa import (
+    LeNEPAAionoAdapter,
+    LeNEPACauKer2MAdapter,
+    LeNEPACauKer5KAdapter,
+)
 from aionoscope_benchmarks.constants import FOUNDATIONAL_MODELS
 from aionoscope_benchmarks.model_registry import MODEL_SPECS, all_foundational_model_names
 
@@ -110,10 +114,13 @@ def clear_lenepa_module_cache() -> None:
 def test_lenepa_registry_contains_both_checkpoints() -> None:
     assert "LeNEPA-Aiono" in MODEL_SPECS
     assert "LeNEPA-CauKer2M" in MODEL_SPECS
+    assert "LeNEPA-CauKer-5k" in MODEL_SPECS
     assert "LeNEPA-Aiono" in FOUNDATIONAL_MODELS
     assert "LeNEPA-CauKer2M" in FOUNDATIONAL_MODELS
+    assert "LeNEPA-CauKer-5k" in FOUNDATIONAL_MODELS
     assert "LeNEPA-Aiono" in all_foundational_model_names()
     assert "LeNEPA-CauKer2M" in all_foundational_model_names()
+    assert "LeNEPA-CauKer-5k" in all_foundational_model_names()
 
 
 def test_lenepa_adapter_uses_exported_tokenizer_and_final_norm(
@@ -160,6 +167,8 @@ def test_lenepa_adapter_uses_exported_tokenizer_and_final_norm(
     assert metadata["published_channels"] == ["I"]
     assert metadata["patch_size"] == 25
     assert metadata["n_benchmark_layers"] == 3
+    assert metadata["benchmark_sequence_length"] == 5000
+    assert metadata["input_length_policy"] == "exact"
 
 
 def test_lenepa_adapter_falls_back_to_patch_embed_when_no_tokenizer(
@@ -205,3 +214,50 @@ def test_lenepa_adapter_falls_back_to_patch_embed_when_no_tokenizer(
     metadata = adapter.adapter_metadata()
     assert metadata["patch_stats_mode"] == "patch_norm"
     assert metadata["published_sampling_frequency"] == 1
+    assert metadata["benchmark_sequence_length"] == 5000
+
+
+def test_lenepa_cauker_5k_adapter_reuses_published_bundle_contract(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    bundle = _write_bundle(
+        tmp_path,
+        with_tokenizer=False,
+        config={
+            "format": "lenepa_encoder",
+            "channels": ["c0"],
+            "channel_size": 5000,
+            "sampling_frequency": 1,
+            "patch_size": 8,
+            "num_patches": 625,
+            "dim": 256,
+            "depth": 2,
+            "nepa_static_tokenizer": "conv_patch_embed",
+            "nepa_patch_embed_scalar_stats_mode": "patch_norm",
+        },
+    )
+
+    def fake_download(*, repo_id: str, filename: str) -> str:
+        del repo_id
+        if filename == "inference.py":
+            return str(bundle["inference"])
+        if filename == "lenepa_encoder.safetensors":
+            return str(bundle["weights"])
+        if filename == "lenepa_encoder_config.json":
+            return str(bundle["config"])
+        raise AssertionError(f"Unexpected filename {filename}")
+
+    monkeypatch.setattr(lenepa_module, "hf_hub_download", fake_download)
+
+    adapter = LeNEPACauKer5KAdapter()
+    x = torch.arange(5000, dtype=torch.float32).reshape(1, 1, 5000)
+    reps = adapter.forward_layer_dict(x, layers=(0, 2))
+
+    assert set(reps) == {0, 2}
+    assert torch.equal(reps[0], torch.tensor([[6.0, 7.0]], dtype=torch.float32))
+    assert torch.equal(reps[2], torch.tensor([[136.0, 137.0]], dtype=torch.float32))
+    metadata = adapter.adapter_metadata()
+    assert metadata["patch_stats_mode"] == "patch_norm"
+    assert metadata["published_sampling_frequency"] == 1
+    assert metadata["benchmark_sequence_length"] == 5000

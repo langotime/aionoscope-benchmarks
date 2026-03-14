@@ -119,12 +119,31 @@ def run_single_model(
         f"probe config ready: steps={probe_config.steps} batch_size={probe_config.batch_size} "
         f"checkpoint_interval={probe_config.checkpoint_interval}",
     )
+
+    adapter_load_start = perf_counter()
+    _log_run(model_name, "phase: load adapter")
+    spec, adapter = create_adapter(model_name)
+    adapter = adapter.to(actual_device)
+    adapter.eval()
+    resolved_channel_size = adapter.exact_benchmark_sequence_length()
+    runtime_summary["adapter_load_s"] = float(perf_counter() - adapter_load_start)
+    _log_run(
+        model_name,
+        f"adapter ready: checkpoint={spec.checkpoint} layers={len(adapter.available_layers)} "
+        f"encode_batch_size={adapter.default_encode_batch_size} "
+        f"benchmark_sequence_length={resolved_channel_size} "
+        f"in {_format_elapsed_s(runtime_summary['adapter_load_s'])}",
+    )
+
     dataset_build_start = perf_counter()
     _log_run(model_name, "phase: build online dataset splits")
     manifest, train, val_splits = build_runtime_splits_by_validation_seed(
         config_path=dataset_config_path,
         device=actual_device,
         batch_size=int(probe_config.batch_size),
+        channel_size_override=resolved_channel_size,
+        channel_size_policy_override="model_native_exact",
+        channel_size_source_override=f"adapter.{adapter.benchmark_sequence_length_source}",
         train_batches=train_batches,
         val_batches=val_batches,
         validation_seed_values=validation_seed_values,
@@ -141,24 +160,14 @@ def run_single_model(
     _log_run(
         model_name,
         "dataset ready: "
+        f"default_channel_size={manifest['default_channel_size']} "
+        f"channel_size={manifest['channel_size']} "
+        f"channel_size_policy={manifest['channel_size_policy']} "
         f"train_batches={manifest['train_batches']} "
         f"val_batches={manifest['val_batches']} "
         f"validation_seeds={validation_seed_order} "
         f"generator_seeds={[validation_seed_to_generator_seed[seed] for seed in validation_seed_order]} "
         f"in {_format_elapsed_s(runtime_summary['dataset_build_s'])}",
-    )
-
-    adapter_load_start = perf_counter()
-    _log_run(model_name, "phase: load adapter")
-    spec, adapter = create_adapter(model_name)
-    adapter = adapter.to(actual_device)
-    adapter.eval()
-    runtime_summary["adapter_load_s"] = float(perf_counter() - adapter_load_start)
-    _log_run(
-        model_name,
-        f"adapter ready: checkpoint={spec.checkpoint} layers={len(adapter.available_layers)} "
-        f"encode_batch_size={adapter.default_encode_batch_size} "
-        f"in {_format_elapsed_s(runtime_summary['adapter_load_s'])}",
     )
 
     first_seed_value = int(validation_seed_order[0])

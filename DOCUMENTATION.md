@@ -5,6 +5,7 @@
 This repo benchmarks frozen foundational time-series models on the balanced ToyTS basic-components contract built from the sibling `aiono` library. Each run:
 
 - rebuilds a deterministic finite benchmark split in memory;
+- resolves the model's exact benchmark sequence length before dataset generation;
 - extracts frozen representations from one or more model layers;
 - trains linear probes for component classification and dense parameter regression;
 - writes one JSON artifact per model into `results/models/`;
@@ -46,6 +47,11 @@ Run all foundational models with the per-model pinned interpreters:
 uv run python scripts/run_foundational_sequential.py
 ```
 
+Be aware that exact model-native sequence lengths can materially increase RAM use because
+the benchmark still materializes finite train and validation tensors in memory before
+feature collection. `Chronos2` is the heaviest case because it now runs at exact length
+`8192`.
+
 Serve the static dashboard:
 
 ```bash
@@ -60,7 +66,8 @@ Then open `http://localhost:8000/results/dashboard.html`.
 
 `configs/dataset_toyts_basic_components_balanced.yaml` defines the benchmark contract:
 
-- sampling frequency and sequence length;
+- sampling frequency and the default reference sequence length;
+- the sequence-length policy (`model_native_exact` in the current benchmark);
 - component library and `num_enabled`;
 - training seed;
 - ordered validation seed values and validation seed offset;
@@ -68,6 +75,15 @@ Then open `http://localhost:8000/results/dashboard.html`.
 - dense target definitions.
 
 Changing this file changes the benchmark contract and must be treated as a benchmark-definition change, not a casual tuning knob.
+
+`run_model.py` does not blindly use the config default length. It loads the adapter
+first, resolves that model's exact benchmark sequence length, and passes that resolved
+length into the runtime split builder. The manifest written to each JSON artifact stores:
+
+- `default_channel_size`: the reference length from the YAML config;
+- `channel_size`: the exact resolved length used to generate the run;
+- `channel_size_policy`: the active policy string;
+- `channel_size_source`: where the resolved exact length came from.
 
 ### Probe config
 
@@ -93,6 +109,24 @@ contract before mean pooling.
 More generally, adapters that expose a distinct embedding stream use layer `0` for that
 embedding and number transformer-style encoder blocks from `1`.
 
+The current exact benchmark lengths are:
+
+- `Chronos2`: `8192`
+- `LeNEPA-Aiono`: `5000`
+- `LeNEPA-CauKer2M`: `5000`
+- `MantisV2`: `512`
+- `Moirai`: `512`
+- `MOMENT`: `512`
+- `NuTime`: `176`
+- `T-Loss`: `5000`
+- `TTM`: `512`
+- `TabICL`: `128`
+- `TabPFN`: `128`
+- `TiConvNext`: `5000`
+- `TiRex`: `2048`
+- `TiViT-H`: `5000`
+- `Toto`: `4096`
+
 ## Validation Seed Semantics
 
 The benchmark distinguishes:
@@ -109,7 +143,7 @@ Each model run writes `results/models/<slug>.json`.
 High-level structure:
 
 - `model`: model identity, source, checkpoint, layers evaluated, and adapter metadata;
-- `dataset`: the benchmark manifest used to build the train and validation splits;
+- `dataset`: the benchmark manifest used to build the train and validation splits, including the config default length and the exact resolved length used for the run;
 - `probe_config`: probe hyperparameters plus the fixed `probe_seed`;
 - `runtime`: wall-clock and device metadata;
 - `results.categorical`: per-layer multi-label classification outputs;
@@ -148,8 +182,9 @@ To add a new model:
 1. Add a `ModelSpec` entry in `src/aionoscope_benchmarks/model_registry.py`.
 2. Implement a `FrozenTimeSeriesAdapter` subclass in `src/aionoscope_benchmarks/adapters/`.
 3. Pick the environment name that can actually import the model stack.
-4. Expose honest `available_layers` and stable `adapter_metadata()`.
-5. Run at least one benchmark invocation and verify that a JSON result is produced and the dashboard can read it.
+4. Expose an exact benchmark sequence length, honest `available_layers`, and stable `adapter_metadata()`.
+5. Make the adapter fail fast on sequence-length mismatch rather than silently cropping, padding, or waveform-resampling benchmark inputs.
+6. Run at least one benchmark invocation and verify that a JSON result is produced and the dashboard can read it.
 
 Use `prepare()` and `update_probe_val_split()` only for benchmark-facing preprocessing that the adapter genuinely needs.
 

@@ -14,6 +14,14 @@ The benchmark code lives outside the upstream `aionoscope` library and depends o
 
 The benchmark does not rely on checked-in `train.pt` or `val.pt` snapshots. `src/aionoscope_benchmarks/dataset_snapshot.py` rebuilds the finite train split and validation splits in memory from the dataset YAML on every run. The resulting manifest is part of the output JSON and is the reproducibility contract for the evaluated split.
 
+### Model-native exact sequence lengths
+
+The benchmark no longer uses one shared sequence length for every model. `run_model.py`
+instantiates the adapter first, resolves that model's exact benchmark sequence length,
+and only then asks Aiono to materialize the finite train and validation splits. The
+dataset manifest stores both the config default length and the exact resolved length
+used for the run.
+
 ### Fixed validation-seed protocol
 
 The benchmark contract is a fixed train split plus a fixed ordered set of validation seed values. Validation seed values are user-facing identifiers; generator seeds are derived by adding an offset so train and validation generation do not overlap. Aggregated metrics are computed over the ordered validation-seed set and stored explicitly in the result payload.
@@ -22,6 +30,7 @@ The benchmark contract is a fixed train split plus a fixed ordered set of valida
 
 Every benchmarked model is wrapped by a `FrozenTimeSeriesAdapter` implementation in `src/aionoscope_benchmarks/adapters/`. The adapter contract is:
 
+- expose an exact benchmark sequence length;
 - expose `available_layers`;
 - optionally preprocess the benchmark split in `prepare()` and `update_probe_val_split()`;
 - return one representation tensor per requested layer from `forward_layer_dict()`;
@@ -33,6 +42,8 @@ may download and import that published bundle directly via `huggingface_hub` ins
 depending on a separate pip package or vendored external repo.
 When an adapter can expose an explicit embedding stream, layer `0` is reserved for that
 embedding representation and subsequent encoder blocks start at layer `1`.
+Adapters must fail fast on input-length mismatch. Benchmark adapters must not silently
+crop, pad, or waveform-resample the generated Aiono sequence to fit the model.
 
 ### Offline probes operate on collected features
 
@@ -58,14 +69,15 @@ The foundational model stack spans incompatible dependency sets. The repo theref
 ## Execution Model
 
 1. Load probe config and dataset config YAML.
-2. Build the in-memory benchmark train split and validation splits plus a dataset manifest.
-3. Instantiate the requested adapter from the model registry.
-4. Let the adapter prepare any model-specific benchmark views or cached state.
-5. Collect frozen features for all requested layers on the train split.
-6. Collect frozen features for all requested layers on each validation split.
-7. Train and evaluate linear probes on the collected features.
-8. Aggregate metrics across validation seeds into the JSON result schema.
-9. Persist one model JSON artifact for later comparison and dashboard visualization.
+2. Instantiate the requested adapter from the model registry.
+3. Resolve the adapter's exact benchmark sequence length.
+4. Build the in-memory benchmark train split and validation splits plus a dataset manifest.
+5. Let the adapter prepare any model-specific benchmark views or cached state.
+6. Collect frozen features for all requested layers on the train split.
+7. Collect frozen features for all requested layers on each validation split.
+8. Train and evaluate linear probes on the collected features.
+9. Aggregate metrics across validation seeds into the JSON result schema.
+10. Persist one model JSON artifact for later comparison and dashboard visualization.
 
 ## Main Components
 
@@ -106,6 +118,6 @@ The foundational model stack spans incompatible dependency sets. The repo theref
 - Benchmark changes must preserve the clear split between dataset generation, adapter integration, offline probing, result aggregation, and visualization.
 - The train split and validation splits must remain reproducible from config plus seed information stored in the manifest.
 - Validation aggregation must not silently reorder or drop validation seeds.
-- Adapters may customize preprocessing, but they must still expose a stable layerwise representation interface and emit truthful adapter metadata.
+- Adapters may customize preprocessing, but they must still expose a stable layerwise representation interface, emit truthful adapter metadata, and reject benchmark inputs with the wrong sequence length.
 - Result schema changes must be reflected in `README.md`, `DOCUMENTATION.md`, and `results/dashboard.html` in the same task.
 - The dashboard must remain a pure reader of result artifacts; benchmark computations belong in Python, not in browser-only logic.

@@ -26,6 +26,9 @@ class FrozenTimeSeriesAdapter(nn.Module, ABC):
     env_name: str = "core"
     default_encode_batch_size: int = 32
     use_bfloat16_amp: bool = True
+    cpu_feature_cache_dtype: torch.dtype = torch.float32
+    benchmark_sequence_length: int | None = None
+    benchmark_sequence_length_source: str = "adapter"
 
     def __init__(self) -> None:
         super().__init__()
@@ -44,7 +47,37 @@ class FrozenTimeSeriesAdapter(nn.Module, ABC):
         return {
             "env": self.env_name,
             "encode_batch_size": int(self.default_encode_batch_size),
+            "cpu_feature_cache_dtype": str(self.cpu_feature_cache_dtype).replace("torch.", ""),
+            "benchmark_sequence_length": int(self.exact_benchmark_sequence_length()),
+            "benchmark_sequence_length_source": str(self.benchmark_sequence_length_source),
+            "input_length_policy": "exact",
         }
+
+    def exact_benchmark_sequence_length(self) -> int:
+        value = getattr(self, "benchmark_sequence_length", None)
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            raise ValueError(
+                f"{self.model_name} must define a positive integer benchmark_sequence_length, got {value!r}"
+            )
+        return int(value)
+
+    def validate_benchmark_input(
+        self,
+        x: torch.Tensor,
+        *,
+        channels: int | None = None,
+    ) -> None:
+        if x.dim() != 3:
+            raise ValueError(f"{self.model_name} expects [B, C, L] input, got {tuple(x.shape)}")
+        if channels is not None and int(x.shape[1]) != int(channels):
+            raise ValueError(
+                f"{self.model_name} expects {int(channels)} input channels, got {tuple(x.shape)}"
+            )
+        expected_length = self.exact_benchmark_sequence_length()
+        if int(x.shape[2]) != expected_length:
+            raise ValueError(
+                f"{self.model_name} expects exact sequence length {expected_length}, got {tuple(x.shape)}"
+            )
 
     def prepare(
         self,

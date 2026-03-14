@@ -1,6 +1,7 @@
 sampling_frequency: 500
 channels: [I]
-channel_size: 5000
+default_channel_size: 5000
+channel_size_policy: model_native_exact
 toyts:
   kind: basic_components
   train_seed: 0

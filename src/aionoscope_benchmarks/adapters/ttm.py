@@ -22,6 +22,8 @@ class TTMAdapter(FrozenTimeSeriesAdapter):
         self.model = TinyTimeMixerForPrediction.from_pretrained(self.checkpoint)
         self.model.eval()
         self.sequence_length = int(self.model.backbone.patching.sequence_length)
+        self.benchmark_sequence_length = int(self.sequence_length)
+        self.benchmark_sequence_length_source = "model.backbone.patching.sequence_length"
         self.patch_length = int(self.model.config.patch_length)
         self.patch_stride = int(self.model.config.patch_stride)
         self.resolution_prefix_tuning = bool(getattr(self.model.config, "resolution_prefix_tuning", False))
@@ -53,25 +55,14 @@ class TTMAdapter(FrozenTimeSeriesAdapter):
         payload["patch_stride"] = int(self.patch_stride)
         payload["resolution_prefix_tuning"] = bool(self.resolution_prefix_tuning)
         payload["preprocess"] = (
-            "transpose to [B,T,C]; crop to last context window or left-pad with zeros and observed-mask"
+            "expect exact model context length; transpose to [B,T,C] and build the observed-mask directly"
         )
         return payload
 
     def _prepare_inputs(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        self.validate_benchmark_input(x, channels=1)
         past_values = x.transpose(1, 2).to(dtype=torch.float32)
-        batch_size, seq_len, _ = past_values.shape
-        if seq_len > self.sequence_length:
-            past_values = past_values[:, -self.sequence_length :, :]
-            observed_mask = torch.ones_like(past_values)
-        elif seq_len < self.sequence_length:
-            pad_len = self.sequence_length - seq_len
-            pad = torch.zeros(batch_size, pad_len, past_values.shape[-1], device=past_values.device)
-            mask_pad = torch.zeros_like(pad)
-            observed = torch.ones_like(past_values)
-            past_values = torch.cat([pad, past_values], dim=1)
-            observed_mask = torch.cat([mask_pad, observed], dim=1)
-        else:
-            observed_mask = torch.ones_like(past_values)
+        observed_mask = torch.ones_like(past_values)
         return past_values, observed_mask
 
     def forward_layer_dict(

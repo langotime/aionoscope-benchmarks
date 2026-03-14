@@ -6,7 +6,6 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import torch
-import torch.nn.functional as F
 
 from .base import FrozenTimeSeriesAdapter
 
@@ -58,6 +57,8 @@ class NuTimeAdapter(FrozenTimeSeriesAdapter):
         self.model.eval()
         self.transformer_depth = int(self.config.transformer_depth)
         self.transform_size = int(self.config.transform_size)
+        self.benchmark_sequence_length = int(self.transform_size)
+        self.benchmark_sequence_length_source = "nutime_config.transform_size"
 
     @property
     def available_layers(self) -> tuple[int, ...]:
@@ -71,7 +72,7 @@ class NuTimeAdapter(FrozenTimeSeriesAdapter):
         payload["encoder"] = str(self.config.encoder)
         payload["pool_mode"] = str(self.config.pool_mode)
         payload["preprocess"] = (
-            "resize input to demo transform_size; run WindowNormEncoder; use WinT cls-token representation "
+            "expect exact NuTime transform_size; run WindowNormEncoder; use WinT cls-token representation "
             "after each transformer block"
         )
         payload["layer_layout"] = (
@@ -81,15 +82,10 @@ class NuTimeAdapter(FrozenTimeSeriesAdapter):
         return payload
 
     def _build_tokens(self, x: torch.Tensor) -> torch.Tensor:
+        self.validate_benchmark_input(x, channels=1)
         encoder = self.model[0]
         backbone = self.model[1]
-        resized = F.interpolate(
-            x.to(dtype=torch.float32),
-            size=self.transform_size,
-            mode="linear",
-            align_corners=False,
-        )
-        encoded = encoder(resized)
+        encoded = encoder(x.to(dtype=torch.float32))
         if backbone.window_slide:
             raise ValueError("NuTime adapter expects wne encoder with window_slide=False")
         x_embed = encoded.transpose(1, 2)

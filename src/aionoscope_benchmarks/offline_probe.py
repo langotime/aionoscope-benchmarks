@@ -115,6 +115,17 @@ def _collect_probe_features_by_layer(
         raise ValueError("layers must be non-empty")
     if len(set(layers)) != len(layers):
         raise ValueError(f"layers must be unique, got {layers}")
+    cpu_feature_cache_dtype = getattr(encoder, "cpu_feature_cache_dtype", torch.float32)
+    if not isinstance(cpu_feature_cache_dtype, torch.dtype):
+        raise TypeError(
+            "encoder.cpu_feature_cache_dtype must be a torch.dtype, "
+            f"got {type(cpu_feature_cache_dtype).__name__}"
+        )
+    if not torch.empty((), dtype=cpu_feature_cache_dtype).is_floating_point():
+        raise TypeError(
+            "encoder.cpu_feature_cache_dtype must be floating-point, "
+            f"got {cpu_feature_cache_dtype}"
+        )
 
     total_start = perf_counter()
     feature_batches: dict[int, list[torch.Tensor]] = {layer: [] for layer in layers}
@@ -174,7 +185,10 @@ def _collect_probe_features_by_layer(
                         raise ValueError(
                             f"representation_fn output for layer={layer} must be [B, D], got {tuple(rep.shape)}"
                         )
-                    rep = rep.float().reshape(batch_size, num_crops, -1).cpu()
+                    rep = rep.reshape(batch_size, num_crops, -1).to(
+                        device="cpu",
+                        dtype=cpu_feature_cache_dtype,
+                    )
                     feature_batches[layer].append(rep)
                 class_target_batches.append(y_cls.float().cpu())
                 if y_dense is not None:
@@ -207,7 +221,12 @@ def _collect_probe_features_by_layer(
                         raise ValueError(
                             f"representation_fn output for layer={layer} must be [B, D], got {tuple(rep.shape)}"
                         )
-                    feature_batches[layer].append(rep.float().cpu())
+                    feature_batches[layer].append(
+                        rep.to(
+                            device="cpu",
+                            dtype=cpu_feature_cache_dtype,
+                        )
+                    )
                 class_target_batches.append(y_cls.float().cpu())
                 if y_dense is not None:
                     dense_target_batches.append(y_dense.float().cpu())
@@ -278,9 +297,14 @@ def _stage_probe_tensor(
     tensor: torch.Tensor,
     device: torch.device,
 ) -> torch.Tensor:
-    if tensor.device == device:
+    target_dtype = torch.float32 if tensor.is_floating_point() else tensor.dtype
+    if tensor.device == device and tensor.dtype == target_dtype:
         return tensor
-    return tensor.to(device, non_blocking=device.type == "cuda")
+    return tensor.to(
+        device,
+        dtype=target_dtype,
+        non_blocking=device.type == "cuda",
+    )
 
 
 def _tensor_on_device(*, tensor: torch.Tensor, device: torch.device) -> bool:

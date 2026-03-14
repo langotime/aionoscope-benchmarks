@@ -26,6 +26,8 @@ class MantisV2Adapter(FrozenTimeSeriesAdapter):
         ).from_pretrained(self.checkpoint)
         self.model.eval()
         self.num_layers = int(len(self.model.transf_unit.transformer.layers)) + 1
+        self.benchmark_sequence_length = 512
+        self.benchmark_sequence_length_source = "official_mantis_recommended_pretrained_length"
 
     @property
     def available_layers(self) -> tuple[int, ...]:
@@ -34,7 +36,11 @@ class MantisV2Adapter(FrozenTimeSeriesAdapter):
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["output_token"] = "combined"
-        payload["preprocess"] = "right-pad sequence length to nearest multiple of num_patches"
+        payload["num_patches"] = int(self.model.num_patches)
+        payload["preprocess"] = (
+            "expect exact benchmark length 512, matching official pretrained guidance; "
+            "no benchmark-side padding"
+        )
         payload["layer_layout"] = (
             "layer 0 is the tokenizer-plus-CLS embedding stream; "
             "layers 1..N are transformer block outputs"
@@ -48,11 +54,7 @@ class MantisV2Adapter(FrozenTimeSeriesAdapter):
         layers: tuple[int, ...] | None = None,
     ) -> dict[int, torch.Tensor]:
         requested_layers = set(layers or self.available_layers)
-        seq_len = x.shape[2]
-        remainder = seq_len % self.model.num_patches
-        if remainder != 0:
-            pad = self.model.num_patches - remainder
-            x = torch.nn.functional.pad(x, (0, pad))
+        self.validate_benchmark_input(x, channels=1)
 
         x_embeddings = self.model.tokgen_unit(x)
         batch_size = int(x_embeddings.shape[0])

@@ -3,7 +3,6 @@ from __future__ import annotations
 import numpy as np
 import sys
 import torch
-import torch.nn.functional as F
 
 from .base import FrozenTimeSeriesAdapter
 
@@ -31,6 +30,8 @@ class TabICLAdapter(FrozenTimeSeriesAdapter):
         self._split_feature_cache: dict[str, dict[int, torch.Tensor]] = {}
         self._class_names: list[str] = []
         self._classifiers: list[object] = []
+        self.benchmark_sequence_length = int(self.reduced_feature_length)
+        self.benchmark_sequence_length_source = "tabular_fallback_feature_length"
         self.probe_train_split: dict[str, torch.Tensor] | None = None
         self.probe_val_split: dict[str, torch.Tensor] | None = None
 
@@ -41,13 +42,13 @@ class TabICLAdapter(FrozenTimeSeriesAdapter):
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["representation_kind"] = "one-vs-rest positive-class probabilities"
-        payload["feature_downsample_length"] = int(self.reduced_feature_length)
+        payload["feature_length"] = int(self.reduced_feature_length)
         payload["fit_samples_per_label_cap"] = int(self.max_fit_samples_per_label)
         payload["n_estimators"] = int(self.n_estimators)
         payload["checkpoint_version"] = self.checkpoint
         payload["paper_fallback_note"] = (
             "TabICL is a supervised tabular classifier rather than a frozen layerwise time-series encoder; "
-            "this adapter uses 14 binary one-vs-rest classifiers on downsampled time-series inputs."
+            "this adapter uses 14 binary one-vs-rest classifiers on exact-length tabularized waveforms."
         )
         payload["probe_train_sample_cap"] = int(self.probe_train_sample_cap)
         payload["probe_val_sample_cap"] = int(self.probe_val_sample_cap)
@@ -58,11 +59,8 @@ class TabICLAdapter(FrozenTimeSeriesAdapter):
         return payload
 
     def _reduce_inputs(self, x: torch.Tensor) -> np.ndarray:
-        reduced = F.adaptive_avg_pool1d(
-            x.to(dtype=torch.float32),
-            self.reduced_feature_length,
-        )
-        return np.ascontiguousarray(reduced.squeeze(1).cpu().numpy(), dtype=np.float32)
+        self.validate_benchmark_input(x, channels=1)
+        return np.ascontiguousarray(x[:, 0, :].to(dtype=torch.float32).cpu().numpy(), dtype=np.float32)
 
     def _sample_fit_indices(self, y_binary: np.ndarray, *, seed: int) -> np.ndarray:
         positives = np.flatnonzero(y_binary == 1)

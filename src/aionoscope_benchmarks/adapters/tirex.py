@@ -23,6 +23,8 @@ class TiRexAdapter(FrozenTimeSeriesAdapter):
         self.model = load_model(self.checkpoint, device=device, backend="torch", compile=False)
         self.model.eval()
         self.num_layers = int(len(self.model.blocks))
+        self.benchmark_sequence_length = int(self.model.config.train_ctx_len)
+        self.benchmark_sequence_length_source = "model.config.train_ctx_len"
 
     @property
     def available_layers(self) -> tuple[int, ...]:
@@ -33,7 +35,7 @@ class TiRexAdapter(FrozenTimeSeriesAdapter):
         payload["patch_size"] = int(self.model.config.input_patch_size)
         payload["train_context_length"] = int(self.model.config.train_ctx_len)
         payload["preprocess"] = (
-            "squeeze channel dimension; right-pad length to a multiple of patch_size; "
+            "expect exact training context length; squeeze channel dimension; "
             "token-mean pool per sLSTM block"
         )
         return payload
@@ -45,12 +47,8 @@ class TiRexAdapter(FrozenTimeSeriesAdapter):
         layers: tuple[int, ...] | None = None,
     ) -> dict[int, torch.Tensor]:
         requested_layers = set(layers or self.available_layers)
+        self.validate_benchmark_input(x, channels=1)
         context = x[:, 0, :].to(dtype=torch.float32)
-        patch_size = int(self.model.config.input_patch_size)
-        remainder = int(context.shape[-1]) % patch_size
-        if remainder != 0:
-            pad = patch_size - remainder
-            context = torch.nn.functional.pad(context, (0, pad))
         hidden_states = self.model._embed_context(context, max_context=int(context.shape[-1]))
         if hidden_states.dim() != 4:
             raise ValueError(

@@ -8,6 +8,7 @@ from pathlib import Path
 import torch
 import torch.nn.functional as F
 
+from ..constants import BENCHMARK_DEFAULT_CHANNEL_SIZE
 from .base import FrozenTimeSeriesAdapter
 
 
@@ -53,6 +54,8 @@ class TLossAdapter(FrozenTimeSeriesAdapter):
         self.encoder.load_state_dict(state_dict)
         self.encoder.eval()
         self.num_causal_blocks = int(len(self.encoder.network[0].network))
+        self.benchmark_sequence_length = int(BENCHMARK_DEFAULT_CHANNEL_SIZE)
+        self.benchmark_sequence_length_source = "benchmark_default_channel_size"
 
     @property
     def available_layers(self) -> tuple[int, ...]:
@@ -65,6 +68,7 @@ class TLossAdapter(FrozenTimeSeriesAdapter):
         payload["reduced_size"] = int(self.hyper["reduced_size"])
         payload["out_channels"] = int(self.hyper["out_channels"])
         payload["kernel_size"] = int(self.hyper["kernel_size"])
+        payload["preprocess"] = "expect exact benchmark waveform; run the causal CNN encoder without temporal padding"
         payload["layer_layout"] = (
             "layers 0..N-1 are adaptive-max-pooled outputs after each causal block; "
             "layer N is the final encoder linear output"
@@ -78,6 +82,7 @@ class TLossAdapter(FrozenTimeSeriesAdapter):
         layers: tuple[int, ...] | None = None,
     ) -> dict[int, torch.Tensor]:
         requested_layers = set(int(layer) for layer in (layers or self.available_layers))
+        self.validate_benchmark_input(x, channels=1)
         reps: dict[int, torch.Tensor] = {}
         hidden = x.to(dtype=torch.float32)
         blocks = self.encoder.network[0].network

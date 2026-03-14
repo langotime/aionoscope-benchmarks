@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import torch
 
+from ..constants import BENCHMARK_DEFAULT_CHANNEL_SIZE
 from .base import FrozenTimeSeriesAdapter
 from .tivit_common import sqrt_patch_size_for_length, timeseries_to_clip_images
 
@@ -15,6 +16,7 @@ class TiConvNextAdapter(FrozenTimeSeriesAdapter):
     env_name = "tivit"
     default_encode_batch_size = 8
     use_bfloat16_amp = True
+    cpu_feature_cache_dtype = torch.float16
 
     def __init__(self) -> None:
         super().__init__()
@@ -34,6 +36,8 @@ class TiConvNextAdapter(FrozenTimeSeriesAdapter):
         self.stage_depths = tuple(int(len(stage.blocks)) for stage in self.visual.trunk.stages)
         self.num_layers = int(sum(self.stage_depths))
         self.stride_fraction = 0.1
+        self.benchmark_sequence_length = int(BENCHMARK_DEFAULT_CHANNEL_SIZE)
+        self.benchmark_sequence_length_source = "benchmark_default_channel_size"
 
     @property
     def available_layers(self) -> tuple[int, ...]:
@@ -46,7 +50,7 @@ class TiConvNextAdapter(FrozenTimeSeriesAdapter):
         payload["image_size"] = int(self.image_size)
         payload["stage_depths"] = list(self.stage_depths)
         payload["preprocess"] = (
-            "TiViT ts2image transform with robust scaling, sqrt patch size, stride 0.1, "
+            "TiViT ts2image transform on the exact benchmark waveform with robust scaling, sqrt patch size, stride 0.1, "
             "and CLIP mean/std normalization"
         )
         return payload
@@ -58,6 +62,7 @@ class TiConvNextAdapter(FrozenTimeSeriesAdapter):
         layers: tuple[int, ...] | None = None,
     ) -> dict[int, torch.Tensor]:
         requested_layers = set(int(layer) for layer in (layers or self.available_layers))
+        self.validate_benchmark_input(x)
         patch_size = sqrt_patch_size_for_length(int(x.size(-1)))
         images, num_channels = timeseries_to_clip_images(
             x,

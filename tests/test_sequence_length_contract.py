@@ -1,0 +1,152 @@
+from __future__ import annotations
+
+import sys
+import types
+
+import pytest
+import torch
+
+from aionoscope_benchmarks.adapters.base import FrozenTimeSeriesAdapter
+from aionoscope_benchmarks.adapters.mantisv2 import MantisV2Adapter
+from aionoscope_benchmarks.adapters.toto import TotoAdapter
+from aionoscope_benchmarks.constants import DATASET_CONFIG_PATH
+from aionoscope_benchmarks.dataset_snapshot import build_runtime_splits_by_validation_seed
+
+
+class _DummyAdapter(FrozenTimeSeriesAdapter):
+    model_name = "Dummy"
+    model_slug = "Dummy"
+    source = "local"
+    checkpoint = "none"
+    import_path = "none"
+    benchmark_sequence_length = 123
+    benchmark_sequence_length_source = "unit_test"
+
+    @property
+    def available_layers(self) -> tuple[int, ...]:
+        return (0,)
+
+    def forward_layer_dict(
+        self,
+        x: torch.Tensor,
+        *,
+        layers: tuple[int, ...] | None = None,
+    ) -> dict[int, torch.Tensor]:
+        del layers
+        self.validate_benchmark_input(x, channels=1)
+        return {0: x.mean(dim=-1)}
+
+
+def test_base_adapter_metadata_reports_exact_length_contract() -> None:
+    adapter = _DummyAdapter()
+
+    metadata = adapter.adapter_metadata()
+
+    assert metadata["benchmark_sequence_length"] == 123
+    assert metadata["benchmark_sequence_length_source"] == "unit_test"
+    assert metadata["input_length_policy"] == "exact"
+
+
+def test_base_adapter_validation_rejects_wrong_sequence_length() -> None:
+    adapter = _DummyAdapter()
+
+    with pytest.raises(ValueError, match="exact sequence length 123"):
+        adapter.forward_layer_dict(torch.zeros(2, 1, 122))
+
+
+def test_runtime_split_builder_respects_exact_channel_size_override() -> None:
+    manifest, train, val_splits = build_runtime_splits_by_validation_seed(
+        config_path=DATASET_CONFIG_PATH,
+        device=torch.device("cpu"),
+        batch_size=2,
+        channel_size_override=64,
+        channel_size_policy_override="test_exact",
+        channel_size_source_override="unit_test",
+        train_batches=1,
+        val_batches=1,
+        validation_seed_values=[0],
+        show_progress_bar=False,
+    )
+
+    assert manifest["default_channel_size"] == 5000
+    assert manifest["channel_size"] == 64
+    assert manifest["channel_size_policy"] == "test_exact"
+    assert manifest["channel_size_source"] == "unit_test"
+    assert tuple(train["x"].shape) == (2, 1, 64)
+    assert tuple(val_splits[0]["x"].shape) == (2, 1, 64)
+
+
+def test_mantis_v2_uses_official_recommended_pretrained_length(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    architecture_module = types.ModuleType("mantis.architecture")
+
+    class _FakeMantisV2:
+        def __init__(self, **_: object) -> None:
+            self.num_patches = 32
+            self.transf_unit = types.SimpleNamespace(
+                transformer=types.SimpleNamespace(layers=[object()] * 5)
+            )
+
+        def from_pretrained(self, checkpoint: str):
+            del checkpoint
+            return self
+
+        def eval(self):
+            return self
+
+    architecture_module.MantisV2 = _FakeMantisV2
+    mantis_module = types.ModuleType("mantis")
+    mantis_module.architecture = architecture_module
+    monkeypatch.setitem(sys.modules, "mantis", mantis_module)
+    monkeypatch.setitem(sys.modules, "mantis.architecture", architecture_module)
+
+    adapter = MantisV2Adapter()
+
+    metadata = adapter.adapter_metadata()
+    assert adapter.benchmark_sequence_length == 512
+    assert adapter.benchmark_sequence_length_source == "official_mantis_recommended_pretrained_length"
+    assert metadata["benchmark_sequence_length"] == 512
+    assert metadata["num_patches"] == 32
+
+
+def test_toto_uses_official_quickstart_context_length(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    toto_model_module = types.ModuleType("toto.model.toto")
+
+    class _FakeBackbone:
+        def __init__(self) -> None:
+            self.patch_embed = types.SimpleNamespace(patch_size=64, stride=64)
+            self.embed_dim = 256
+            self.num_layers = 12
+
+        def eval(self):
+            return self
+
+    class _FakeToto:
+        @classmethod
+        def from_pretrained(cls, checkpoint: str, map_location: str = "cpu"):
+            del cls, checkpoint, map_location
+            return types.SimpleNamespace(model=_FakeBackbone())
+
+    toto_model_module.Toto = _FakeToto
+    toto_model_package = types.ModuleType("toto.model")
+    toto_model_package.toto = toto_model_module
+    toto_module = types.ModuleType("toto")
+    toto_module.model = toto_model_package
+    monkeypatch.setitem(sys.modules, "toto", toto_module)
+    monkeypatch.setitem(sys.modules, "toto.model", toto_model_package)
+    monkeypatch.setitem(sys.modules, "toto.model.toto", toto_model_module)
+
+    adapter = TotoAdapter()
+
+    metadata = adapter.adapter_metadata()
+    assert adapter.benchmark_sequence_length == 4096
+    assert (
+        adapter.benchmark_sequence_length_source
+        == "official_toto_open_base_quickstart_context_length"
+    )
+    assert metadata["benchmark_sequence_length"] == 4096
+    assert metadata["patch_size"] == 64
+    assert metadata["patch_stride"] == 64

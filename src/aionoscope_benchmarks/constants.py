@@ -8,6 +8,8 @@ LIBRARY_ROOT = REPO_ROOT.parent / "aionoscope"
 RESULTS_ROOT = REPO_ROOT / "results"
 MODEL_RESULTS_ROOT = RESULTS_ROOT / "models"
 
+BENCHMARK_DEFAULT_CHANNEL_SIZE = 5000
+
 DATASET_CONFIG_PATH = REPO_ROOT / "configs" / "dataset_toyts_basic_components_balanced.yaml"
 PROBE_CONFIG_PATH = REPO_ROOT / "configs" / "probe.yaml"
 FOUNDATIONAL_MODELS_CONFIG_PATH = REPO_ROOT / "configs" / "models_foundational.yaml"
@@ -21,6 +23,7 @@ FOUNDATIONAL_MODELS = (
     "Chronos2",
     "LeNEPA-Aiono",
     "LeNEPA-CauKer2M",
+    "LeNEPA-CauKer-5k",
     "TTM",
     "Moirai",
     "Toto",

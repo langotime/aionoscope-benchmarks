@@ -552,6 +552,9 @@
       "models/MOMENT.json",
       "models/TiRex.json",
       "models/Chronos2.json",
+      "models/LeNEPA-Aiono.json",
+      "models/LeNEPA-CauKer2M.json",
+      "models/LeNEPA-CauKer-5k.json",
       "models/TTM.json",
       "models/Moirai.json",
       "models/Toto.json",
@@ -697,39 +700,88 @@
 
     function statValues(value) {
       if (isStatPayload(value)) {
-        return value.values.map((item) => Number(item));
+        return value.values.map((item) => {
+          if (item === null || item === undefined) {
+            return null;
+          }
+          const numeric = Number(item);
+          return Number.isFinite(numeric) ? numeric : null;
+        });
       }
-      return [Number(value)];
+      if (value === null || value === undefined) {
+        return [null];
+      }
+      const numeric = Number(value);
+      return [Number.isFinite(numeric) ? numeric : null];
     }
 
     function statMedian(value) {
-      return isStatPayload(value) ? Number(value.median) : Number(value);
+      if (isStatPayload(value)) {
+        if (value.median === null || value.median === undefined) {
+          return null;
+        }
+        const numeric = Number(value.median);
+        return Number.isFinite(numeric) ? numeric : null;
+      }
+      if (value === null || value === undefined) {
+        return null;
+      }
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric : null;
     }
 
     function statStd(value) {
-      return isStatPayload(value) ? Number(value.std) : 0;
+      if (isStatPayload(value)) {
+        if (value.std === null || value.std === undefined) {
+          return null;
+        }
+        const numeric = Number(value.std);
+        return Number.isFinite(numeric) ? numeric : null;
+      }
+      return value === null || value === undefined ? null : 0;
     }
 
     function makeSeedStatsFromValues(values) {
-      const numeric = values.map((value) => Number(value));
+      const numeric = values.map((value) => {
+        if (value === null || value === undefined) {
+          return null;
+        }
+        const cast = Number(value);
+        return Number.isFinite(cast) ? cast : null;
+      });
+      const finite = numeric.filter((value) => Number.isFinite(value));
       return {
         values: numeric,
-        median: median(numeric),
-        std: sampleStd(numeric),
-        n: numeric.length
+        median: finite.length ? median(finite) : null,
+        std: finite.length ? sampleStd(finite) : null,
+        n: numeric.length,
+        n_finite: finite.length
       };
     }
 
     function formatStatSummary(value) {
-      return `${formatMetricValue(statMedian(value))} ± ${formatMetricValue(statStd(value))}`;
+      const medianValue = statMedian(value);
+      const stdValue = statStd(value);
+      if (medianValue === null) {
+        return "N/A";
+      }
+      if (stdValue === null) {
+        return formatMetricValue(medianValue);
+      }
+      return `${formatMetricValue(medianValue)} ± ${formatMetricValue(stdValue)}`;
     }
 
     function formatMetricValue(value) {
-      return Number(value).toFixed(4);
+      if (value === null || value === undefined) {
+        return "N/A";
+      }
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric.toFixed(4) : "N/A";
     }
 
     function formatRadarGridValue(value) {
-      return Number(value).toFixed(2);
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric.toFixed(2) : "N/A";
     }
 
     function wrapCategoryLabel(value) {
@@ -791,10 +843,12 @@
         return Number(summary.best_auprc.layer);
       }
       if (selectorKey === "r2") {
-        return Number(summary.macro_best_layers.r2.layer);
+        return summary.macro_best_layers.r2.layer === null ? null : Number(summary.macro_best_layers.r2.layer);
       }
       if (selectorKey === "pearson") {
-        return Number(summary.macro_best_layers.pearson.layer);
+        return summary.macro_best_layers.pearson.layer === null
+          ? null
+          : Number(summary.macro_best_layers.pearson.layer);
       }
       throw new Error("Unsupported selector: " + selectorKey);
     }
@@ -837,26 +891,32 @@
         const seedCount = Math.max(...stats.map((value) => statValues(value).length));
         const perSeedGroupValues = [];
         for (let index = 0; index < seedCount; index += 1) {
-          const valuesAtSeed = stats.map((value) => {
-            const values = statValues(value);
-            if (values.length === 1 && seedCount > 1) {
-              return Number(values[0]);
-            }
-            if (values.length !== seedCount) {
-              throw new Error(
-                `Inconsistent validation-run counts while aggregating ${metricName} for ${groupKey}=${category}`
-              );
-            }
-            return Number(values[index]);
-          });
-          perSeedGroupValues.push(median(valuesAtSeed));
+          const valuesAtSeed = stats
+            .map((value) => {
+              const values = statValues(value);
+              if (values.length === 1 && seedCount > 1) {
+                return values[0];
+              }
+              if (values.length !== seedCount) {
+                throw new Error(
+                  `Inconsistent validation-run counts while aggregating ${metricName} for ${groupKey}=${category}`
+                );
+              }
+              return values[index];
+            })
+            .filter((value) => Number.isFinite(value));
+          perSeedGroupValues.push(valuesAtSeed.length ? median(valuesAtSeed) : null);
         }
         return makeSeedStatsFromValues(perSeedGroupValues);
       });
     }
 
     function clippedValue(value, minValue) {
-      return Math.max(Number(value), Number(minValue));
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) {
+        return null;
+      }
+      return Math.max(numeric, Number(minValue));
     }
 
     function getSelectedResults() {
@@ -886,7 +946,10 @@
     }
 
     function radarRange(modelToValues, forcedMin) {
-      const flat = Object.values(modelToValues).flat().map(Number);
+      const flat = Object.values(modelToValues)
+        .flat()
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value));
       let min = forcedMin !== null ? Number(forcedMin) : Math.min(...flat);
       let max = Math.max(...flat);
       if (!Number.isFinite(min)) {
@@ -947,11 +1010,18 @@
       results.forEach((result) => {
         const name = modelName(result);
         const layer = selectedLayerForResult(result, selectorKey);
+        if (layer === null) {
+          return;
+        }
         const { plottedValues, stats } = seriesBuilder(result, layer, categories);
         dataByModel[name] = plottedValues;
         statsByModel[name] = stats;
         layerByModel[name] = layer;
       });
+
+      if (!Object.keys(dataByModel).length) {
+        return emptyOption(title, "Selected best-layer rule produced no finite layers");
+      }
 
       const range = radarRange(dataByModel, forcedMin);
       const indicator = categories.map((category) => ({
@@ -974,8 +1044,9 @@
             const rows = categories.map((category, index) => {
               const raw = statMedian(stats[index]);
               const rawStd = statStd(stats[index]);
-              const plotted = Number(plottedValues[index]);
-              const clipped = Math.abs(raw - plotted) > 1e-12;
+              const plotted = plottedValues[index];
+              const clipped =
+                Number.isFinite(raw) && Number.isFinite(plotted) && Math.abs(raw - plotted) > 1e-12;
               return `${category}: ${formatMetricValue(raw)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plotted)})` : ""}`;
             });
             return [
@@ -1453,7 +1524,17 @@
         0.05,
         ...results.flatMap((result) => {
           const { stats } = metricStatsByLayer(result, "macro_r2");
-          return stats.map((value) => clippedValue(statMedian(value) + statStd(value), 0.0) * 1.05);
+          return stats
+            .map((value) => {
+              const medianValue = statMedian(value);
+              const stdValue = statStd(value);
+              if (!Number.isFinite(medianValue) || !Number.isFinite(stdValue)) {
+                return null;
+              }
+              const clipped = clippedValue(medianValue + stdValue, 0.0);
+              return Number.isFinite(clipped) ? clipped * 1.05 : null;
+            })
+            .filter((value) => Number.isFinite(value));
         })
       );
 

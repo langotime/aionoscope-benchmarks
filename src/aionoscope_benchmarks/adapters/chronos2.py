@@ -24,6 +24,8 @@ class Chronos2Adapter(FrozenTimeSeriesAdapter):
         self.model = pipe.model
         self.model.eval()
         self.num_layers = int(len(self.model.encoder.block)) + 1
+        self.benchmark_sequence_length = int(self.model.chronos_config.context_length)
+        self.benchmark_sequence_length_source = "chronos_config.context_length"
 
     @property
     def available_layers(self) -> tuple[int, ...]:
@@ -31,10 +33,12 @@ class Chronos2Adapter(FrozenTimeSeriesAdapter):
 
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
-        payload["context_length"] = int(self.model.chronos_config.context_length)
+        payload["context_length"] = int(self.benchmark_sequence_length)
         payload["input_patch_size"] = int(self.model.chronos_config.input_patch_size)
         payload["uses_reg_token"] = bool(self.model.chronos_config.use_reg_token)
-        payload["preprocess"] = "squeeze channel dimension; mean-pool non-output encoder tokens"
+        payload["preprocess"] = (
+            "expect exact model context length; squeeze channel dimension and mean-pool non-output encoder tokens"
+        )
         payload["layer_layout"] = (
             "layer 0 is the encoder input embedding stream; "
             "layers 1..N are encoder block outputs"
@@ -95,6 +99,7 @@ class Chronos2Adapter(FrozenTimeSeriesAdapter):
         layers: tuple[int, ...] | None = None,
     ) -> dict[int, torch.Tensor]:
         requested_layers = set(layers or self.available_layers)
+        self.validate_benchmark_input(x, channels=1)
         context = x[:, 0, :].to(dtype=torch.float32)
         input_embeds, attention_mask = self._build_encoder_inputs(context)
         batch_size, seq_length = input_embeds.shape[:2]

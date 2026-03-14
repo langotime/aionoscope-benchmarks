@@ -36,24 +36,71 @@ def _stat_payload(values: list[object], *, path: str) -> dict[str, object]:
     if not values:
         raise ValueError(f"Cannot aggregate empty numeric value list: path={path}")
     arr = np.asarray([float(value) for value in values], dtype=float)
-    if not np.all(np.isfinite(arr)):
-        bad = [float(value) for value in arr.tolist() if not np.isfinite(float(value))]
-        raise ValueError(f"Non-finite numeric values while aggregating {path}: {bad}")
-    std = float(np.std(arr, ddof=1)) if int(arr.size) >= 2 else 0.0
+    finite_mask = np.isfinite(arr)
+    finite_arr = arr[finite_mask]
+    serialized_values = [
+        float(value) if is_finite else None
+        for value, is_finite in zip(arr.tolist(), finite_mask.tolist(), strict=True)
+    ]
+    if int(finite_arr.size) < 1:
+        return {
+            "values": serialized_values,
+            "median": None,
+            "std": None,
+            "n": int(arr.size),
+            "n_finite": 0,
+        }
+    std = float(np.std(finite_arr, ddof=1)) if int(finite_arr.size) >= 2 else 0.0
     return {
-        "values": [float(value) for value in arr.tolist()],
-        "median": float(np.median(arr)),
+        "values": serialized_values,
+        "median": float(np.median(finite_arr)),
         "std": float(std),
         "n": int(arr.size),
+        "n_finite": int(finite_arr.size),
     }
 
 
-def _stat_median(value: object) -> float:
+def _stat_median_or_none(value: object) -> float | None:
     if _is_stat_payload(value):
-        return float(value["median"])
+        median = value["median"]
+        if median is None:
+            return None
+        median_value = float(median)
+        return median_value if np.isfinite(median_value) else None
+    if value is None:
+        return None
     if _is_numeric(value):
-        return float(value)
+        numeric_value = float(value)
+        return numeric_value if np.isfinite(numeric_value) else None
     raise TypeError(f"Expected numeric or stat payload, got {type(value).__name__}")
+
+
+def _stat_median(value: object) -> float:
+    median = _stat_median_or_none(value)
+    if median is None:
+        raise ValueError(f"Expected finite median value, got {value!r}")
+    return median
+
+
+def _select_best_layer(
+    *,
+    payload_by_layer: dict[int, dict[str, object]],
+    metric_getter,
+    direction: str,
+) -> int | None:
+    scored_layers: list[tuple[int, float]] = []
+    for layer, payload in payload_by_layer.items():
+        median = _stat_median_or_none(metric_getter(payload))
+        if median is None:
+            continue
+        scored_layers.append((int(layer), float(median)))
+    if not scored_layers:
+        return None
+    if direction == "max":
+        return max(scored_layers, key=lambda item: item[1])[0]
+    if direction == "min":
+        return min(scored_layers, key=lambda item: item[1])[0]
+    raise ValueError(f"Unsupported direction: {direction!r}")
 
 
 def _aggregate_tree(values: list[object], *, path: str) -> object:
@@ -202,14 +249,18 @@ def summarize_categorical(
     if not categorical_by_layer:
         raise ValueError("categorical_by_layer must be non-empty")
 
-    best_auc_layer = max(
-        categorical_by_layer,
-        key=lambda layer: _stat_median(categorical_by_layer[layer]["best_auc"]["macro_auc"]),
+    best_auc_layer = _select_best_layer(
+        payload_by_layer=categorical_by_layer,
+        metric_getter=lambda payload: payload["best_auc"]["macro_auc"],
+        direction="max",
     )
-    best_auprc_layer = max(
-        categorical_by_layer,
-        key=lambda layer: _stat_median(categorical_by_layer[layer]["best_auprc"]["macro_auprc"]),
+    best_auprc_layer = _select_best_layer(
+        payload_by_layer=categorical_by_layer,
+        metric_getter=lambda payload: payload["best_auprc"]["macro_auprc"],
+        direction="max",
     )
+    if best_auc_layer is None or best_auprc_layer is None:
+        raise ValueError("Categorical summaries require at least one finite AUROC/AUPRC layer")
     best_auc = copy.deepcopy(categorical_by_layer[best_auc_layer]["best_auc"])
     best_auprc = copy.deepcopy(categorical_by_layer[best_auprc_layer]["best_auprc"])
     best_auc["layer"] = int(best_auc_layer)
@@ -217,18 +268,18 @@ def summarize_categorical(
 
     oracle_by_signal = []
     for signal in class_names:
-        auroc_layer = max(
-            categorical_by_layer,
-            key=lambda layer: _stat_median(
-                categorical_by_layer[layer]["best_auc"]["per_class_auc"][signal]
-            ),
+        auroc_layer = _select_best_layer(
+            payload_by_layer=categorical_by_layer,
+            metric_getter=lambda payload, signal=signal: payload["best_auc"]["per_class_auc"][signal],
+            direction="max",
         )
-        auprc_layer = max(
-            categorical_by_layer,
-            key=lambda layer: _stat_median(
-                categorical_by_layer[layer]["best_auprc"]["per_class_auprc"][signal]
-            ),
+        auprc_layer = _select_best_layer(
+            payload_by_layer=categorical_by_layer,
+            metric_getter=lambda payload, signal=signal: payload["best_auprc"]["per_class_auprc"][signal],
+            direction="max",
         )
+        if auroc_layer is None or auprc_layer is None:
+            raise ValueError(f"Categorical summaries require finite per-class metrics for signal={signal!r}")
         oracle_by_signal.append(
             {
                 "signal": signal,
@@ -275,16 +326,16 @@ def summarize_dense(
             key = f"per_target_{metric_name}"
             if key not in reference_layer:
                 continue
-            if direction == "max":
-                best_layer = max(
-                    dense_by_layer,
-                    key=lambda layer: _stat_median(dense_by_layer[layer][key][target_name]),
-                )
-            else:
-                best_layer = min(
-                    dense_by_layer,
-                    key=lambda layer: _stat_median(dense_by_layer[layer][key][target_name]),
-                )
+            best_layer = _select_best_layer(
+                payload_by_layer=dense_by_layer,
+                metric_getter=lambda payload, key=key, target_name=target_name: payload[key][target_name],
+                direction=direction,
+            )
+            if best_layer is None:
+                record[metric_name] = None
+                record[f"{metric_name}_layer"] = None
+                record[f"{metric_name}_best_step"] = None
+                continue
             record[metric_name] = copy.deepcopy(dense_by_layer[best_layer][key][target_name])
             record[f"{metric_name}_layer"] = int(best_layer)
             record[f"{metric_name}_best_step"] = copy.deepcopy(
@@ -297,10 +348,17 @@ def summarize_dense(
         macro_key = f"macro_{metric_name}"
         if macro_key not in reference_layer:
             continue
-        if direction == "max":
-            best_layer = max(dense_by_layer, key=lambda layer: _stat_median(dense_by_layer[layer][macro_key]))
-        else:
-            best_layer = min(dense_by_layer, key=lambda layer: _stat_median(dense_by_layer[layer][macro_key]))
+        best_layer = _select_best_layer(
+            payload_by_layer=dense_by_layer,
+            metric_getter=lambda payload, macro_key=macro_key: payload[macro_key],
+            direction=direction,
+        )
+        if best_layer is None:
+            macro_best_layers[metric_name] = {
+                "layer": None,
+                "value": None,
+            }
+            continue
         macro_best_layers[metric_name] = {
             "layer": int(best_layer),
             "value": copy.deepcopy(dense_by_layer[best_layer][macro_key]),
@@ -398,7 +456,11 @@ def aggregate_dense_values_by_group(
     values = []
     for category in categories:
         category_values = [
-            _stat_median(row[metric_name]) for row in rows if str(row[group_key]) == category
+            median
+            for row in rows
+            if str(row[group_key]) == category
+            for median in [_stat_median_or_none(row[metric_name])]
+            if median is not None
         ]
         if not category_values:
             raise ValueError(

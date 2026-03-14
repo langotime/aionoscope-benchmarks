@@ -68,7 +68,10 @@ class DatasetManifest:
     view_name: str
     sampling_frequency: int
     channels: list[str]
+    default_channel_size: int
     channel_size: int
+    channel_size_policy: str
+    channel_size_source: str
     train_seed: int
     validation_seed_values: list[int]
     validation_seed_offset: int
@@ -529,6 +532,9 @@ def build_runtime_splits_by_validation_seed(
     config_path: Path = DATASET_CONFIG_PATH,
     device: torch.device | None = None,
     batch_size: int = 256,
+    channel_size_override: int | None = None,
+    channel_size_policy_override: str | None = None,
+    channel_size_source_override: str | None = None,
     train_batches: int | None = None,
     val_batches: int | None = None,
     validation_seed_values: list[int] | None = None,
@@ -545,7 +551,29 @@ def build_runtime_splits_by_validation_seed(
     dense_target_specs = _build_dense_target_specs(dense_targets_cfg)
 
     sampling_frequency = _require_int(cfg, "sampling_frequency")
-    channel_size = _require_int(cfg, "channel_size")
+    default_channel_size = _require_int(cfg, "default_channel_size")
+    channel_size_policy = str(cfg.get("channel_size_policy", "fixed_config")).strip()
+    if not channel_size_policy:
+        raise ValueError("channel_size_policy must be a non-empty string")
+    resolved_channel_size = int(channel_size_override) if channel_size_override is not None else int(default_channel_size)
+    if resolved_channel_size <= 0:
+        raise ValueError(
+            f"resolved channel_size must be > 0, got {resolved_channel_size}"
+        )
+    resolved_channel_size_policy = (
+        str(channel_size_policy_override).strip()
+        if channel_size_policy_override is not None
+        else channel_size_policy
+    )
+    if not resolved_channel_size_policy:
+        raise ValueError("resolved channel_size_policy must be a non-empty string")
+    resolved_channel_size_source = (
+        str(channel_size_source_override).strip()
+        if channel_size_source_override is not None
+        else ("runtime.channel_size_override" if channel_size_override is not None else "config.default_channel_size")
+    )
+    if not resolved_channel_size_source:
+        raise ValueError("resolved channel_size_source must be a non-empty string")
     channels = cfg.get("channels")
     if not isinstance(channels, list) or not channels:
         raise ValueError("channels must be a non-empty list")
@@ -611,7 +639,10 @@ def build_runtime_splits_by_validation_seed(
         view_name=view_name,
         sampling_frequency=int(sampling_frequency),
         channels=[str(channel) for channel in channels],
-        channel_size=int(channel_size),
+        default_channel_size=int(default_channel_size),
+        channel_size=int(resolved_channel_size),
+        channel_size_policy=resolved_channel_size_policy,
+        channel_size_source=resolved_channel_size_source,
         train_seed=int(train_seed),
         validation_seed_values=list(resolved_validation_seed_values),
         validation_seed_offset=int(resolved_validation_seed_offset),
@@ -634,7 +665,7 @@ def build_runtime_splits_by_validation_seed(
     )
 
     pipeline = _build_basic_components_pipeline(
-        seq_len=int(channel_size),
+        seq_len=int(resolved_channel_size),
         sample_rate_hz=float(sampling_frequency),
         view_name=view_name,
         component_keys=component_keys,
@@ -652,7 +683,7 @@ def build_runtime_splits_by_validation_seed(
         class_names=component_keys,
         dense_targets_cfg=dense_targets_cfg,
         dense_target_names=dense_target_names,
-        seq_len=int(channel_size),
+        seq_len=int(resolved_channel_size),
         show_progress_bar=show_progress_bar,
         progress_callback=progress_callback,
     )
@@ -673,7 +704,7 @@ def build_runtime_splits_by_validation_seed(
             class_names=component_keys,
             dense_targets_cfg=dense_targets_cfg,
             dense_target_names=dense_target_names,
-            seq_len=int(channel_size),
+            seq_len=int(resolved_channel_size),
             show_progress_bar=show_progress_bar,
             progress_callback=progress_callback,
         )
@@ -685,6 +716,9 @@ def build_runtime_splits(
     config_path: Path = DATASET_CONFIG_PATH,
     device: torch.device | None = None,
     batch_size: int = 256,
+    channel_size_override: int | None = None,
+    channel_size_policy_override: str | None = None,
+    channel_size_source_override: str | None = None,
     train_batches: int | None = None,
     val_batches: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, torch.Tensor], dict[str, torch.Tensor]]:
@@ -692,6 +726,9 @@ def build_runtime_splits(
         config_path=config_path,
         device=device,
         batch_size=batch_size,
+        channel_size_override=channel_size_override,
+        channel_size_policy_override=channel_size_policy_override,
+        channel_size_source_override=channel_size_source_override,
         train_batches=train_batches,
         val_batches=val_batches,
         show_progress_bar=False,
@@ -719,6 +756,12 @@ def _parse_args() -> argparse.Namespace:
         type=int,
         default=256,
         help="Probe batch size used to materialize the finite runtime split",
+    )
+    parser.add_argument(
+        "--channel-size",
+        type=int,
+        default=None,
+        help="Optional exact sequence length override for online dataset generation",
     )
     parser.add_argument(
         "--train-batches",
@@ -755,6 +798,9 @@ def main() -> None:
         config_path=args.config,
         device=torch.device(str(args.device)),
         batch_size=int(args.batch_size),
+        channel_size_override=args.channel_size,
+        channel_size_policy_override=("cli_exact_override" if args.channel_size is not None else None),
+        channel_size_source_override=("dataset_snapshot_cli" if args.channel_size is not None else None),
         train_batches=args.train_batches,
         val_batches=args.val_batches,
         validation_seed_values=args.validation_seed_values,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import torch
 
+from ..constants import BENCHMARK_DEFAULT_CHANNEL_SIZE
 from .base import FrozenTimeSeriesAdapter
 from .tivit_common import sqrt_patch_size_for_length, timeseries_to_clip_images
 
@@ -26,6 +27,8 @@ class TiViTHAdapter(FrozenTimeSeriesAdapter):
         self.image_size = int(self.model.config.image_size)
         self.stride_fraction = 0.1
         self.aggregation = "mean"
+        self.benchmark_sequence_length = int(BENCHMARK_DEFAULT_CHANNEL_SIZE)
+        self.benchmark_sequence_length_source = "benchmark_default_channel_size"
 
     @property
     def available_layers(self) -> tuple[int, ...]:
@@ -38,7 +41,7 @@ class TiViTHAdapter(FrozenTimeSeriesAdapter):
         payload["stride_fraction"] = float(self.stride_fraction)
         payload["image_size"] = int(self.image_size)
         payload["preprocess"] = (
-            "TiViT ts2image transform with robust scaling, sqrt patch size, stride 0.1, "
+            "TiViT ts2image transform on the exact benchmark waveform with robust scaling, sqrt patch size, stride 0.1, "
             "and CLIP mean/std normalization"
         )
         payload["layer_layout"] = (
@@ -54,6 +57,7 @@ class TiViTHAdapter(FrozenTimeSeriesAdapter):
         layers: tuple[int, ...] | None = None,
     ) -> dict[int, torch.Tensor]:
         requested_layers = tuple(int(layer) for layer in (layers or self.available_layers))
+        self.validate_benchmark_input(x)
         patch_size = sqrt_patch_size_for_length(int(x.size(-1)))
         images, num_channels = timeseries_to_clip_images(
             x,

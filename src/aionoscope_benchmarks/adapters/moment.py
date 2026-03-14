@@ -22,6 +22,8 @@ class MomentAdapter(FrozenTimeSeriesAdapter):
         self.model = MOMENTPipeline.from_pretrained(self.checkpoint)
         self.model.eval()
         self.num_layers = int(len(self.model.encoder.block)) + 1
+        self.benchmark_sequence_length = int(self.model.config.seq_len)
+        self.benchmark_sequence_length_source = "moment_config.seq_len"
 
     @property
     def available_layers(self) -> tuple[int, ...]:
@@ -34,6 +36,7 @@ class MomentAdapter(FrozenTimeSeriesAdapter):
         layers: tuple[int, ...] | None = None,
     ) -> dict[int, torch.Tensor]:
         requested_layers = tuple(int(layer) for layer in (layers or self.available_layers))
+        self.validate_benchmark_input(x, channels=1)
         batch_size, n_channels, seq_len = x.shape
         input_mask = torch.ones((batch_size, seq_len), device=x.device, dtype=torch.long)
 
@@ -67,6 +70,9 @@ class MomentAdapter(FrozenTimeSeriesAdapter):
 
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
+        payload["seq_len"] = int(self.benchmark_sequence_length)
+        payload["patch_len"] = int(self.model.patch_len)
+        payload["preprocess"] = "expect exact MOMENT seq_len; tokenize and mean-pool valid patch tokens"
         payload["layer_layout"] = (
             "layer 0 is the encoder input embedding stream; "
             "layers 1..N are transformer block outputs"

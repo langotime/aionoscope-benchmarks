@@ -29,6 +29,8 @@ class _LeNEPABaseAdapter(FrozenTimeSeriesAdapter):
         self.module = self._load_inference_module(inference_path)
         self.model = self._load_model(weights_path)
         self.num_blocks = int(len(self.model.blocks))
+        self.benchmark_sequence_length = int(self.config["channel_size"])
+        self.benchmark_sequence_length_source = "published_encoder_config.channel_size"
         config_depth = int(self.config["depth"])
         if self.num_blocks != config_depth:
             raise ValueError(
@@ -52,7 +54,7 @@ class _LeNEPABaseAdapter(FrozenTimeSeriesAdapter):
         payload["tokenizer"] = str(self.config.get("nepa_static_tokenizer", "conv_patch_embed"))
         if "nepa_patch_embed_scalar_stats_mode" in self.config:
             payload["patch_stats_mode"] = str(self.config["nepa_patch_embed_scalar_stats_mode"])
-        payload["preprocess"] = "pass through benchmark waveform; benchmark already supplies [B,1,5000]"
+        payload["preprocess"] = "pass through exact published benchmark waveform without temporal length normalization"
         payload["layer_layout"] = (
             "layer 0 is the mean-pooled tokenizer output; "
             "layers 1..N-1 are mean-pooled patch tokens after transformer blocks 1..N-1; "
@@ -118,17 +120,8 @@ class _LeNEPABaseAdapter(FrozenTimeSeriesAdapter):
         return model
 
     def _validate_inputs(self, x: torch.Tensor) -> None:
-        if x.dim() != 3:
-            raise ValueError(
-                f"{self.model_name} expects input [B, C, L], got {tuple(x.shape)}"
-            )
         expected_channels = len(self.config["channels"])
-        expected_length = int(self.config["channel_size"])
-        if int(x.shape[1]) != expected_channels or int(x.shape[2]) != expected_length:
-            raise ValueError(
-                f"{self.model_name} expects [B, {expected_channels}, {expected_length}], "
-                f"got {tuple(x.shape)}"
-            )
+        self.validate_benchmark_input(x, channels=expected_channels)
 
     def _tokenize(self, x: torch.Tensor) -> torch.Tensor:
         tokenize = getattr(self.model, "_tokenize", None)
@@ -178,4 +171,12 @@ class LeNEPACauKer2MAdapter(_LeNEPABaseAdapter):
     model_slug = "LeNEPA-CauKer2M"
     source = "https://huggingface.co/Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256-steps200k"
     checkpoint = "Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256-steps200k"
+    default_encode_batch_size = 64
+
+
+class LeNEPACauKer5KAdapter(_LeNEPABaseAdapter):
+    model_name = "LeNEPA-CauKer-5k"
+    model_slug = "LeNEPA-CauKer-5k"
+    source = "https://huggingface.co/Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256"
+    checkpoint = "Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256"
     default_encode_batch_size = 64

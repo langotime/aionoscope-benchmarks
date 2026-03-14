@@ -23,6 +23,8 @@ class MoiraiAdapter(FrozenTimeSeriesAdapter):
         self.model = MoiraiModule.from_pretrained(self.checkpoint)
         self.model.eval()
         self.context_length = int(self.model.max_seq_len)
+        self.benchmark_sequence_length = int(self.context_length)
+        self.benchmark_sequence_length_source = "model.max_seq_len"
         self.patch_size = int(min(self.model.patch_sizes))
         self.helper = MoiraiForecast(
             prediction_length=1,
@@ -45,7 +47,7 @@ class MoiraiAdapter(FrozenTimeSeriesAdapter):
         payload["patch_size"] = int(self.patch_size)
         payload["patch_sizes"] = [int(size) for size in self.model.patch_sizes]
         payload["preprocess"] = (
-            "transpose to [B,T,C]; crop to last max_seq_len or left-pad with zeros; "
+            "expect exact model context length; transpose to [B,T,C]; "
             "pack tokens with MoiraiForecast._convert; mean-pool observed non-prediction tokens"
         )
         payload["layer_layout"] = (
@@ -58,32 +60,13 @@ class MoiraiAdapter(FrozenTimeSeriesAdapter):
         self,
         x: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self.validate_benchmark_input(x, channels=1)
         past_target = x.transpose(1, 2).to(dtype=torch.float32)
         batch_size, seq_len, channels = past_target.shape
         if channels != 1:
             raise ValueError(f"Moirai adapter currently expects 1 channel, got {channels}")
-        if seq_len > self.context_length:
-            past_target = past_target[:, -self.context_length :, :]
-            past_observed_target = torch.ones_like(past_target, dtype=torch.bool)
-            past_is_pad = torch.zeros(batch_size, self.context_length, dtype=torch.bool, device=past_target.device)
-        elif seq_len < self.context_length:
-            pad_len = self.context_length - seq_len
-            pad = torch.zeros(batch_size, pad_len, channels, dtype=past_target.dtype, device=past_target.device)
-            pad_mask = torch.zeros(batch_size, pad_len, channels, dtype=torch.bool, device=past_target.device)
-            pad_is_pad = torch.ones(batch_size, pad_len, dtype=torch.bool, device=past_target.device)
-            observed = torch.ones_like(past_target, dtype=torch.bool)
-            past_target = torch.cat([pad, past_target], dim=1)
-            past_observed_target = torch.cat([pad_mask, observed], dim=1)
-            past_is_pad = torch.cat(
-                [
-                    pad_is_pad,
-                    torch.zeros(batch_size, seq_len, dtype=torch.bool, device=past_target.device),
-                ],
-                dim=1,
-            )
-        else:
-            past_observed_target = torch.ones_like(past_target, dtype=torch.bool)
-            past_is_pad = torch.zeros(batch_size, self.context_length, dtype=torch.bool, device=past_target.device)
+        past_observed_target = torch.ones_like(past_target, dtype=torch.bool)
+        past_is_pad = torch.zeros(batch_size, self.context_length, dtype=torch.bool, device=past_target.device)
         return past_target, past_observed_target, past_is_pad
 
     def forward_layer_dict(
