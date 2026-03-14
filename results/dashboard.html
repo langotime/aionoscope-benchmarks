@@ -1070,7 +1070,15 @@
       return { layers, stats };
     }
 
-    function lineSeriesGroup(result, metricKey, selectorKey) {
+    function lineLayerCategories(results, metricKey) {
+      return Array.from(
+        new Set(
+          results.flatMap((result) => metricStatsByLayer(result, metricKey).layers.map((layer) => String(layer)))
+        )
+      ).sort((left, right) => Number(left) - Number(right));
+    }
+
+    function lineSeriesGroup(result, metricKey, selectorKey, layerCategories) {
       const name = modelName(result);
       const color = colorForModel(name);
       const selectedLayer = selectedLayerForResult(result, selectorKey);
@@ -1080,23 +1088,50 @@
       const clippedMetric = metricKey === "macro_r2";
       const plottedMedians = medians.map((value) => (clippedMetric ? clippedValue(value, 0.0) : value));
       const plottedLowers = medians.map((value, index) => {
+        if (!Number.isFinite(value) || !Number.isFinite(stds[index])) {
+          return null;
+        }
         const lower = value - stds[index];
         return clippedMetric ? clippedValue(lower, 0.0) : lower;
       });
       const plottedUppers = medians.map((value, index) => {
+        if (!Number.isFinite(value) || !Number.isFinite(stds[index])) {
+          return null;
+        }
         const upper = value + stds[index];
         return clippedMetric ? clippedValue(upper, 0.0) : upper;
       });
-      const bandDelta = plottedUppers.map((value, index) => Math.max(0, value - plottedLowers[index]));
+      const bandDelta = plottedUppers.map((value, index) => {
+        if (!Number.isFinite(value) || !Number.isFinite(plottedLowers[index])) {
+          return null;
+        }
+        return Math.max(0, value - plottedLowers[index]);
+      });
       const stackName = `band:${name}:${metricKey}`;
+      const layerPayloadByKey = new Map(
+        layers.map((layer, index) => [
+          String(layer),
+          {
+            stat: stats[index],
+            rawValue: medians[index],
+            rawStd: stds[index],
+            plottedValue: plottedMedians[index],
+            plottedLower: plottedLowers[index],
+            bandDelta: bandDelta[index],
+            isSelected: Number(layer) === Number(selectedLayer)
+          }
+        ])
+      );
 
       return [
         {
           name: `${name} lower`,
           type: "line",
           stack: stackName,
+          stackStrategy: "all",
           symbol: "none",
           silent: true,
+          z: 1,
           lineStyle: {
             opacity: 0
           },
@@ -1106,14 +1141,19 @@
           tooltip: {
             show: false
           },
-          data: layers.map((layer, index) => [layer, plottedLowers[index]])
+          data: layerCategories.map((layerKey) => {
+            const payload = layerPayloadByKey.get(layerKey);
+            return payload ? payload.plottedLower : null;
+          })
         },
         {
           name: `${name} std`,
           type: "line",
           stack: stackName,
+          stackStrategy: "all",
           symbol: "none",
           silent: true,
+          z: 1,
           lineStyle: {
             opacity: 0
           },
@@ -1123,7 +1163,10 @@
           tooltip: {
             show: false
           },
-          data: layers.map((layer, index) => [layer, bandDelta[index]])
+          data: layerCategories.map((layerKey) => {
+            const payload = layerPayloadByKey.get(layerKey);
+            return payload ? payload.bandDelta : null;
+          })
         },
         {
           name,
@@ -1131,6 +1174,7 @@
           smooth: false,
           showSymbol: true,
           symbolSize: 6,
+          z: 2,
           emphasis: {
             focus: "series"
           },
@@ -1141,22 +1185,22 @@
           itemStyle: {
             color
           },
-          data: layers.map((layer, index) => {
-            const stat = stats[index];
-            const rawValue = medians[index];
-            const plottedValue = plottedMedians[index];
-            const isSelected = Number(layer) === Number(selectedLayer);
+          data: layerCategories.map((layerKey) => {
+            const payload = layerPayloadByKey.get(layerKey);
+            if (!payload) {
+              return null;
+            }
             return {
-              value: [layer, plottedValue],
-              rawValue,
-              rawStd: stds[index],
-              rawStat: stat,
+              value: payload.plottedValue,
+              rawValue: payload.rawValue,
+              rawStd: payload.rawStd,
+              rawStat: payload.stat,
               selectedLayer,
-              symbolSize: isSelected ? 11 : 5,
+              symbolSize: payload.isSelected ? 11 : 5,
               itemStyle: {
                 color,
                 borderColor: "#ffffff",
-                borderWidth: isSelected ? 2 : 0
+                borderWidth: payload.isSelected ? 2 : 0
               }
             };
           })
@@ -1168,6 +1212,7 @@
       if (!results.length) {
         return emptyOption(title, "No models selected");
       }
+      const layerCategories = lineLayerCategories(results, metricKey);
 
       return {
         animationDuration: 250,
@@ -1194,7 +1239,7 @@
               .map((param) => {
                 const rawValue = Number(param.data.rawValue);
                 const rawStd = Number(param.data.rawStd || 0);
-                const plottedValue = Number(param.data.value[1]);
+                const plottedValue = Number(param.data.value);
                 const clipped = Math.abs(rawValue - plottedValue) > 1e-12;
                 const selectedSuffix =
                   Number(param.data.selectedLayer) === Number(axisValue) ? " [selected layer]" : "";
@@ -1212,11 +1257,12 @@
           }
         },
         xAxis: {
-          type: "value",
+          type: "category",
+          boundaryGap: false,
+          data: layerCategories,
           name: "Layer",
           nameLocation: "middle",
           nameGap: 28,
-          minInterval: 1,
           axisLabel: {
             color: "#4f5d74"
           },
@@ -1240,7 +1286,7 @@
             }
           }
         },
-        series: results.flatMap((result) => lineSeriesGroup(result, metricKey, selectorKey))
+        series: results.flatMap((result) => lineSeriesGroup(result, metricKey, selectorKey, layerCategories))
       };
     }
 
