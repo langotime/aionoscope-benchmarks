@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Aionoscope Benchmarks Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/v4-shims.min.css">
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <style>
     :root {
@@ -23,29 +25,148 @@
       --chip-selected: #e9f6f4;
       --chip-selected-border: #89d6cd;
       --grid-gap: 18px;
+      --sidebar-width: 340px;
     }
 
     * {
       box-sizing: border-box;
     }
 
+    html {
+      height: 100%;
+    }
+
     body {
       margin: 0;
+      min-height: 100%;
       font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
       background:
         radial-gradient(circle at top left, rgba(15, 118, 110, 0.10), transparent 28%),
         linear-gradient(180deg, #eef4f6 0%, #f5f6f8 18%, #f5f6f8 100%);
       color: var(--text);
+      overflow: hidden;
     }
 
     a {
       color: inherit;
     }
 
+    .app-shell {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      gap: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .sidebar-shell {
+      min-width: 0;
+      height: 100%;
+      position: relative;
+      z-index: 20;
+      overflow-y: auto;
+    }
+
+    .sidebar-panel {
+      min-height: 100%;
+      padding: 20px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .sidebar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .sidebar-kicker {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .sidebar-title {
+      margin: 0;
+      font-size: 1.2rem;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+
+    .sidebar-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      min-width: 34px;
+      min-height: 34px;
+      padding: 0;
+      font-size: 0.92rem;
+      line-height: 1;
+    }
+
+    .sidebar-body {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .sidebar-models {
+      display: block;
+    }
+
+    .sidebar-section .help-text {
+      margin-bottom: 0;
+    }
+
+    .sidebar-open-button {
+      display: none;
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 30;
+      width: 34px;
+      min-width: 34px;
+      min-height: 34px;
+      padding: 0;
+      font-size: 0.92rem;
+      line-height: 1;
+      box-shadow: var(--panel-shadow);
+    }
+
+    .sidebar-backdrop {
+      display: none;
+    }
+
+    .sidebar-open-button .fa,
+    .sidebar-close .fa {
+      pointer-events: none;
+    }
+
+    .main-pane {
+      min-width: 0;
+      height: 100%;
+      overflow-y: auto;
+      padding: 0 18px 24px 18px;
+    }
+
     .page {
-      max-width: 1680px;
-      margin: 0 auto;
-      padding: 28px 24px 48px;
+      max-width: none;
+      margin: 0;
+      padding: 4px 0 48px;
     }
 
     .hero {
@@ -60,6 +181,11 @@
       border: 1px solid var(--panel-border);
       border-radius: 18px;
       box-shadow: var(--panel-shadow);
+    }
+
+    .panel.sidebar-panel {
+      border-radius: 0;
+      box-shadow: none;
     }
 
     .hero-card {
@@ -108,16 +234,9 @@
       letter-spacing: -0.02em;
     }
 
-    .controls {
+    .info-panel {
       padding: 18px 20px 20px;
       margin-bottom: 20px;
-    }
-
-    .controls-top {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 14px;
     }
 
     .control-block {
@@ -201,10 +320,8 @@
 
     .model-picker {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      grid-template-columns: 1fr;
       gap: 10px;
-      max-height: 360px;
-      overflow: auto;
       padding-right: 6px;
     }
 
@@ -331,33 +448,99 @@
       font-size: 0.92em;
     }
 
-    @media (max-width: 1240px) {
+    @media (max-width: 1360px) {
       .chart-grid-radar {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
-    @media (max-width: 1024px) {
+    @media (max-width: 1180px) {
       .hero {
         grid-template-columns: 1fr;
       }
 
-      .controls-top {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .chart-grid-radar,
       .chart-grid-line {
         grid-template-columns: 1fr;
       }
     }
 
-    @media (max-width: 680px) {
-      .page {
+    body.sidebar-collapsed .app-shell {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    body.sidebar-collapsed .sidebar-shell {
+      display: none;
+    }
+
+    body.sidebar-collapsed .sidebar-open-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    body.sidebar-collapsed .page {
+      padding-top: 52px;
+    }
+
+    @media (max-width: 960px) {
+      .app-shell {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+      }
+
+      .sidebar-shell {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: min(86vw, 360px);
+        padding: 0;
+        transform: translateX(-100%);
+        transition: transform 180ms ease;
+      }
+
+      body.sidebar-open .sidebar-shell {
+        transform: translateX(0);
+      }
+
+      .sidebar-open-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      body.sidebar-open .sidebar-open-button {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.32);
+        backdrop-filter: blur(1px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease;
+        z-index: 15;
+      }
+
+      body.sidebar-open .sidebar-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .main-pane {
+        height: 100vh;
         padding: 18px 14px 32px;
       }
 
-      .controls-top,
+      .page {
+        padding: 42px 0 0;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .chart-grid-radar,
       .summary-grid {
         grid-template-columns: 1fr;
       }
@@ -365,182 +548,220 @@
   </style>
 </head>
 <body>
-  <div class="page">
-    <section class="hero">
-      <div class="panel hero-card">
-        <h1>Aionoscope Foundational Benchmark Dashboard</h1>
-        <p>
-          Single-page ECharts view over the frozen-feature offline-probe JSON outputs in
-          <code>results/models/</code>. The page computes the same 6 radar panels and 4 layer
-          curves in browser-side JavaScript, without calling the Python plotting code. When JSONs
-          contain repeated validation runs, the charts use <code>median ± std</code> across the
-          validation-seed pool.
-        </p>
-      </div>
-      <div class="panel hero-card">
-        <div class="summary-grid">
-          <div class="summary-card">
-            <span class="summary-label">Loaded JSON files</span>
-            <span class="summary-value" id="summary-loaded">0</span>
+  <button
+    id="sidebar-open-button"
+    class="sidebar-open-button button-primary"
+    type="button"
+    aria-controls="dashboard-sidebar"
+    aria-expanded="false"
+    aria-label="Show filters"
+    title="Show filters"
+  >
+    <i class="fa fa-angle-double-right" aria-hidden="true"></i>
+  </button>
+  <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+  <div class="app-shell">
+    <aside id="dashboard-sidebar" class="sidebar-shell" aria-label="Dashboard controls">
+      <section class="panel sidebar-panel">
+        <div class="sidebar-header">
+          <div>
+            <span class="sidebar-kicker">Controls</span>
+            <h2 class="sidebar-title">Model comparison</h2>
           </div>
-          <div class="summary-card">
-            <span class="summary-label">Selected models</span>
-            <span class="summary-value" id="summary-selected">0</span>
-          </div>
-          <div class="summary-card">
-            <span class="summary-label">Best layer selector</span>
-            <span class="summary-value" id="summary-selector">Best AUROC</span>
-          </div>
-          <div class="summary-card">
-            <span class="summary-label">JSON discovery mode</span>
-            <span class="summary-value" id="summary-source">Loading…</span>
-          </div>
+          <button
+            id="sidebar-close"
+            class="sidebar-close"
+            type="button"
+            aria-controls="dashboard-sidebar"
+            aria-expanded="true"
+            aria-label="Hide filters"
+            title="Hide filters"
+          >
+            <i class="fa fa-angle-double-left" aria-hidden="true"></i>
+          </button>
         </div>
-      </div>
-    </section>
 
-    <section class="panel controls">
-      <div class="controls-top">
-        <div class="control-block">
-          <label class="control-label" for="best-layer-selector">Best layer selector</label>
-          <select id="best-layer-selector">
-            <option value="auroc">Best AUROC layer</option>
-            <option value="auprc">Best AUPRC layer</option>
-            <option value="r2">Best R2 layer</option>
-            <option value="pearson">Best Pearson layer</option>
-          </select>
-        </div>
-        <div class="control-block">
-          <label class="control-label" for="model-search">Filter models</label>
-          <input id="model-search" type="search" placeholder="Search by model name">
-        </div>
-        <div class="control-block">
-          <span class="control-label">Selection</span>
-          <div class="button-row">
-            <button id="select-all" class="button-primary" type="button">Select all</button>
-            <button id="select-none" type="button">Clear all</button>
-            <button id="select-visible" type="button">Select visible</button>
+        <div class="sidebar-body">
+          <div class="sidebar-section control-block">
+            <label class="control-label" for="best-layer-selector">Best layer selector</label>
+            <select id="best-layer-selector">
+              <option value="auroc">Best AUROC layer</option>
+              <option value="auprc">Best AUPRC layer</option>
+              <option value="r2">Best R2 layer</option>
+              <option value="pearson">Best Pearson layer</option>
+            </select>
+          </div>
+
+          <div class="sidebar-section control-block">
+            <label class="control-label" for="model-search">Filter models</label>
+            <input id="model-search" type="search" placeholder="Search by model name">
+          </div>
+
+          <div class="sidebar-section control-block">
+            <span class="control-label">Selection</span>
+            <div class="button-row">
+              <button id="select-all" class="button-primary" type="button">Select all</button>
+              <button id="select-none" type="button">Clear all</button>
+            </div>
+          </div>
+
+          <div class="sidebar-section">
+            <span class="control-label">Model selector</span>
+            <p class="help-text">
+              Search narrows the list. Use the checkboxes to refine the current selection.
+            </p>
+          </div>
+
+          <div class="sidebar-section sidebar-models">
+            <div id="model-picker" class="model-picker"></div>
           </div>
         </div>
-        <div class="control-block">
-          <span class="control-label">Notes</span>
-          <div class="help-text">
+      </section>
+    </aside>
+
+    <main class="main-pane">
+      <div class="page">
+        <section class="hero">
+          <div class="panel hero-card">
+            <h1>Aionoscope Foundational Benchmark Dashboard</h1>
+            <p>
+              Single-page ECharts view over the frozen-feature offline-probe JSON outputs in
+              <code>results/models/</code>. The page computes the same 6 radar panels and 4 layer
+              curves in browser-side JavaScript, without calling the Python plotting code. When
+              JSONs contain repeated validation runs, the charts use <code>median ± std</code>
+              across the validation-seed pool.
+            </p>
+          </div>
+          <div class="panel hero-card">
+            <div class="summary-grid">
+              <div class="summary-card">
+                <span class="summary-label">Loaded JSON files</span>
+                <span class="summary-value" id="summary-loaded">0</span>
+              </div>
+              <div class="summary-card">
+                <span class="summary-label">Selected models</span>
+                <span class="summary-value" id="summary-selected">0</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel info-panel">
+          <div id="status-banner" class="status-banner">
+            Loading JSON results…
+          </div>
+
+          <p class="help-text">
             Radar charts use the current best-layer rule and plot the median across validation
             runs. Layer curves show the median line with a shaded <code>± std</code> band, and
             the current best layer is highlighted with a larger point.
-          </div>
-        </div>
-      </div>
+          </p>
 
-      <div id="status-banner" class="status-banner">
-        Loading JSON results…
-      </div>
+          <p class="help-text">
+            Negative R2 values are clipped to <code>0</code> in the radar and layer-curve plots
+            only, matching the benchmark visualization convention. Tooltips still show the raw
+            unclipped R2 median together with its standard deviation. Standard deviation uses
+            sample <code>ddof=1</code> when multiple validation runs are present. For automatic
+            JSON discovery, serve this repo with a static file server so the browser can fetch
+            <code>results/models/</code>.
+          </p>
+        </section>
 
-      <p class="help-text">
-        Negative R2 values are clipped to <code>0</code> in the radar and layer-curve plots only,
-        matching the benchmark visualization convention. Tooltips still show the raw unclipped R2
-        median together with its standard deviation. Standard deviation uses sample
-        <code>ddof=1</code> when multiple validation runs are present. For automatic JSON
-        discovery, serve this repo with a static file server so the browser can fetch
-        <code>results/models/</code>.
-      </p>
+        <section class="section">
+          <div class="section-header">
+            <h2>Radar Panels</h2>
+            <p>Absolute median values at the current best layer for each selected model</p>
+          </div>
+          <div class="chart-grid-radar">
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Categorical Signal AUROC</div>
+                <div class="chart-card-note">Per-class median AUROC, excluding <code>constant</code></div>
+              </div>
+              <div id="chart-radar-auroc" class="chart"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Regression By Component Type (R2)</div>
+                <div class="chart-card-note">Median across targets per component type</div>
+              </div>
+              <div id="chart-radar-r2-signal" class="chart"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Regression By Parameter Type (R2)</div>
+                <div class="chart-card-note">Median across targets per parameter type</div>
+              </div>
+              <div id="chart-radar-r2-metric" class="chart"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Categorical Signal AUPRC</div>
+                <div class="chart-card-note">Per-class median AUPRC, excluding <code>constant</code></div>
+              </div>
+              <div id="chart-radar-auprc" class="chart"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Regression By Component Type (Pearson)</div>
+                <div class="chart-card-note">Median across targets per component type</div>
+              </div>
+              <div id="chart-radar-pearson-signal" class="chart"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Regression By Parameter Type (Pearson)</div>
+                <div class="chart-card-note">Median across targets per parameter type</div>
+              </div>
+              <div id="chart-radar-pearson-metric" class="chart"></div>
+            </div>
+          </div>
+        </section>
 
-      <div id="model-picker" class="model-picker"></div>
-    </section>
+        <section class="section">
+          <div class="section-header">
+            <h2>Layer Curves</h2>
+            <p>Median macro metrics across all evaluated layers, with shaded <code>± std</code></p>
+          </div>
+          <div class="chart-grid-line">
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Macro AUROC By Layer</div>
+                <div class="chart-card-note">Categorical probe summary, median line + std band</div>
+              </div>
+              <div id="chart-line-auroc" class="chart line"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Macro AUPRC By Layer</div>
+                <div class="chart-card-note">Categorical probe summary, median line + std band</div>
+              </div>
+              <div id="chart-line-auprc" class="chart line"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Macro Pearson By Layer</div>
+                <div class="chart-card-note">Dense probe summary, median line + std band</div>
+              </div>
+              <div id="chart-line-pearson" class="chart line"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Macro R2 By Layer</div>
+                <div class="chart-card-note">Dense probe summary, median line + std band, clipped at <code>0</code> for plotting</div>
+              </div>
+              <div id="chart-line-r2" class="chart line"></div>
+            </div>
+          </div>
+        </section>
 
-    <section class="section">
-      <div class="section-header">
-        <h2>Radar Panels</h2>
-        <p>Absolute median values at the current best layer for each selected model</p>
+        <p class="footer-note">
+          Tip: launch a local static server from the repo root with
+          <code>python -m http.server 8000</code>, then open
+          <code>http://localhost:8000/results/dashboard.html</code>.
+        </p>
       </div>
-      <div class="chart-grid-radar">
-        <div class="panel chart-card">
-          <div class="chart-card-header">
-            <div class="chart-card-title">Categorical Signal AUROC</div>
-            <div class="chart-card-note">Per-class median AUROC, excluding <code>constant</code></div>
-          </div>
-          <div id="chart-radar-auroc" class="chart"></div>
-        </div>
-        <div class="panel chart-card">
-          <div class="chart-card-header">
-            <div class="chart-card-title">Regression By Component Type (R2)</div>
-            <div class="chart-card-note">Median across targets per component type</div>
-          </div>
-          <div id="chart-radar-r2-signal" class="chart"></div>
-        </div>
-        <div class="panel chart-card">
-          <div class="chart-card-header">
-            <div class="chart-card-title">Regression By Parameter Type (R2)</div>
-            <div class="chart-card-note">Median across targets per parameter type</div>
-          </div>
-          <div id="chart-radar-r2-metric" class="chart"></div>
-        </div>
-        <div class="panel chart-card">
-          <div class="chart-card-header">
-            <div class="chart-card-title">Categorical Signal AUPRC</div>
-            <div class="chart-card-note">Per-class median AUPRC, excluding <code>constant</code></div>
-          </div>
-          <div id="chart-radar-auprc" class="chart"></div>
-        </div>
-        <div class="panel chart-card">
-          <div class="chart-card-header">
-            <div class="chart-card-title">Regression By Component Type (Pearson)</div>
-            <div class="chart-card-note">Median across targets per component type</div>
-          </div>
-          <div id="chart-radar-pearson-signal" class="chart"></div>
-        </div>
-        <div class="panel chart-card">
-          <div class="chart-card-header">
-            <div class="chart-card-title">Regression By Parameter Type (Pearson)</div>
-            <div class="chart-card-note">Median across targets per parameter type</div>
-          </div>
-          <div id="chart-radar-pearson-metric" class="chart"></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="section-header">
-        <h2>Layer Curves</h2>
-        <p>Median macro metrics across all evaluated layers, with shaded <code>± std</code></p>
-      </div>
-      <div class="chart-grid-line">
-        <div class="panel chart-card">
-          <div class="chart-card-header">
-            <div class="chart-card-title">Macro AUROC By Layer</div>
-            <div class="chart-card-note">Categorical probe summary, median line + std band</div>
-          </div>
-          <div id="chart-line-auroc" class="chart line"></div>
-        </div>
-        <div class="panel chart-card">
-          <div class="chart-card-header">
-            <div class="chart-card-title">Macro AUPRC By Layer</div>
-            <div class="chart-card-note">Categorical probe summary, median line + std band</div>
-          </div>
-          <div id="chart-line-auprc" class="chart line"></div>
-        </div>
-        <div class="panel chart-card">
-          <div class="chart-card-header">
-            <div class="chart-card-title">Macro Pearson By Layer</div>
-            <div class="chart-card-note">Dense probe summary, median line + std band</div>
-          </div>
-          <div id="chart-line-pearson" class="chart line"></div>
-        </div>
-        <div class="panel chart-card">
-          <div class="chart-card-header">
-            <div class="chart-card-title">Macro R2 By Layer</div>
-            <div class="chart-card-note">Dense probe summary, median line + std band, clipped at <code>0</code> for plotting</div>
-          </div>
-          <div id="chart-line-r2" class="chart line"></div>
-        </div>
-      </div>
-    </section>
-
-    <p class="footer-note">
-      Tip: launch a local static server from the repo root with
-      <code>python -m http.server 8000</code>, then open
-      <code>http://localhost:8000/results/dashboard.html</code>.
-    </p>
+    </main>
   </div>
 
   <script>
@@ -624,6 +845,7 @@
       linePearson: "chart-line-pearson",
       lineR2: "chart-line-r2"
     };
+    const SIDEBAR_OVERLAY_MEDIA = window.matchMedia("(max-width: 960px)");
     const RADAR_CENTER_X = 0.50;
     const RADAR_CENTER_Y = 0.56;
     const RADAR_RADIUS_RATIO = 0.66;
@@ -634,7 +856,10 @@
       selectedModels: new Set(),
       charts: {},
       discoverySource: "loading",
-      discoveryWarning: ""
+      discoveryWarning: "",
+      sidebarDesktopCollapsed: false,
+      sidebarOverlayOpen: false,
+      layoutRefreshTimer: null
     };
 
     function basename(path) {
@@ -788,22 +1013,6 @@
       return String(value).replace(/_/g, "\n");
     }
 
-    function formatSelectorLabel(selectorKey) {
-      if (selectorKey === "auroc") {
-        return "Best AUROC";
-      }
-      if (selectorKey === "auprc") {
-        return "Best AUPRC";
-      }
-      if (selectorKey === "r2") {
-        return "Best R2";
-      }
-      if (selectorKey === "pearson") {
-        return "Best Pearson";
-      }
-      return selectorKey;
-    }
-
     function rgbaWithAlpha(hexColor, alpha) {
       const hex = String(hexColor).replace("#", "");
       const expanded = hex.length === 3 ? hex.split("").map((ch) => ch + ch).join("") : hex;
@@ -827,11 +1036,52 @@
       banner.classList.toggle("warning", level === "warning");
     }
 
+    function isSidebarOverlay() {
+      return SIDEBAR_OVERLAY_MEDIA.matches;
+    }
+
+    function isSidebarVisible() {
+      return isSidebarOverlay() ? state.sidebarOverlayOpen : !state.sidebarDesktopCollapsed;
+    }
+
+    function scheduleLayoutRefresh(delay = 210) {
+      if (!Object.keys(state.charts).length) {
+        return;
+      }
+      window.clearTimeout(state.layoutRefreshTimer);
+      state.layoutRefreshTimer = window.setTimeout(() => {
+        Object.values(state.charts).forEach((chart) => chart.resize());
+        renderAll();
+      }, delay);
+    }
+
+    function applySidebarState({ refresh = true } = {}) {
+      const visible = isSidebarVisible();
+      document.body.classList.toggle("sidebar-open", isSidebarOverlay() && visible);
+      document.body.classList.toggle("sidebar-collapsed", !isSidebarOverlay() && !visible);
+      document.getElementById("sidebar-open-button").setAttribute("aria-expanded", String(visible));
+      document.getElementById("sidebar-close").setAttribute("aria-expanded", String(visible));
+      if (refresh) {
+        scheduleLayoutRefresh();
+      }
+    }
+
+    function setSidebarVisible(visible, { refresh = true } = {}) {
+      if (isSidebarOverlay()) {
+        state.sidebarOverlayOpen = Boolean(visible);
+      } else {
+        state.sidebarDesktopCollapsed = !Boolean(visible);
+      }
+      applySidebarState({ refresh });
+    }
+
+    function syncSidebarMode({ refresh = true } = {}) {
+      applySidebarState({ refresh });
+    }
+
     function updateSummaries() {
       document.getElementById("summary-loaded").textContent = String(state.allResults.length);
       document.getElementById("summary-selected").textContent = String(getSelectedResults().length);
-      document.getElementById("summary-selector").textContent = formatSelectorLabel(getBestLayerSelector());
-      document.getElementById("summary-source").textContent = state.discoverySource;
     }
 
     function selectedLayerForResult(result, selectorKey) {
@@ -1733,33 +1983,41 @@
       });
       let resizeTimer = null;
       window.addEventListener("resize", () => {
+        syncSidebarMode({ refresh: false });
         Object.values(state.charts).forEach((chart) => chart.resize());
         window.clearTimeout(resizeTimer);
         resizeTimer = window.setTimeout(() => {
           renderAll();
         }, 60);
       });
+      SIDEBAR_OVERLAY_MEDIA.addEventListener("change", () => {
+        syncSidebarMode();
+      });
     }
 
     function bindControls() {
       document.getElementById("best-layer-selector").addEventListener("change", renderAll);
       document.getElementById("model-search").addEventListener("input", renderModelPicker);
+      document.getElementById("sidebar-open-button").addEventListener("click", () => {
+        setSidebarVisible(true);
+      });
+      document.getElementById("sidebar-close").addEventListener("click", () => {
+        setSidebarVisible(false);
+      });
+      document.getElementById("sidebar-backdrop").addEventListener("click", () => {
+        setSidebarVisible(false);
+      });
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && isSidebarOverlay() && state.sidebarOverlayOpen) {
+          setSidebarVisible(false);
+        }
+      });
       document.getElementById("select-all").addEventListener("click", () => {
         state.selectedModels = new Set(state.allResults.map(modelName));
         renderAll();
       });
       document.getElementById("select-none").addEventListener("click", () => {
         state.selectedModels = new Set();
-        renderAll();
-      });
-      document.getElementById("select-visible").addEventListener("click", () => {
-        const term = getSearchTerm();
-        state.allResults.forEach((result) => {
-          const name = modelName(result);
-          if (!term || name.toLowerCase().includes(term)) {
-            state.selectedModels.add(name);
-          }
-        });
         renderAll();
       });
     }
@@ -1772,6 +2030,7 @@
 
       initCharts();
       bindControls();
+      syncSidebarMode({ refresh: false });
 
       const resolved = await resolveResultFiles();
       state.discoverySource = resolved.source;
