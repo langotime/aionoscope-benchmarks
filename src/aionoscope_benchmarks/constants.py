@@ -17,7 +17,9 @@ FOUNDATIONAL_MODELS_CONFIG_PATH = REPO_ROOT / "configs" / "models_foundational.y
 FOUNDATIONAL_MODELS = (
     "MantisV2",
     "TabPFN",
+    "TabPFN-TS",
     "TabICL",
+    "TabICLForecaster",
     "MOMENT",
     "TiRex",
     "Chronos2",

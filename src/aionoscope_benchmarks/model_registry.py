@@ -39,6 +39,16 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         module="aionoscope_benchmarks.adapters.tabpfn",
         class_name="TabPFNAdapter",
     ),
+    "TabPFN-TS": ModelSpec(
+        name="TabPFN-TS",
+        slug="TabPFN-TS",
+        source="https://github.com/PriorLabs/tabpfn-time-series",
+        checkpoint="tabpfn-v2-regressor-2noar4o2.ckpt",
+        import_path="tabpfn_time_series",
+        env="tabular",
+        module="aionoscope_benchmarks.adapters.tabpfn_ts",
+        class_name="TabPFNTSAdapter",
+    ),
     "TabICL": ModelSpec(
         name="TabICL",
         slug="TabICL",
@@ -48,6 +58,16 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         env="tabular",
         module="aionoscope_benchmarks.adapters.tabicl",
         class_name="TabICLAdapter",
+    ),
+    "TabICLForecaster": ModelSpec(
+        name="TabICLForecaster",
+        slug="TabICLForecaster",
+        source="https://github.com/soda-inria/tabicl",
+        checkpoint="tabicl-regressor-v2-20260212.ckpt",
+        import_path="tabicl[forecast]",
+        env="tabular",
+        module="aionoscope_benchmarks.adapters.tabicl_forecaster",
+        class_name="TabICLForecasterAdapter",
     ),
     "MOMENT": ModelSpec(
         name="MOMENT",

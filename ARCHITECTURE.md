@@ -40,6 +40,10 @@ The benchmark pipeline treats all models through this adapter boundary rather th
 When a model is published as a self-contained Hugging Face inference bundle, the adapter
 may download and import that published bundle directly via `huggingface_hub` instead of
 depending on a separate pip package or vendored external repo.
+Forecasting wrappers still fit this boundary when the adapter keeps the full exact
+benchmark waveform as context, appends a deterministic next-step query row internally,
+and cuts a frozen representation at a pre-head query-state boundary instead of using
+forecast scalars as probe features.
 When an adapter can expose an explicit embedding stream, layer `0` is reserved for that
 embedding representation and subsequent encoder blocks start at layer `1`.
 Adapters must fail fast on input-length mismatch. Benchmark adapters must not silently
