@@ -25,7 +25,7 @@ FOUNDATIONAL_MODELS = (
     "Chronos2",
     "LeNEPA-Aiono",
     "LeNEPA-CauKer2M",
-    "LeNEPA-CauKer-5k",
+    "LeNEPA-CauKer2M-20k",
     "TTM",
     "Moirai",
     "Toto",

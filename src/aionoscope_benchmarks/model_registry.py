@@ -119,15 +119,15 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         module="aionoscope_benchmarks.adapters.lenepa",
         class_name="LeNEPACauKer2MAdapter",
     ),
-    "LeNEPA-CauKer-5k": ModelSpec(
-        name="LeNEPA-CauKer-5k",
-        slug="LeNEPA-CauKer-5k",
+    "LeNEPA-CauKer2M-20k": ModelSpec(
+        name="LeNEPA-CauKer2M-20k",
+        slug="LeNEPA-CauKer2M-20k",
         source="https://huggingface.co/Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256",
         checkpoint="Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256",
         import_path="published inference.py via huggingface_hub",
         env="core",
         module="aionoscope_benchmarks.adapters.lenepa",
-        class_name="LeNEPACauKer5KAdapter",
+        class_name="LeNEPACauKer2M20KAdapter",
     ),
     "TTM": ModelSpec(
         name="TTM",

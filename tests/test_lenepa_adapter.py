@@ -12,7 +12,7 @@ from aionoscope_benchmarks.adapters import lenepa as lenepa_module
 from aionoscope_benchmarks.adapters.lenepa import (
     LeNEPAAionoAdapter,
     LeNEPACauKer2MAdapter,
-    LeNEPACauKer5KAdapter,
+    LeNEPACauKer2M20KAdapter,
 )
 from aionoscope_benchmarks.constants import FOUNDATIONAL_MODELS
 from aionoscope_benchmarks.model_registry import MODEL_SPECS, all_foundational_model_names
@@ -114,13 +114,13 @@ def clear_lenepa_module_cache() -> None:
 def test_lenepa_registry_contains_both_checkpoints() -> None:
     assert "LeNEPA-Aiono" in MODEL_SPECS
     assert "LeNEPA-CauKer2M" in MODEL_SPECS
-    assert "LeNEPA-CauKer-5k" in MODEL_SPECS
+    assert "LeNEPA-CauKer2M-20k" in MODEL_SPECS
     assert "LeNEPA-Aiono" in FOUNDATIONAL_MODELS
     assert "LeNEPA-CauKer2M" in FOUNDATIONAL_MODELS
-    assert "LeNEPA-CauKer-5k" in FOUNDATIONAL_MODELS
+    assert "LeNEPA-CauKer2M-20k" in FOUNDATIONAL_MODELS
     assert "LeNEPA-Aiono" in all_foundational_model_names()
     assert "LeNEPA-CauKer2M" in all_foundational_model_names()
-    assert "LeNEPA-CauKer-5k" in all_foundational_model_names()
+    assert "LeNEPA-CauKer2M-20k" in all_foundational_model_names()
 
 
 def test_lenepa_adapter_uses_exported_tokenizer_and_final_norm(
@@ -217,7 +217,7 @@ def test_lenepa_adapter_falls_back_to_patch_embed_when_no_tokenizer(
     assert metadata["benchmark_sequence_length"] == 5000
 
 
-def test_lenepa_cauker_5k_adapter_reuses_published_bundle_contract(
+def test_lenepa_cauker2m_20k_adapter_reuses_published_bundle_contract(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -250,7 +250,7 @@ def test_lenepa_cauker_5k_adapter_reuses_published_bundle_contract(
 
     monkeypatch.setattr(lenepa_module, "hf_hub_download", fake_download)
 
-    adapter = LeNEPACauKer5KAdapter()
+    adapter = LeNEPACauKer2M20KAdapter()
     x = torch.arange(5000, dtype=torch.float32).reshape(1, 1, 5000)
     reps = adapter.forward_layer_dict(x, layers=(0, 2))
 

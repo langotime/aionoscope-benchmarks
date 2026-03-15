@@ -70,7 +70,7 @@
   - Import from: the published Hugging Face `inference.py` bundle; the benchmark loads that self-contained file via `huggingface_hub` and calls `load_lenepa_encoder(...)`.
   - Note: this is the CauKer2M encoder-only export with per-patch normalization inside the tokenizer, a fixed `[B, 1, 5000]` input contract, and `8` transformer blocks. In the benchmark, layer `0` is the tokenizer output and layer `8` is the post-final-layer-norm output.
 
-- `LeNEPA-CauKer-5k`
+- `LeNEPA-CauKer2M-20k`
   - Source code: `https://huggingface.co/Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256`
   - Official checkpoint: `https://huggingface.co/Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256`
   - Import from: the published Hugging Face `inference.py` bundle; the benchmark loads that self-contained file via `huggingface_hub` and calls `load_lenepa_encoder(...)`.

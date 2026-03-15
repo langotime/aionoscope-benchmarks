@@ -41,7 +41,7 @@ padding, or waveform-resampling the benchmark data.
 Current exact lengths:
 
 - `8192`: `Chronos2`
-- `5000`: `LeNEPA-Aiono`, `LeNEPA-CauKer2M`, `LeNEPA-CauKer-5k`, `TiViT-H`, `TiConvNext`, `T-Loss`
+- `5000`: `LeNEPA-Aiono`, `LeNEPA-CauKer2M`, `LeNEPA-CauKer2M-20k`, `TiViT-H`, `TiConvNext`, `T-Loss`
 - `4096`: `Toto`, `TabPFN-TS`, `TabICLForecaster`
 - `2048`: `TiRex`
 - `512`: `MantisV2`, `MOMENT`, `TTM`, `Moirai`
@@ -187,7 +187,7 @@ reserve layer `0` for the embedding stream, so the checked-in best-layer ids are
 indices rather than current ones.
 
 The foundational registry now also includes `LeNEPA-Aiono`, `LeNEPA-CauKer2M`,
-`LeNEPA-CauKer-5k`, `TabPFN-TS`, and `TabICLForecaster`. Those entries were added
+`LeNEPA-CauKer2M-20k`, `TabPFN-TS`, and `TabICLForecaster`. Those entries were added
 after this checked-in snapshot, so they do not yet have checked-in JSON artifacts or
 rows in the table below.
 Embedding-aware adapters now reserve layer `0` for the embedding stream. For both

@@ -1,7 +1,7 @@
 {
   "model": {
-    "name": "LeNEPA-CauKer-5k",
-    "slug": "LeNEPA-CauKer-5k",
+    "name": "LeNEPA-CauKer2M-20k",
+    "slug": "LeNEPA-CauKer2M-20k",
     "type": "foundational",
     "checkpoint": "Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256",
     "source": "https://huggingface.co/Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256",
