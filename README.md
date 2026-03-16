@@ -16,6 +16,18 @@ Additional docs:
 - `ARCHITECTURE.md` for the stable benchmark design and execution model
 - `DOCUMENTATION.md` for operational details, result schema expectations, and workflow notes
 
+## Benchmark Identity
+
+The current checked-in benchmark contract is the versioned family `toyts_basic_components/v1`.
+
+Stable semantics for this family:
+
+- baseline `sampling_frequency = 500 Hz`
+- benchmark family/version stored in every runtime manifest and result JSON
+- periodic `frequency_hz = auto` by default, resolved from sequence length plus waveform-specific recoverability rules in the shared `aiono` resolver
+
+Absolute metric comparisons are only valid within the same benchmark family/version.
+
 ## Dataset In Plain English
 
 You do not need to know Aiono internals to read these benchmark results. In this repo,
@@ -31,6 +43,17 @@ For this benchmark, each example is:
 In Aiono terms, the final observed waveform is the `mix` view. In plain English, that
 just means "take the enabled components, render them, and add them together into one
 1D signal."
+
+The family no longer hard-codes one shared periodic frequency range for every model.
+Instead, `aiono.resolve_toyts_basic_components_periodic_contract(...)` resolves
+`frequency_hz` from the exact sequence length used for that model:
+
+- `sine` uses a Nyquist-based upper bound;
+- `sawtooth` uses a points-per-period recoverability upper bound;
+- `square` uses a duty-cycle-aware shorter-plateau upper bound.
+
+Those resolved bounds are written into the dataset manifest so downstream analysis can
+tell which periodic task was actually evaluated.
 
 ### Exact sequence lengths per model
 
@@ -215,9 +238,10 @@ Benchmark gotchas:
 
 *   The interactive charts use absolute values, not step deltas.
 *   The benchmark code now generates Aiono data online at runtime. It does not depend on a checked-in `results/datasets/*` snapshot; each run rebuilds the same deterministic finite split in memory from the YAML config and seeds.
+*   The current benchmark contract is versioned as `toyts_basic_components/v1`. Compare absolute metrics only against runs with the same family/version and inspect the manifest for resolved periodic bounds before interpreting dense periodic deltas.
 *   The validation protocol now evaluates the same fixed train split against validation seed values `0..9`, mapped to generator seeds `100..109` so train and validation seeds do not overlap.
 *   Probe training randomness is held fixed with `probe_seed=0` across those validation runs, so the reported spread reflects the validation-seed sweep rather than probe reinitialization noise.
-*   Every metric value in the new JSON schema stores the full validation-seed array plus `median/std`, and the dashboard visualizes those aggregated values. The historical checked-in snapshot predates this schema and therefore behaves like `n=1`.
+*   Every metric value in the new JSON schema stores the full validation-seed array plus `median/std`, and the dashboard visualizes those aggregated values. The historical checked-in snapshot predates this schema and also predates the versioned periodic contract, so it behaves like `n=1` legacy data rather than a current `v1` reference.
 *   The dashboard lets you choose the layer selector per model: `best_auc.layer`, `best_auprc.layer`, best macro `R2`, or best macro `Pearson`. Those best-layer choices are taken from the metric medians across validation runs. Do not confuse those selector views with the oracle-over-layer summaries stored in the JSON payloads.
 *   The dense regression panels are labeled `Regression By Component Type` and `Regression By Parameter Type`, and they use absolute `R2` and Pearson, not `MSE`. `MSE` varied too much across target types to be useful on a shared dashboard scale.
 *   Negative `R2` values are clipped to `0` in the dashboard charts only so the useful range stays readable. Tooltips still expose the raw `R2` median and its standard deviation, and the JSON files keep the raw values.

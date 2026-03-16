@@ -1,3 +1,5 @@
+benchmark_family: toyts_basic_components
+benchmark_version: v1
 sampling_frequency: 500
 channels: [I]
 default_channel_size: 5000
@@ -189,6 +191,34 @@ toyts:
         enabled_key: square
   basic_components:
     num_enabled: 2
+    # Canonical `toyts_basic_components/v1` periodic contract:
+    # - `sampling_frequency` is fixed at the family baseline `500 Hz`
+    # - `frequency_hz: auto` resolves from `default_channel_size` / adapter-exact `channel_size`
+    # - non-sine upper bounds are recoverability-based, not "no aliasing" claims
+    periodic:
+      frequency_hz: auto
+      min_full_periods: 1.0
+      nyquist_fraction: 0.9
+      recoverability_policy:
+        sine: nyquist
+        sawtooth: min_points_per_period
+        square: min_points_in_shorter_plateau
+      sawtooth_min_points_per_period: 5
+      # Square-wave recoverability depends on the shortest plateau implied by the
+      # configured duty-cycle range, not just on total points per period.
+      square_min_points_in_shorter_plateau: 2
+      amplitude:
+        low: 0.2
+        high: 1.2
+      phase:
+        low: 0.0
+        high: 6.283185307179586
+      offset:
+        low: -0.2
+        high: 0.2
+      square_duty_cycle:
+        low: 0.1
+        high: 0.9
     component_keys:
       - constant
       - gaussian_noise

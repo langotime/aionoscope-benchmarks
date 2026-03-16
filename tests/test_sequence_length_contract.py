@@ -72,6 +72,22 @@ def test_runtime_split_builder_respects_exact_channel_size_override() -> None:
     assert manifest["channel_size"] == 64
     assert manifest["channel_size_policy"] == "test_exact"
     assert manifest["channel_size_source"] == "unit_test"
+    assert manifest["benchmark_family"] == "toyts_basic_components"
+    assert manifest["benchmark_version"] == "v1"
+    assert manifest["baseline_sampling_frequency_hz"] == 500
+    assert manifest["sampling_frequency"] == 500
+    assert manifest["periodic_frequency_mode"] == "auto"
+    assert manifest["sine_frequency_hz_resolved_low"] == pytest.approx(500.0 / 63.0)
+    assert manifest["sine_frequency_hz_resolved_high"] == pytest.approx(225.0)
+    assert manifest["sawtooth_frequency_hz_resolved_high"] == pytest.approx(100.0)
+    assert manifest["square_frequency_hz_resolved_high"] == pytest.approx(25.0)
+    assert manifest["square_min_points_in_shorter_plateau"] == 2
+    assert manifest["square_duty_cycle_min"] == pytest.approx(0.1)
+    assert manifest["square_duty_cycle_max"] == pytest.approx(0.9)
+    periodic_specs = manifest["periodic_sampler_specs"]
+    assert periodic_specs["square"]["frequency_hz"]["high"] == pytest.approx(25.0)
+    assert periodic_specs["square"]["duty_cycle"]["low"] == pytest.approx(0.1)
+    assert periodic_specs["square"]["duty_cycle"]["high"] == pytest.approx(0.9)
     assert tuple(train["x"].shape) == (2, 1, 64)
     assert tuple(val_splits[0]["x"].shape) == (2, 1, 64)
 

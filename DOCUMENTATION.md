@@ -92,6 +92,57 @@ length into the runtime split builder. The manifest written to each JSON artifac
 - `channel_size_policy`: the active policy string;
 - `channel_size_source`: where the resolved exact length came from.
 
+### Versioned periodic contract
+
+The dataset config is now explicitly versioned:
+
+- `benchmark_family: toyts_basic_components`
+- `benchmark_version: v1`
+
+`v1` semantics are resolved in the shared `aiono` library, not reimplemented in each
+consumer. The benchmark repo calls
+`resolve_toyts_basic_components_periodic_contract(...)` and writes the resolved result
+into the runtime manifest.
+
+The baseline invariants for `v1` are:
+
+- `sampling_frequency = 500 Hz` everywhere
+- `frequency_hz = auto` by default
+- `sawtooth_min_points_per_period = 5`
+- `square_min_points_in_shorter_plateau = 2`
+- square-wave recoverability depends on the configured `square_duty_cycle` range
+
+For a resolved sequence length `L`, the shared resolver computes:
+
+- `duration_sec = (L - 1) / 500`
+- `f_min_full_period = min_full_periods / duration_sec`
+- `f_max_nyquist = nyquist_fraction * 500 / 2`
+- `sawtooth_high = min(f_max_nyquist, 500 / sawtooth_min_points_per_period)`
+- `square_high = min(f_max_nyquist, 500 * shorter_plateau_fraction / square_min_points_in_shorter_plateau)`
+
+That means the lower bound rises on short exact-length adapters because the signal still
+needs at least one full period to make `frequency_hz` recoverable. The benchmark no
+longer uses one hidden hard-coded `0.2..6.0 Hz` range for every exact sequence length.
+
+The manifest exposes the resolved periodic task through fields such as:
+
+- `benchmark_family`
+- `benchmark_version`
+- `baseline_sampling_frequency_hz`
+- `duration_sec`
+- `periodic_frequency_mode`
+- `periodic_frequency_resolution_source`
+- `sine_frequency_hz_resolved_low/high`
+- `sawtooth_frequency_hz_resolved_low/high`
+- `square_frequency_hz_resolved_low/high`
+- `square_duty_cycle_min/max`
+- `square_frequency_hz_recoverability_upper_bound`
+- `periodic_sampler_specs`
+
+`periodic_sampler_specs` is the quickest way to inspect the full canonical periodic
+sampler contract, including amplitude, phase, offset, resolved frequency bounds, and
+square `duty_cycle`.
+
 ### Probe config
 
 `configs/probe.yaml` controls linear probe training:
@@ -188,6 +239,31 @@ Numeric values aggregated across validation seeds use the payload:
 ```
 
 The dashboard expects this schema for aggregated runs.
+
+## Troubleshooting Periodic Metric Mismatches
+
+If two evaluations use the same checkpoint but disagree on dense periodic metrics,
+check the dataset manifest before treating the delta as a model change.
+
+First inspect:
+
+- `benchmark_family`
+- `benchmark_version`
+- `sampling_frequency`
+- `channel_size`
+- `duration_sec`
+- resolved `*_frequency_hz_resolved_low/high`
+- `square_duty_cycle_min/max`
+
+The most common failure mode is semantic drift rather than checkpoint drift:
+
+- different `sampling_frequency`
+- different exact sequence length
+- different `frequency_hz` resolution mode
+- different square `duty_cycle` range
+
+For the current `toyts_basic_components/v1` contract, a hidden `sampling_frequency`
+mismatch is considered a benchmark bug, not a valid alternate evaluation.
 
 ## Dashboard Contract
 

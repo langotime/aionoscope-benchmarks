@@ -14,6 +14,35 @@ The benchmark code lives outside the upstream `aionoscope` library and depends o
 
 The benchmark does not rely on checked-in `train.pt` or `val.pt` snapshots. `src/aionoscope_benchmarks/dataset_snapshot.py` rebuilds the finite train split and validation splits in memory from the dataset YAML on every run. The resulting manifest is part of the output JSON and is the reproducibility contract for the evaluated split.
 
+### Versioned benchmark semantics
+
+The benchmark contract is versioned. The current family is `toyts_basic_components/v1`.
+
+Changing any of the following requires a benchmark-version change rather than a silent
+config tweak:
+
+- baseline `sampling_frequency`
+- periodic recoverability rules
+- resolved-bound semantics for `frequency_hz: auto`
+- dense-target definitions
+
+Results are only comparable within the same benchmark family/version.
+
+### Shared periodic resolver in `aiono`
+
+Periodic benchmark semantics are resolved in the upstream `aiono` library, not
+reimplemented separately in this repo. `dataset_snapshot.py` calls the shared
+`resolve_toyts_basic_components_periodic_contract(...)` helper and records the resolved
+bounds in the dataset manifest.
+
+This keeps benchmark generation, examples, and downstream consumers on one source of
+truth for:
+
+- baseline `sampling_frequency = 500 Hz`
+- `frequency_hz: auto`
+- waveform-specific recoverability rules
+- square duty-cycle-aware upper bounds
+
 ### Model-native exact sequence lengths
 
 The benchmark no longer uses one shared sequence length for every model. `run_model.py`
@@ -63,6 +92,10 @@ One JSON file in `results/models/` is the canonical output for one model run. Th
 - aggregated validation-run statistics (`values`, `median`, `std`, `n`);
 - shared runtime and validation-seed metadata;
 - summary selections such as best layers and oracle-per-target views.
+
+The dataset manifest is intentionally rich enough to diagnose semantic drift. It now
+includes benchmark family/version markers plus the resolved periodic-frequency contract
+for the exact sequence length used in that run.
 
 The browser dashboard is a consumer of this JSON schema, not an independent source of truth.
 
@@ -121,6 +154,7 @@ The foundational model stack spans incompatible dependency sets. The repo theref
 
 - Benchmark changes must preserve the clear split between dataset generation, adapter integration, offline probing, result aggregation, and visualization.
 - The train split and validation splits must remain reproducible from config plus seed information stored in the manifest.
+- The benchmark must never silently drift away from the versioned `aiono` contract for periodic semantics.
 - Validation aggregation must not silently reorder or drop validation seeds.
 - Adapters may customize preprocessing, but they must still expose a stable layerwise representation interface, emit truthful adapter metadata, and reject benchmark inputs with the wrong sequence length.
 - Result schema changes must be reflected in `README.md`, `DOCUMENTATION.md`, and `results/dashboard.html` in the same task.

@@ -10,7 +10,6 @@ and materializes it only in process memory for the current run.
 import argparse
 import hashlib
 import json
-import math
 import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
@@ -31,7 +30,7 @@ from aiono import (
     LogTrendView,
     ProcessGraph,
     QuadraticTrendView,
-    RandIntSampler,
+    ResolvedToyTSBasicComponentsPeriodicContract,
     SawtoothWaveView,
     SigmoidTrendView,
     SineWaveView,
@@ -41,6 +40,8 @@ from aiono import (
     UnionEventsNode,
     UniformSampler,
     ViewChain,
+    ToyTSBasicComponentsPeriodicConfig,
+    resolve_toyts_basic_components_periodic_contract,
 )
 from aiono.datasets import SynthBatchIterableDataset
 from aiono.processes.constant import ConstantLatentNode
@@ -65,7 +66,10 @@ class DenseTargetSpec:
 @dataclass(frozen=True)
 class DatasetManifest:
     dataset_name: str
+    benchmark_family: str
+    benchmark_version: str
     view_name: str
+    baseline_sampling_frequency_hz: int
     sampling_frequency: int
     channels: list[str]
     default_channel_size: int
@@ -87,6 +91,27 @@ class DatasetManifest:
     group_to_classes: dict[str, list[str]]
     dense_target_names: list[str]
     dense_targets: list[dict[str, str]]
+    duration_sec: float
+    periodic_frequency_mode: str
+    periodic_frequency_resolution_source: str
+    periodic_frequency_min_full_periods: float
+    periodic_frequency_nyquist_fraction: float
+    sine_recoverability_policy: str
+    sine_frequency_hz_resolved_low: float
+    sine_frequency_hz_resolved_high: float
+    sawtooth_recoverability_policy: str
+    sawtooth_frequency_hz_resolved_low: float
+    sawtooth_frequency_hz_resolved_high: float
+    square_recoverability_policy: str
+    square_frequency_hz_resolved_low: float
+    square_frequency_hz_resolved_high: float
+    sawtooth_min_points_per_period: int
+    square_min_points_in_shorter_plateau: int
+    square_duty_cycle_min: float
+    square_duty_cycle_max: float
+    square_shorter_plateau_fraction_min: float
+    square_frequency_hz_recoverability_upper_bound: float
+    periodic_sampler_specs: dict[str, dict[str, dict[str, object]]]
     config_sha256: str
     created_at_unix: float
     generator_device: str
@@ -245,6 +270,7 @@ def _build_basic_components_pipeline(
     view_name: str,
     component_keys: list[str],
     num_enabled: int,
+    periodic_contract: ResolvedToyTSBasicComponentsPeriodicContract,
     device: torch.device,
 ) -> SynthPipeline:
     schema = EventSchema(
@@ -403,10 +429,7 @@ def _build_basic_components_pipeline(
         views.append(
             SineWaveView(
                 seq_len=seq_len,
-                amplitude=UniformSampler(0.2, 1.2),
-                frequency_hz=UniformSampler(0.2, 6.0),
-                phase=UniformSampler(0.0, 2.0 * math.pi),
-                offset=UniformSampler(-0.2, 0.2),
+                **periodic_contract.signal("sine").view_kwargs(),
                 enabled_key="sine",
             )
         )
@@ -414,10 +437,7 @@ def _build_basic_components_pipeline(
         views.append(
             SawtoothWaveView(
                 seq_len=seq_len,
-                amplitude=UniformSampler(0.2, 1.2),
-                frequency_hz=UniformSampler(0.2, 6.0),
-                phase=UniformSampler(0.0, 2.0 * math.pi),
-                offset=UniformSampler(-0.2, 0.2),
+                **periodic_contract.signal("sawtooth").view_kwargs(),
                 enabled_key="sawtooth",
             )
         )
@@ -425,11 +445,7 @@ def _build_basic_components_pipeline(
         views.append(
             SquareWaveView(
                 seq_len=seq_len,
-                amplitude=UniformSampler(0.2, 1.2),
-                frequency_hz=UniformSampler(0.2, 6.0),
-                phase=UniformSampler(0.0, 2.0 * math.pi),
-                offset=UniformSampler(-0.2, 0.2),
-                duty_cycle=UniformSampler(0.1, 0.9),
+                **periodic_contract.signal("square").view_kwargs(),
                 enabled_key="square",
             )
         )
@@ -551,6 +567,8 @@ def build_runtime_splits_by_validation_seed(
     dense_target_specs = _build_dense_target_specs(dense_targets_cfg)
 
     sampling_frequency = _require_int(cfg, "sampling_frequency")
+    benchmark_family = _require_str(cfg, "benchmark_family")
+    benchmark_version = _require_str(cfg, "benchmark_version")
     default_channel_size = _require_int(cfg, "default_channel_size")
     channel_size_policy = str(cfg.get("channel_size_policy", "fixed_config")).strip()
     if not channel_size_policy:
@@ -630,12 +648,21 @@ def build_runtime_splits_by_validation_seed(
     view_name = _require_str(toyts, "view_name")
     basic = _require_dict(toyts, "basic_components")
     num_enabled = _require_int(basic, "num_enabled")
+    periodic_cfg = _require_dict(basic, "periodic")
+    periodic_contract = resolve_toyts_basic_components_periodic_contract(
+        seq_len=int(resolved_channel_size),
+        sampling_frequency_hz=int(sampling_frequency),
+        config=ToyTSBasicComponentsPeriodicConfig.from_mapping(periodic_cfg),
+        benchmark_family=benchmark_family,
+        benchmark_version=benchmark_version,
+    )
     config_sha256 = hashlib.sha256(cfg_text.encode("utf-8")).hexdigest()
     group_to_classes = _build_group_to_classes(component_keys)
     actual_device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     manifest = DatasetManifest(
         dataset_name="toyts_basic_components_balanced",
+        **periodic_contract.manifest_fields(),
         view_name=view_name,
         sampling_frequency=int(sampling_frequency),
         channels=[str(channel) for channel in channels],
@@ -670,6 +697,7 @@ def build_runtime_splits_by_validation_seed(
         view_name=view_name,
         component_keys=component_keys,
         num_enabled=int(num_enabled),
+        periodic_contract=periodic_contract,
         device=actual_device,
     )
     train = _generate_split(
