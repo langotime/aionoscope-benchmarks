@@ -16,26 +16,12 @@
   - Benchmark exact length: `128` samples. The benchmark generates exact-length tabular fallback waveforms instead of downsampling longer waveforms inside the adapter.
   - Paper note: the MantisV2 paper pins `tabpfn==2.2.1`, so if exact paper reproduction matters you should pin that package version explicitly. For the `>10` class workaround, the paper points to `https://github.com/PriorLabs/tabpfn-extensions` rather than a core `tabpfn` API.
 
-- `TabPFN-TS`
-  - Source code: `https://github.com/PriorLabs/tabpfn-time-series`
-  - Official checkpoint: the official docs expose the local default backend config through `TABPFN_DEFAULT_CONFIG`, currently pointing at the public `tabpfn-v2-regressor-2noar4o2.ckpt` backend used by the benchmark adapter.
-  - Import from: `tabpfn_time_series`; the official docs use `TabPFNTSPipeline` for end-to-end forecasting and `FeatureTransformer` plus `generate_test_X(...)` for lower-level preprocessing.
-  - Benchmark exact length: `4096` samples, matching the official `max_context_length`. The adapter keeps the full waveform as context, appends one synthetic next-step query row, and extracts the official `TabPFNRegressor.get_embeddings(..., data_source="test")` representation for that query row.
-  - Benchmark note: because this path fits one forecasting table per benchmark sample, the current adapter caps both probe train and probe val subsets at `128` samples.
-
 - `TabICL`
   - Source code: `https://github.com/soda-inria/tabicl`
   - Official checkpoint: the package auto-downloads official checkpoints from the project releases. The repository documents `tabicl-classifier-v1-20250208.ckpt` as the original ICML 2025 paper checkpoint, and also lists newer `v1.1` and `v2` checkpoints.
   - Import from: `tabicl`; use `from tabicl import TabICLClassifier`.
   - Benchmark exact length: `128` samples. The benchmark generates exact-length tabular fallback waveforms instead of downsampling longer waveforms inside the adapter.
   - Paper note: the MantisV2 paper pins `tabicl==0.1.3` and says it uses default parameters. If exact reproduction matters, pin both the package version and checkpoint explicitly because the project default checkpoint has changed across releases.
-
-- `TabICLForecaster`
-  - Source code: `https://github.com/soda-inria/tabicl`
-  - Official checkpoint: the default forecasting path wraps `TabICLRegressor`, whose current default official regressor checkpoint is `tabicl-regressor-v2-20260212.ckpt`.
-  - Import from: `tabicl[forecast]`; the official docs use `from tabicl import TabICLForecaster`.
-  - Benchmark exact length: `4096` samples, matching the official `max_context_length`. The adapter keeps the full waveform as context, appends one synthetic next-step query row, then exposes forecast-query row states from the raw `TabICL` model: `layer 0` is the row-interaction output and `layers 1..12` are ICL block outputs.
-  - Benchmark note: because this path also fits one forecasting table per benchmark sample, the current adapter caps both probe train and probe val subsets at `128` samples.
 
 - `MOMENT`
   - Source code: `https://github.com/moment-timeseries-foundation-model/moment`

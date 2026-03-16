@@ -176,32 +176,14 @@ The current exact benchmark lengths are:
 - `Moirai`: `512`
 - `MOMENT`: `512`
 - `NuTime`: `176`
-- `TabICLForecaster`: `4096`
 - `T-Loss`: `5000`
 - `TTM`: `512`
 - `TabICL`: `128`
 - `TabPFN`: `128`
-- `TabPFN-TS`: `4096`
 - `TiConvNext`: `5000`
 - `TiRex`: `2048`
 - `TiViT-H`: `5000`
 - `Toto`: `4096`
-
-The two new forecasting-derived tabular adapters follow a different extraction path
-from the older `TabPFN` / `TabICL` fallbacks:
-
-- `TabPFN-TS` uses the official `tabpfn-time-series` feature engineering stack on the
-  full exact `4096`-sample waveform, generates a synthetic `prediction_length=1`
-  next-step query row, fits `TabPFNRegressor`, and uses the averaged official
-  `get_embeddings(..., data_source="test")` output for that query row as `layer 0`.
-- `TabICLForecaster` uses the official `TabICLForecaster` preprocessing stack on the
-  full exact `4096`-sample waveform, generates the same synthetic one-step query row,
-  and then exposes forecast-query row states from the raw `TabICL` model:
-  `layer 0` is the row-interaction output and `layers 1..12` are the ICL block outputs.
-
-Because both adapters currently require a separate forecast-table fit per benchmark
-sample, they cap both probe train and probe val subsets at `128` samples. That cap is
-reported in adapter metadata and is an explicit benchmark policy, not a hidden fallback.
 
 ## Validation Seed Semantics
 

@@ -1,9 +1,7 @@
 models:
   - MantisV2
   - TabPFN
-  - TabPFN-TS
   - TabICL
-  - TabICLForecaster
   - MOMENT
   - TiRex
   - Chronos2

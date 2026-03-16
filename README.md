@@ -65,7 +65,7 @@ Current exact lengths:
 
 - `8192`: `Chronos2`
 - `5000`: `LeNEPA-Aiono`, `LeNEPA-CauKer2M`, `LeNEPA-CauKer2M-20k`, `TiViT-H`, `TiConvNext`, `T-Loss`
-- `4096`: `Toto`, `TabPFN-TS`, `TabICLForecaster`
+- `4096`: `Toto`
 - `2048`: `TiRex`
 - `512`: `MantisV2`, `MOMENT`, `TTM`, `Moirai`
 - `176`: `NuTime`
@@ -73,12 +73,6 @@ Current exact lengths:
 
 That means signal duration is now model-dependent. At `500 Hz`, durations range from
 `0.256` seconds for the tabular fallbacks up to `16.384` seconds for `Chronos2`.
-
-`TabPFN-TS` and `TabICLForecaster` keep that full exact `4096`-sample waveform as
-context and then append a synthetic one-step query row at the next timestamp inside
-the adapter, mirroring the existing forecasting-derived adapters that append masked
-prediction tokens. The older `TabPFN` and `TabICL` entries remain the short `128`-sample
-tabular fallbacks.
 
 ### What gets mixed into each signal
 
@@ -209,9 +203,8 @@ reserve layer `0` for the embedding stream, so the checked-in best-layer ids are
 indices rather than current ones.
 
 The foundational registry now also includes `LeNEPA-Aiono`, `LeNEPA-CauKer2M`,
-`LeNEPA-CauKer2M-20k`, `TabPFN-TS`, and `TabICLForecaster`. Those entries were added
-after this checked-in snapshot, so they do not yet have checked-in JSON artifacts or
-rows in the table below.
+and `LeNEPA-CauKer2M-20k`. Those entries were added after this checked-in snapshot,
+so they do not yet have checked-in JSON artifacts or rows in the table below.
 Embedding-aware adapters now reserve layer `0` for the embedding stream. For both
 LeNEPA adapters, benchmark layers run from `0..8`: layer `0` is the tokenizer
 / embedding output, layers `1..7` are intermediate transformer-block outputs, and layer
@@ -245,7 +238,6 @@ Benchmark gotchas:
 *   The dense regression panels are labeled `Regression By Component Type` and `Regression By Parameter Type`, and they use absolute `R2` and Pearson, not `MSE`. `MSE` varied too much across target types to be useful on a shared dashboard scale.
 *   Negative `R2` values are clipped to `0` in the dashboard charts only so the useful range stays readable. Tooltips still expose the raw `R2` median and its standard deviation, and the JSON files keep the raw values.
 *   `TabPFN` and `TabICL` are not natural frozen layerwise encoders. In this benchmark they use fallback adapters that expose a synthetic single `layer 0`, run on exact `128`-sample waveforms as tabular features, train one-vs-rest classifiers, and cap both probe train and probe val subsets at `2048` samples.
-*   `TabPFN-TS` and `TabICLForecaster` are forecasting-conditioned adapters rather than plain encoders. They use the full exact `4096`-sample waveform as context, append one synthetic next-step query row internally, and extract frozen representations at that query row. To keep runtime bounded, both adapters currently cap probe train and probe val subsets at `128` samples.
 *   `TabPFN` could not use the gated `v2.5` checkpoint in an unattended run, so the benchmark falls back to the public `v2` model.
 *   Model-native exact lengths can materially increase RAM usage because the benchmark still materializes finite train/validation tensors in memory. `Chronos2` is the most extreme case because its exact context length is `8192`.
 *   `TTM` peaks at different layers for different selectors, notably AUROC vs AUPRC (`13` vs `12`).
