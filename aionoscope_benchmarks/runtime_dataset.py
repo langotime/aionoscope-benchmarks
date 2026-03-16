@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Runtime ToyTS/Aiono split builder.
+"""Runtime Aiono split builder.
 
 Builds the finite split online from `aiono.datasets.SynthBatchIterableDataset`
 and materializes it only in process memory for the current run.
@@ -29,7 +29,7 @@ from aiono import (
     LogTrendView,
     ProcessGraph,
     QuadraticTrendView,
-    ResolvedToyTSBasicComponentsPeriodicContract,
+    ResolvedAionoBasicComponentsPeriodicContract,
     SawtoothWaveView,
     SigmoidTrendView,
     SineWaveView,
@@ -39,8 +39,8 @@ from aiono import (
     UnionEventsNode,
     UniformSampler,
     ViewChain,
-    ToyTSBasicComponentsPeriodicConfig,
-    resolve_toyts_basic_components_periodic_contract,
+    AionoBasicComponentsPeriodicConfig,
+    resolve_aiono_basic_components_periodic_contract,
 )
 from aiono.datasets import SynthBatchIterableDataset
 from aiono.processes.constant import ConstantLatentNode
@@ -48,10 +48,10 @@ from aiono.views.noise import GaussianNoiseView, RandomWalkNoiseView, UniformNoi
 
 from .constants import DATASET_CONFIG_PATH
 from .dense_targets import (
-    toyts_basic_components_massage_target_metric,
-    toyts_basic_components_target_metric_from_param,
-    toyts_dense_targets_extract,
-    toyts_dense_targets_validate_config,
+    aiono_basic_components_massage_target_metric,
+    aiono_basic_components_target_metric_from_param,
+    aiono_dense_targets_extract,
+    aiono_dense_targets_validate_config,
 )
 
 
@@ -170,17 +170,17 @@ def _normalize_int_values(values: list[int] | tuple[int, ...], *, name: str) -> 
 
 def _resolve_validation_seed_config(
     *,
-    toyts: dict[str, Any],
+    aiono: dict[str, Any],
     train_seed: int,
 ) -> tuple[list[int], int, list[int], dict[str, int]]:
-    if "validation_seed_values" in toyts:
-        validation_seed_values = _require_int_list(toyts, "validation_seed_values")
-        validation_seed_offset = int(toyts.get("validation_seed_offset", 0))
-    elif "val_seed" in toyts:
-        validation_seed_values = [_require_int(toyts, "val_seed")]
-        validation_seed_offset = int(toyts.get("validation_seed_offset", 0))
+    if "validation_seed_values" in aiono:
+        validation_seed_values = _require_int_list(aiono, "validation_seed_values")
+        validation_seed_offset = int(aiono.get("validation_seed_offset", 0))
+    elif "val_seed" in aiono:
+        validation_seed_values = [_require_int(aiono, "val_seed")]
+        validation_seed_offset = int(aiono.get("validation_seed_offset", 0))
     else:
-        raise ValueError("toyts must define either validation_seed_values or val_seed")
+        raise ValueError("aiono must define either validation_seed_values or val_seed")
 
     validation_generator_seeds = [
         int(validation_seed_offset) + int(seed_value) for seed_value in validation_seed_values
@@ -208,18 +208,18 @@ def _resolve_validation_seed_config(
 
 
 def _parse_manifest_components(cfg: dict[str, Any]) -> tuple[dict[str, Any], list[str], list[dict[str, Any]]]:
-    toyts = _require_dict(cfg, "toyts")
-    dense_probe = _require_dict(toyts, "dense_probe")
-    basic = _require_dict(toyts, "basic_components")
+    aiono = _require_dict(cfg, "aiono")
+    dense_probe = _require_dict(aiono, "dense_probe")
+    basic = _require_dict(aiono, "basic_components")
     component_keys = basic.get("component_keys")
     if not isinstance(component_keys, list) or not component_keys:
-        raise ValueError("toyts.basic_components.component_keys must be a non-empty list")
+        raise ValueError("aiono.basic_components.component_keys must be a non-empty list")
     if not all(isinstance(value, str) and value.strip() for value in component_keys):
         raise ValueError("component_keys must contain non-empty strings")
     dense_targets_cfg = dense_probe.get("targets")
     if not isinstance(dense_targets_cfg, list) or not dense_targets_cfg:
-        raise ValueError("toyts.dense_probe.targets must be a non-empty list")
-    return toyts, [str(value) for value in component_keys], dense_targets_cfg
+        raise ValueError("aiono.dense_probe.targets must be a non-empty list")
+    return aiono, [str(value) for value in component_keys], dense_targets_cfg
 
 
 def _build_group_to_classes(component_keys: list[str]) -> dict[str, list[str]]:
@@ -250,11 +250,11 @@ def _build_dense_target_specs(targets_cfg: list[dict[str, Any]]) -> list[DenseTa
         enabled_key = str(item["enabled_key"])
         name = str(item["name"])
         param = str(item["param"])
-        metric_raw = toyts_basic_components_target_metric_from_param(
+        metric_raw = aiono_basic_components_target_metric_from_param(
             target_name=name,
             param=param,
         )
-        metric = toyts_basic_components_massage_target_metric(
+        metric = aiono_basic_components_massage_target_metric(
             target_signal=enabled_key,
             target_metric=metric_raw,
         )
@@ -269,7 +269,7 @@ def _build_basic_components_pipeline(
     view_name: str,
     component_keys: list[str],
     num_enabled: int,
-    periodic_contract: ResolvedToyTSBasicComponentsPeriodicContract,
+    periodic_contract: ResolvedAionoBasicComponentsPeriodicContract,
     device: torch.device,
 ) -> SynthPipeline:
     schema = EventSchema(
@@ -528,7 +528,7 @@ def _generate_split(
         end = start + batch_size
         x_all[start:end] = obs.x.detach().to("cpu")
         y_cls = _extract_class_targets(obs=obs, class_names=class_names, device=device)
-        y_dense, _ = toyts_dense_targets_extract(
+        y_dense, _ = aiono_dense_targets_extract(
             obs=obs,
             targets_cfg=dense_targets_cfg,
             target_names=dense_target_names,
@@ -561,8 +561,8 @@ def build_runtime_splits_by_validation_seed(
         raise ValueError(f"batch_size must be > 0, got {batch_size}")
     cfg_text = config_path.read_text(encoding="utf-8")
     cfg = _load_dataset_config(config_path)
-    toyts, component_keys, dense_targets_cfg = _parse_manifest_components(cfg)
-    dense_target_names = toyts_dense_targets_validate_config(targets_cfg=dense_targets_cfg)
+    aiono, component_keys, dense_targets_cfg = _parse_manifest_components(cfg)
+    dense_target_names = aiono_dense_targets_validate_config(targets_cfg=dense_targets_cfg)
     dense_target_specs = _build_dense_target_specs(dense_targets_cfg)
 
     sampling_frequency = _require_int(cfg, "sampling_frequency")
@@ -594,14 +594,14 @@ def build_runtime_splits_by_validation_seed(
     channels = cfg.get("channels")
     if not isinstance(channels, list) or not channels:
         raise ValueError("channels must be a non-empty list")
-    train_seed = _require_int(toyts, "train_seed")
+    train_seed = _require_int(aiono, "train_seed")
     (
         resolved_validation_seed_values,
         resolved_validation_seed_offset,
         resolved_validation_generator_seeds,
         resolved_validation_seed_to_generator_seed,
     ) = _resolve_validation_seed_config(
-        toyts=toyts,
+        aiono=aiono,
         train_seed=int(train_seed),
     )
     if validation_seed_values is not None:
@@ -632,26 +632,26 @@ def build_runtime_splits_by_validation_seed(
     resolved_train_batches = (
         int(train_batches)
         if train_batches is not None
-        else _require_int(toyts, "offline_probe_train_batches")
+        else _require_int(aiono, "offline_probe_train_batches")
     )
     resolved_val_batches = (
         int(val_batches)
         if val_batches is not None
-        else _require_int(toyts, "offline_probe_val_batches")
+        else _require_int(aiono, "offline_probe_val_batches")
     )
     if resolved_train_batches <= 0 or resolved_val_batches <= 0:
         raise ValueError(
             "train_batches and val_batches must be > 0, "
             f"got train_batches={resolved_train_batches} val_batches={resolved_val_batches}"
         )
-    view_name = _require_str(toyts, "view_name")
-    basic = _require_dict(toyts, "basic_components")
+    view_name = _require_str(aiono, "view_name")
+    basic = _require_dict(aiono, "basic_components")
     num_enabled = _require_int(basic, "num_enabled")
     periodic_cfg = _require_dict(basic, "periodic")
-    periodic_contract = resolve_toyts_basic_components_periodic_contract(
+    periodic_contract = resolve_aiono_basic_components_periodic_contract(
         seq_len=int(resolved_channel_size),
         sampling_frequency_hz=int(sampling_frequency),
-        config=ToyTSBasicComponentsPeriodicConfig.from_mapping(periodic_cfg),
+        config=AionoBasicComponentsPeriodicConfig.from_mapping(periodic_cfg),
         benchmark_family=benchmark_family,
         benchmark_version=benchmark_version,
     )
@@ -660,7 +660,7 @@ def build_runtime_splits_by_validation_seed(
     actual_device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     manifest = DatasetManifest(
-        dataset_name="toyts_basic_components_balanced",
+        dataset_name="aiono_basic_components_balanced",
         **periodic_contract.manifest_fields(),
         view_name=view_name,
         sampling_frequency=int(sampling_frequency),

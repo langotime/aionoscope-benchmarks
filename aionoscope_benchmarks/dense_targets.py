@@ -5,7 +5,7 @@ from typing import Any
 import torch
 
 
-def toyts_dense_targets_validate_config(*, targets_cfg: list[dict[str, object]]) -> list[str]:
+def aiono_dense_targets_validate_config(*, targets_cfg: list[dict[str, object]]) -> list[str]:
     if not targets_cfg:
         raise ValueError("targets_cfg must be a non-empty list")
     target_names: list[str] = []
@@ -55,14 +55,14 @@ def toyts_dense_targets_validate_config(*, targets_cfg: list[dict[str, object]])
     return target_names
 
 
-def toyts_dense_targets_extract(
+def aiono_dense_targets_extract(
     *,
     obs: Any,
     targets_cfg: list[dict[str, object]],
     target_names: list[str] | None = None,
 ) -> tuple[torch.Tensor, list[str]]:
     if target_names is None:
-        target_names = toyts_dense_targets_validate_config(targets_cfg=targets_cfg)
+        target_names = aiono_dense_targets_validate_config(targets_cfg=targets_cfg)
     else:
         if len(target_names) != len(targets_cfg):
             raise ValueError(
@@ -170,13 +170,13 @@ def toyts_dense_targets_extract(
     return torch.stack(target_tensors, dim=1), target_names
 
 
-def toyts_basic_components_target_metric_from_param(*, target_name: str, param: str) -> str:
+def aiono_basic_components_target_metric_from_param(*, target_name: str, param: str) -> str:
     if param == "time_idx" and target_name.endswith("_time_frac"):
         return "time_frac"
     return param
 
 
-def toyts_basic_components_massage_target_metric(
+def aiono_basic_components_massage_target_metric(
     *, target_signal: str, target_metric: str
 ) -> str:
     if target_metric == "amplitude" and target_signal in ("spike", "gaussian", "level_change"):

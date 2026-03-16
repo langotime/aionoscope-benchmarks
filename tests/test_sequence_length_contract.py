@@ -72,7 +72,7 @@ def test_runtime_split_builder_respects_exact_channel_size_override() -> None:
     assert manifest["channel_size"] == 64
     assert manifest["channel_size_policy"] == "test_exact"
     assert manifest["channel_size_source"] == "unit_test"
-    assert manifest["benchmark_family"] == "toyts_basic_components"
+    assert manifest["benchmark_family"] == "aiono_basic_components"
     assert manifest["benchmark_version"] == "v1"
     assert manifest["baseline_sampling_frequency_hz"] == 500
     assert manifest["sampling_frequency"] == 500

@@ -16,7 +16,7 @@ The benchmark code lives outside the upstream `aionoscope` library and depends o
 
 ### Versioned benchmark semantics
 
-The benchmark contract is versioned. The current family is `toyts_basic_components/v1`.
+The benchmark contract is versioned. The current family is `aiono_basic_components/v1`.
 
 Changing any of the following requires a benchmark-version change rather than a silent
 config tweak:
@@ -32,7 +32,7 @@ Results are only comparable within the same benchmark family/version.
 
 Periodic benchmark semantics are resolved in the upstream `aiono` library, not
 reimplemented separately in this repo. `runtime_dataset.py` calls the shared
-`resolve_toyts_basic_components_periodic_contract(...)` helper and records the resolved
+`resolve_aiono_basic_components_periodic_contract(...)` helper and records the resolved
 bounds in the dataset manifest.
 
 This keeps benchmark generation, examples, and downstream consumers on one source of
@@ -120,7 +120,7 @@ The foundational model stack spans incompatible dependency sets. The repo theref
 
 ### Configs
 
-- `configs/dataset_toyts_basic_components_balanced.yaml`: dataset contract for the balanced ToyTS basic-components benchmark.
+- `configs/dataset_aiono_basic_components_balanced.yaml`: dataset contract for the balanced Aiono basic-components benchmark.
 - `configs/probe.yaml`: linear probe training and evaluation hyperparameters.
 - `configs/models_foundational.yaml`: foundational model list used by sweep scripts.
 

@@ -1,13 +1,13 @@
 # Aionoscope Benchmarks
 
 Separate benchmark repo for running frozen-feature offline probes on the balanced
-ToyTS basic-components dataset against foundational models listed in
+Aiono basic-components dataset against foundational models listed in
 `benchmark_models_list.md`.
 
 Current scope:
 
 - foundational models only
-- balanced ToyTS basic-components offline probes
+- balanced Aiono basic-components offline probes
 - one JSON result per model
 - interactive browser dashboard from those JSON results
 
@@ -18,7 +18,7 @@ Additional docs:
 
 ## Benchmark Identity
 
-The current checked-in benchmark contract is the versioned family `toyts_basic_components/v1`.
+The current checked-in benchmark contract is the versioned family `aiono_basic_components/v1`.
 
 Stable semantics for this family:
 
@@ -45,7 +45,7 @@ just means "take the enabled components, render them, and add them together into
 1D signal."
 
 The family no longer hard-codes one shared periodic frequency range for every model.
-Instead, `aiono.resolve_toyts_basic_components_periodic_contract(...)` resolves
+Instead, `aiono.resolve_aiono_basic_components_periodic_contract(...)` resolves
 `frequency_hz` from the exact sequence length used for that model:
 
 - `sine` uses a Nyquist-based upper bound;
@@ -160,7 +160,7 @@ uv sync
 uv run python -m aionoscope_benchmarks.run_many --model all
 ```
 
-`run_model` and `run_many` build the balanced ToyTS/Aiono split at runtime via
+`run_model` and `run_many` build the balanced Aiono split at runtime via
 `aiono.datasets.SynthBatchIterableDataset`. `run_model` loads the adapter first,
 resolves that model's exact benchmark sequence length, then keeps the finite train/val tensors
 only in process memory for that benchmark run.
@@ -186,7 +186,7 @@ foundational stack spans incompatible dependency sets.
 
 ## Foundational Benchmark Snapshot (2026-03-13)
 
-The first full foundational offline-probe benchmark used the LeNEPA/ToyTS balanced
+The first full foundational offline-probe benchmark used the LeNEPA/Aiono balanced
 basic-components offline-probe contract, evaluated all available layers for deep
 models, and was executed sequentially.
 
@@ -237,7 +237,7 @@ Benchmark gotchas:
 
 *   The interactive charts use absolute values, not step deltas.
 *   The benchmark code now generates Aiono data online at runtime. It does not depend on a checked-in `results/datasets/*` snapshot; each run rebuilds the same deterministic finite split in memory from the YAML config and seeds.
-*   The current benchmark contract is versioned as `toyts_basic_components/v1`. Compare absolute metrics only against runs with the same family/version and inspect the manifest for resolved periodic bounds before interpreting dense periodic deltas.
+*   The current benchmark contract is versioned as `aiono_basic_components/v1`. Compare absolute metrics only against runs with the same family/version and inspect the manifest for resolved periodic bounds before interpreting dense periodic deltas.
 *   The validation protocol now evaluates the same fixed train split against validation seed values `0..9`, mapped to generator seeds `100..109` so train and validation seeds do not overlap.
 *   Probe training randomness is held fixed with `probe_seed=0` across those validation runs, so the reported spread reflects the validation-seed sweep rather than probe reinitialization noise.
 *   Every metric value in the new JSON schema stores the full validation-seed array plus `median/std`, and the dashboard visualizes those aggregated values. The historical checked-in snapshot predates this schema and also predates the versioned periodic contract, so it behaves like `n=1` legacy data rather than a current `v1` reference.

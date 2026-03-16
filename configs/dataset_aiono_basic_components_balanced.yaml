@@ -1,10 +1,10 @@
-benchmark_family: toyts_basic_components
+benchmark_family: aiono_basic_components
 benchmark_version: v1
 sampling_frequency: 500
 channels: [I]
 default_channel_size: 5000
 channel_size_policy: model_native_exact
-toyts:
+aiono:
   kind: basic_components
   train_seed: 0
   validation_seed_values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -191,7 +191,7 @@ toyts:
         enabled_key: square
   basic_components:
     num_enabled: 2
-    # Canonical `toyts_basic_components/v1` periodic contract:
+    # Canonical `aiono_basic_components/v1` periodic contract:
     # - `sampling_frequency` is fixed at the family baseline `500 Hz`
     # - `frequency_hz: auto` resolves from `default_channel_size` / adapter-exact `channel_size`
     # - non-sine upper bounds are recoverability-based, not "no aliasing" claims

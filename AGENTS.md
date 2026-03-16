@@ -66,7 +66,7 @@ Do not treat this repo as the source tree of the generator library itself.
 
 ### Benchmark contract
 
-- Treat `configs/dataset_toyts_basic_components_balanced.yaml` and `configs/probe.yaml` as the benchmark contract.
+- Treat `configs/dataset_aiono_basic_components_balanced.yaml` and `configs/probe.yaml` as the benchmark contract.
 - Do not silently change train seed semantics, validation seed ordering, validation seed offsets, target definitions, or batch-count semantics.
 - When the benchmark contract changes, make the change explicit in code, tests, and docs.
 

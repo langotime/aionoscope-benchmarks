@@ -2,7 +2,7 @@
 
 ## What This Repo Does
 
-This repo benchmarks frozen foundational time-series models on the balanced ToyTS basic-components contract built from the sibling `aiono` library. Each run:
+This repo benchmarks frozen foundational time-series models on the balanced Aiono basic-components contract built from the sibling `aiono` library. Each run:
 
 - rebuilds a deterministic finite benchmark split in memory;
 - resolves the model's exact benchmark sequence length before dataset generation;
@@ -71,7 +71,7 @@ Then open `http://localhost:8000/results/dashboard.html`.
 
 ### Dataset config
 
-`configs/dataset_toyts_basic_components_balanced.yaml` defines the benchmark contract:
+`configs/dataset_aiono_basic_components_balanced.yaml` defines the benchmark contract:
 
 - sampling frequency and the default reference sequence length;
 - the sequence-length policy (`model_native_exact` in the current benchmark);
@@ -96,12 +96,12 @@ length into the runtime split builder. The manifest written to each JSON artifac
 
 The dataset config is now explicitly versioned:
 
-- `benchmark_family: toyts_basic_components`
+- `benchmark_family: aiono_basic_components`
 - `benchmark_version: v1`
 
 `v1` semantics are resolved in the shared `aiono` library, not reimplemented in each
 consumer. The benchmark repo calls
-`resolve_toyts_basic_components_periodic_contract(...)` and writes the resolved result
+`resolve_aiono_basic_components_periodic_contract(...)` and writes the resolved result
 into the runtime manifest.
 
 The baseline invariants for `v1` are:
@@ -262,7 +262,7 @@ The most common failure mode is semantic drift rather than checkpoint drift:
 - different `frequency_hz` resolution mode
 - different square `duty_cycle` range
 
-For the current `toyts_basic_components/v1` contract, a hidden `sampling_frequency`
+For the current `aiono_basic_components/v1` contract, a hidden `sampling_frequency`
 mismatch is considered a benchmark bug, not a valid alternate evaluation.
 
 ## Dashboard Contract

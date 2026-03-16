@@ -36,7 +36,7 @@
     }
   },
   "dataset": {
-    "dataset_name": "toyts_basic_components_balanced",
+    "dataset_name": "aiono_basic_components_balanced",
     "view_name": "mix",
     "sampling_frequency": 500,
     "channels": [
