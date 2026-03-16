@@ -12,7 +12,7 @@ The benchmark code lives outside the upstream `aionoscope` library and depends o
 
 ### Runtime dataset materialization
 
-`src/aionoscope_benchmarks/runtime_dataset.py` rebuilds the finite train split and validation splits in memory from the dataset YAML on every run. The resulting manifest is part of the output JSON and is the reproducibility contract for the evaluated split.
+`aionoscope_benchmarks/runtime_dataset.py` rebuilds the finite train split and validation splits in memory from the dataset YAML on every run. The resulting manifest is part of the output JSON and is the reproducibility contract for the evaluated split.
 
 ### Versioned benchmark semantics
 
@@ -57,7 +57,7 @@ The benchmark contract is a fixed train split plus a fixed ordered set of valida
 
 ### Adapter boundary for foundational models
 
-Every benchmarked model is wrapped by a `FrozenTimeSeriesAdapter` implementation in `src/aionoscope_benchmarks/adapters/`. The adapter contract is:
+Every benchmarked model is wrapped by a `FrozenTimeSeriesAdapter` implementation in `aionoscope_benchmarks/adapters/`. The adapter contract is:
 
 - expose an exact benchmark sequence length;
 - expose `available_layers`;
@@ -126,24 +126,24 @@ The foundational model stack spans incompatible dependency sets. The repo theref
 
 ### Runtime split builder
 
-`src/aionoscope_benchmarks/runtime_dataset.py` builds the benchmark splits and manifest from the dataset YAML and the sibling `aiono` package.
+`aionoscope_benchmarks/runtime_dataset.py` builds the benchmark splits and manifest from the dataset YAML and the sibling `aiono` package.
 
 ### Model registry and adapters
 
-`src/aionoscope_benchmarks/model_registry.py` maps canonical model names to source metadata, environment names, and adapter classes. Adapters implement the stable representation-extraction interface.
+`aionoscope_benchmarks/model_registry.py` maps canonical model names to source metadata, environment names, and adapter classes. Adapters implement the stable representation-extraction interface.
 
 ### Offline probe engine
 
-`src/aionoscope_benchmarks/offline_probe.py` stages collected features and trains the linear multi-head probes used for both multi-label classification and dense regression.
+`aionoscope_benchmarks/offline_probe.py` stages collected features and trains the linear multi-head probes used for both multi-label classification and dense regression.
 
 ### Result assembly
 
-`src/aionoscope_benchmarks/results.py` aggregates metrics across validation runs, computes summary selections, and writes the canonical JSON result payload.
+`aionoscope_benchmarks/results.py` aggregates metrics across validation runs, computes summary selections, and writes the canonical JSON result payload.
 
 ### Entry points
 
-- `src/aionoscope_benchmarks/run_model.py`: run one model and write one JSON file.
-- `src/aionoscope_benchmarks/run_many.py`: run a list of models in the current environment.
+- `aionoscope_benchmarks/run_model.py`: run one model and write one JSON file.
+- `aionoscope_benchmarks/run_many.py`: run a list of models in the current environment.
 - `scripts/run_foundational_sequential.py`: sweep the full foundational set across multiple pinned environments.
 
 ### Visualization

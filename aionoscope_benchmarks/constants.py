@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 LIBRARY_ROOT = REPO_ROOT.parent / "aionoscope"
 RESULTS_ROOT = REPO_ROOT / "results"
 MODEL_RESULTS_ROOT = RESULTS_ROOT / "models"

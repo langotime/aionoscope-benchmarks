@@ -155,7 +155,7 @@ square `duty_cycle`.
 
 ### Foundational model list
 
-`configs/models_foundational.yaml` is the human-facing sweep list. The code-level source of truth for metadata and adapters is `src/aionoscope_benchmarks/model_registry.py`.
+`configs/models_foundational.yaml` is the human-facing sweep list. The code-level source of truth for metadata and adapters is `aionoscope_benchmarks/model_registry.py`.
 
 The two LeNEPA entries (`LeNEPA-Aiono` and `LeNEPA-CauKer2M`) run in the base `core`
 environment. On first use, their adapters download the published `inference.py`,
@@ -280,8 +280,8 @@ If you change the output schema in Python, update the dashboard in the same task
 
 To add a new model:
 
-1. Add a `ModelSpec` entry in `src/aionoscope_benchmarks/model_registry.py`.
-2. Implement a `FrozenTimeSeriesAdapter` subclass in `src/aionoscope_benchmarks/adapters/`.
+1. Add a `ModelSpec` entry in `aionoscope_benchmarks/model_registry.py`.
+2. Implement a `FrozenTimeSeriesAdapter` subclass in `aionoscope_benchmarks/adapters/`.
 3. Pick the environment name that can actually import the model stack.
 4. Expose an exact benchmark sequence length, honest `available_layers`, and stable `adapter_metadata()`.
 5. Make the adapter fail fast on sequence-length mismatch rather than silently cropping, padding, or waveform-resampling benchmark inputs.
