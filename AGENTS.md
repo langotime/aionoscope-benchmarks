@@ -52,6 +52,7 @@ Do not treat this repo as the source tree of the generator library itself.
 - When reimplementing existing code, do not keep the old code as fallback. Replace it and use tests to preserve behavior.
 - ALWAYS run relevant tests or smoke checks after changing code and before reporting that the job is done.
 - Put Python unit tests into the `tests/` subdirectory.
+- DO NOT commit plan files to the git, and do NOT delete them, the human will delete them. You MUST update the project documentation with all important information from the plan file during its implementaiton. See the Documentation section for the documentation structure.
 
 ## Development Best Practices
 
