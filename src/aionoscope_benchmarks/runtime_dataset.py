@@ -2,8 +2,7 @@ from __future__ import annotations
 
 """Runtime ToyTS/Aiono split builder.
 
-This module used to write `train.pt` / `val.pt` snapshots. The benchmark now
-builds the finite split online from `aiono.datasets.SynthBatchIterableDataset`
+Builds the finite split online from `aiono.datasets.SynthBatchIterableDataset`
 and materializes it only in process memory for the current run.
 """
 
@@ -828,7 +827,7 @@ def main() -> None:
         batch_size=int(args.batch_size),
         channel_size_override=args.channel_size,
         channel_size_policy_override=("cli_exact_override" if args.channel_size is not None else None),
-        channel_size_source_override=("dataset_snapshot_cli" if args.channel_size is not None else None),
+        channel_size_source_override=("runtime_dataset_cli" if args.channel_size is not None else None),
         train_batches=args.train_batches,
         val_batches=args.val_batches,
         validation_seed_values=args.validation_seed_values,

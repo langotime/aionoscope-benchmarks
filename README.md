@@ -111,8 +111,7 @@ signal families.
 
 Each benchmark run regenerates the same finite evaluation split on the fly from
 Aiono using fixed seeds, fixed batch counts, and the current model's exact benchmark
-sequence length. The split is materialized only in RAM for the current run; the
-normal workflow does not require cached `train.pt` / `val.pt` files on disk.
+sequence length. The split is materialized only in RAM for the current run.
 
 Those fixed settings are:
 

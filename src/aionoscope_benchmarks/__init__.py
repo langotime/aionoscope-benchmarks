@@ -2,9 +2,8 @@
 
 __all__ = [
     "constants",
-    "dataset_snapshot",
     "dense_targets",
     "probe_metrics",
+    "runtime_dataset",
     "schedules",
 ]
-

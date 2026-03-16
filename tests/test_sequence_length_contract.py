@@ -10,7 +10,7 @@ from aionoscope_benchmarks.adapters.base import FrozenTimeSeriesAdapter
 from aionoscope_benchmarks.adapters.mantisv2 import MantisV2Adapter
 from aionoscope_benchmarks.adapters.toto import TotoAdapter
 from aionoscope_benchmarks.constants import DATASET_CONFIG_PATH
-from aionoscope_benchmarks.dataset_snapshot import build_runtime_splits_by_validation_seed
+from aionoscope_benchmarks.runtime_dataset import build_runtime_splits_by_validation_seed
 
 
 class _DummyAdapter(FrozenTimeSeriesAdapter):

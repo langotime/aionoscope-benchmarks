@@ -12,7 +12,7 @@ The benchmark code lives outside the upstream `aionoscope` library and depends o
 
 ### Runtime dataset materialization
 
-The benchmark does not rely on checked-in `train.pt` or `val.pt` snapshots. `src/aionoscope_benchmarks/dataset_snapshot.py` rebuilds the finite train split and validation splits in memory from the dataset YAML on every run. The resulting manifest is part of the output JSON and is the reproducibility contract for the evaluated split.
+`src/aionoscope_benchmarks/runtime_dataset.py` rebuilds the finite train split and validation splits in memory from the dataset YAML on every run. The resulting manifest is part of the output JSON and is the reproducibility contract for the evaluated split.
 
 ### Versioned benchmark semantics
 
@@ -31,7 +31,7 @@ Results are only comparable within the same benchmark family/version.
 ### Shared periodic resolver in `aiono`
 
 Periodic benchmark semantics are resolved in the upstream `aiono` library, not
-reimplemented separately in this repo. `dataset_snapshot.py` calls the shared
+reimplemented separately in this repo. `runtime_dataset.py` calls the shared
 `resolve_toyts_basic_components_periodic_contract(...)` helper and records the resolved
 bounds in the dataset manifest.
 
@@ -126,7 +126,7 @@ The foundational model stack spans incompatible dependency sets. The repo theref
 
 ### Runtime split builder
 
-`src/aionoscope_benchmarks/dataset_snapshot.py` builds the benchmark splits and manifest from the dataset YAML and the sibling `aiono` package.
+`src/aionoscope_benchmarks/runtime_dataset.py` builds the benchmark splits and manifest from the dataset YAML and the sibling `aiono` package.
 
 ### Model registry and adapters
 

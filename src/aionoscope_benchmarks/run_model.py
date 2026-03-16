@@ -12,7 +12,6 @@ import yaml
 from torch.utils.data import DataLoader, TensorDataset
 
 from .constants import DATASET_CONFIG_PATH, MODEL_RESULTS_ROOT, PROBE_CONFIG_PATH
-from .dataset_snapshot import build_runtime_splits_by_validation_seed
 from .model_registry import create_adapter
 from .offline_probe import (
     OfflineProbeConfig,
@@ -21,6 +20,7 @@ from .offline_probe import (
 )
 from .probe_metrics import ensure_probe_metric_dependencies_available
 from .results import build_model_result, write_model_result
+from .runtime_dataset import build_runtime_splits_by_validation_seed
 
 
 def _utc_timestamp() -> str:
