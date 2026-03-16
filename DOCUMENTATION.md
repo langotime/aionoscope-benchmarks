@@ -253,6 +253,7 @@ mismatch is considered a benchmark bug, not a valid alternate evaluation.
 
 - layer ids are serialized as JSON object keys;
 - summary fields such as `best_auc`, `best_auprc`, macro best `r2`, and macro best `pearson` are read by the UI;
+- the selection-aware bubble chart reads `results.shared.timings.collect_train.forward_s` and `results.shared.timings.collect_val.forward_s` to size bubbles by encoder forward time rather than full benchmark wall time, and only plots currently enabled models;
 - grouped dense metrics depend on the target signal and target metric labels stored in the JSON;
 - browser charts may clip values for display, but raw metrics must remain preserved in the JSON.
 
