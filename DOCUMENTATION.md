@@ -78,6 +78,43 @@ python -m http.server 8000
 
 Then open `http://localhost:8000/results/dashboard.html`.
 
+## Cloudflare Pages Deployment
+
+For Cloudflare Pages, publish `results/` as the build output directory. In that
+layout the dashboard is served as `/dashboard.html`, the model JSON files live
+under `/models/`, and the dashboard first tries `/models/list.txt` before it
+falls back to directory listing.
+
+Cloudflare Pages may auto-detect Python from the repository root because this
+repo contains `pyproject.toml`. If you leave dependency installation enabled,
+Pages will try `pip install .` before your build command and fail on this repo's
+benchmark-specific Python constraints and local editable dependency layout.
+
+Build command:
+
+```bash
+find results/models -maxdepth 1 -type f -name '*.json' -printf '%f\n' | LC_ALL=C sort > results/models/list.txt
+```
+
+Build output directory:
+
+```text
+results
+```
+
+Environment variable:
+
+```text
+SKIP_DEPENDENCY_INSTALL=true
+```
+
+The generated `results/models/list.txt` should contain one JSON filename per
+line, for example `Chronos2.json`. `results/dashboard.html` normalizes those
+entries back to `models/<file>.json` at runtime. When you serve the repo root
+locally with `python -m http.server 8000`, `/models/list.txt` usually does not
+exist, so the dashboard automatically falls back to the relative
+`results/models/` directory listing instead.
+
 ## Config Files
 
 ### Dataset config
@@ -271,6 +308,7 @@ mismatch is considered a benchmark bug, not a valid alternate evaluation.
 
 `results/dashboard.html` reads the checked-in or newly generated JSON files directly in the browser. Keep these constraints in mind when changing result payloads:
 
+- file discovery now tries root-relative `/models/list.txt` first, then relative `models/` directory listing; if neither works, the UI reports the discovery failure and loads no model files;
 - layer ids are serialized as JSON object keys;
 - summary fields such as `best_auc`, `best_auprc`, macro best `r2`, and macro best `pearson` are read by the UI;
 - the selection-aware bubble chart only plots currently enabled models and allows any supported bubble metric on the `x` axis, `y` axis, or bubble size; inference uses `runtime.encoder_forward_total_s`, parameter count uses `model.adapter.parameter_count`, parameter-count axes render on a log scale, and older JSONs may still fall back to `results.shared.timings.collect_*.*forward_s` for inference mode;

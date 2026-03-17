@@ -797,24 +797,7 @@
 
   <script>
     const MODELS_DIR = "models/";
-    const FALLBACK_RESULT_FILES = [
-      "models/MantisV2.json",
-      "models/TabPFN.json",
-      "models/TabICL.json",
-      "models/MOMENT.json",
-      "models/TiRex.json",
-      "models/Chronos2.json",
-      "models/LeNEPA-Aiono.json",
-      "models/LeNEPA-CauKer2M.json",
-      "models/LeNEPA-CauKer2M-20k.json",
-      "models/TTM.json",
-      "models/Moirai.json",
-      "models/Toto.json",
-      "models/TiViT-H.json",
-      "models/TiConvNext.json",
-      "models/NuTime.json",
-      "models/T-Loss.json"
-    ];
+    const MODELS_LIST_PATH = "/models/list.txt";
     const TARGET_SIGNAL_ORDER = [
       "gaussian_noise",
       "uniform_noise",
@@ -904,11 +887,6 @@
 
     function modelName(result) {
       return String(result.model.name);
-    }
-
-    function modelOrderKey(name) {
-      const fallbackIndex = FALLBACK_RESULT_FILES.map(slugFromPath).indexOf(String(name));
-      return fallbackIndex >= 0 ? fallbackIndex : Number.MAX_SAFE_INTEGER;
     }
 
     function colorForModel(name) {
@@ -2543,7 +2521,8 @@
 
       if (!state.allResults.length) {
         setStatus(
-          "No JSON result files were loaded. Serve the repo over HTTP and keep benchmark JSONs in results/models/.",
+          state.discoveryWarning ||
+            "No JSON result files were loaded. Serve the repo over HTTP and keep benchmark JSONs in results/models/.",
           "warning"
         );
       } else if (!results.length) {
@@ -2558,6 +2537,16 @@
       }
     }
 
+    function discoverFilesFromListText(listText) {
+      const candidates = String(listText)
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#"))
+        .filter((line) => line.toLowerCase().endsWith(".json"))
+        .map((line) => `${MODELS_DIR}${basename(line)}`);
+      return Array.from(new Set(candidates));
+    }
+
     function discoverFilesFromDirectoryListing(htmlText) {
       const parser = new DOMParser();
       const doc = parser.parseFromString(htmlText, "text/html");
@@ -2569,6 +2558,22 @@
     }
 
     async function resolveResultFiles() {
+      let manifestError = null;
+      try {
+        const response = await fetch(MODELS_LIST_PATH, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`${MODELS_LIST_PATH} returned HTTP ${response.status}`);
+        }
+        const text = await response.text();
+        const discovered = discoverFilesFromListText(text);
+        if (!discovered.length) {
+          throw new Error(`${MODELS_LIST_PATH} is available, but it does not list any JSON files`);
+        }
+        return { files: discovered, source: MODELS_LIST_PATH, warning: "" };
+      } catch (error) {
+        manifestError = error;
+      }
+
       try {
         const response = await fetch(MODELS_DIR, { cache: "no-store" });
         if (!response.ok) {
@@ -2579,27 +2584,23 @@
         if (!discovered.length) {
           throw new Error("Directory listing is available, but no JSON links were found");
         }
-        const ordered = discovered.sort((left, right) => {
-          const leftSlug = slugFromPath(left);
-          const rightSlug = slugFromPath(right);
-          const leftKey = modelOrderKey(leftSlug);
-          const rightKey = modelOrderKey(rightSlug);
-          if (leftKey !== rightKey) {
-            return leftKey - rightKey;
-          }
-          return leftSlug.localeCompare(rightSlug);
-        });
+        const ordered = discovered.sort((left, right) => slugFromPath(left).localeCompare(slugFromPath(right)));
         return { files: ordered, source: "directory listing", warning: "" };
       } catch (error) {
         return {
-          files: FALLBACK_RESULT_FILES.slice(),
-          source: "fallback manifest",
-          warning: `Fell back to the built-in file list: ${error.message}`
+          files: [],
+          source: "discovery failed",
+          warning: `Could not discover model JSON files via ${MODELS_LIST_PATH} or directory listing: ${manifestError.message} | ${error.message}`
         };
       }
     }
 
     async function loadResults(files) {
+      if (!files.length) {
+        return { loaded: [], errors: [] };
+      }
+
+      const fileOrder = new Map(files.map((path, index) => [path, index]));
       const settled = await Promise.allSettled(
         files.map(async (path) => {
           const response = await fetch(path, { cache: "no-store" });
@@ -2621,10 +2622,10 @@
         }
       });
       loaded.sort((left, right) => {
-        const leftKey = modelOrderKey(modelName(left));
-        const rightKey = modelOrderKey(modelName(right));
-        if (leftKey !== rightKey) {
-          return leftKey - rightKey;
+        const leftIndex = fileOrder.get(left.__resultPath);
+        const rightIndex = fileOrder.get(right.__resultPath);
+        if (leftIndex !== rightIndex) {
+          return leftIndex - rightIndex;
         }
         return modelName(left).localeCompare(modelName(right));
       });

@@ -177,6 +177,12 @@ count, the dashboard uses a log scale for that axis automatically.
 When the JSON contains repeated validation runs, the dashboard plots the
 per-layer / per-category median and shows sample standard deviation (`ddof=1`)
 in tooltips, with shaded `± std` bands on the layer curves.
+When published with `results/` as the site root, the dashboard first tries
+`/models/list.txt`, then falls back to `models/` directory listing. If neither
+works, it now reports a discovery error instead of using a hard-coded manifest.
+On Cloudflare Pages, set `SKIP_DEPENDENCY_INSTALL=true`; otherwise Pages may see
+`pyproject.toml` in the repo root and try `pip install .` before running the
+static-site build command.
 
 For the full foundational sweep used in the current results, use
 `scripts/run_foundational_sequential.py`. It dispatches each model into the
