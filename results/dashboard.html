@@ -1322,6 +1322,49 @@
       return { min, max };
     }
 
+    function paddedLogMetricRange(values, { lowerBound = null, upperBound = null, fallback = [1, 10] } = {}) {
+      const positiveValues = values.map(finiteNumber).filter((value) => value !== null && value > 0);
+      if (!positiveValues.length) {
+        return { min: fallback[0], max: fallback[1] };
+      }
+
+      const rawMin = Math.min(...positiveValues);
+      const rawMax = Math.max(...positiveValues);
+      const logMin = Math.log10(rawMin);
+      const logMax = Math.log10(rawMax);
+      const logSpan = logMax - logMin;
+      const padding = logSpan > 0 ? logSpan * 0.08 : 0.25;
+
+      let min = Math.pow(10, logMin - padding);
+      let max = Math.pow(10, logMax + padding);
+
+      if (lowerBound !== null) {
+        min = Math.max(Number(lowerBound), min);
+      }
+      if (upperBound !== null) {
+        max = Math.min(Number(upperBound), max);
+      }
+      if (min <= 0) {
+        min = lowerBound !== null ? Number(lowerBound) : rawMin;
+      }
+      if (max <= min) {
+        const center = logSpan > 0 ? 0.5 * (logMin + logMax) : Math.log10(rawMin);
+        min = Math.pow(10, center - 0.25);
+        max = Math.pow(10, center + 0.25);
+        if (lowerBound !== null) {
+          min = Math.max(Number(lowerBound), min);
+        }
+        if (upperBound !== null) {
+          max = Math.min(Number(upperBound), max);
+        }
+        if (max <= min) {
+          max = min * 10;
+        }
+      }
+
+      return { min, max };
+    }
+
     function inferenceForwardBreakdown(result) {
       const runtime = result.runtime || {};
       const explicitTotal = finiteNumber(runtime.encoder_forward_total_s);
@@ -1398,6 +1441,7 @@
         return {
           key: "auroc",
           label: "Macro AUROC",
+          axisType: "value",
           missingHint: "macro AUROC summaries",
           range: { lowerBound: 0.0, upperBound: 1.0, fallback: [0, 1] },
           axisTickFormatter: (value) => Number(value).toFixed(2),
@@ -1421,6 +1465,7 @@
         return {
           key: "auprc",
           label: "Macro AUPRC",
+          axisType: "value",
           missingHint: "macro AUPRC summaries",
           range: { lowerBound: 0.0, upperBound: 1.0, fallback: [0, 1] },
           axisTickFormatter: (value) => Number(value).toFixed(2),
@@ -1444,6 +1489,7 @@
         return {
           key: "r2",
           label: "Macro R2",
+          axisType: "value",
           missingHint: "macro R2 summaries",
           range: { upperBound: 1.0, fallback: [0, 1] },
           axisTickFormatter: (value) => Number(value).toFixed(2),
@@ -1466,6 +1512,7 @@
         return {
           key: "pearson",
           label: "Macro Pearson",
+          axisType: "value",
           missingHint: "macro Pearson summaries",
           range: { lowerBound: -1.0, upperBound: 1.0, fallback: [-1, 1] },
           axisTickFormatter: (value) => Number(value).toFixed(2),
@@ -1490,6 +1537,7 @@
         return {
           key: "inference",
           label: "Encoder forward time",
+          axisType: "value",
           missingHint: "encoder forward timing metadata",
           range: { lowerBound: 0.0, fallback: [0, 1] },
           axisTickFormatter: formatDurationAxisValue,
@@ -1524,8 +1572,9 @@
         return {
           key: "parameters",
           label: "Model parameters",
+          axisType: "log",
           missingHint: "stored model parameter counts",
-          range: { lowerBound: 0.0, fallback: [0, 1] },
+          range: { lowerBound: 1.0, fallback: [1, 10] },
           axisTickFormatter: formatCompactInteger,
           sizeTransform: (value) => Math.sqrt(Math.max(0, Number(value))),
           summary: (result) => {
@@ -1550,6 +1599,16 @@
         };
       }
       throw new Error("Unsupported bubble metric: " + metricKey);
+    }
+
+    function bubbleAxisLabel(metricConfig) {
+      return metricConfig.axisType === "log" ? `${metricConfig.label} (log scale)` : metricConfig.label;
+    }
+
+    function bubbleAxisRange(values, metricConfig) {
+      return metricConfig.axisType === "log"
+        ? paddedLogMetricRange(values, metricConfig.range)
+        : paddedMetricRange(values, metricConfig.range);
     }
 
     function bubbleSymbolSize(metricValue, metricConfig, allValues) {
@@ -2022,7 +2081,7 @@
 
     function updateBubbleChartNote(xMetric, yMetric, sizeMetric) {
       const note = document.getElementById("bubble-chart-note");
-      note.textContent = `X = ${xMetric.label}, Y = ${yMetric.label}, bubble size = ${sizeMetric.label}`;
+      note.textContent = `X = ${bubbleAxisLabel(xMetric)}, Y = ${bubbleAxisLabel(yMetric)}, bubble size = ${sizeMetric.label}`;
     }
 
     function buildBubbleChart(results) {
@@ -2087,13 +2146,13 @@
       }
 
       const sizeValues = bubbleRows.map((row) => row.sizeValue);
-      const xRange = paddedMetricRange(
+      const xRange = bubbleAxisRange(
         bubbleRows.map((row) => row.xValue),
-        xMetric.range
+        xMetric
       );
-      const yRange = paddedMetricRange(
+      const yRange = bubbleAxisRange(
         bubbleRows.map((row) => row.yValue),
-        yMetric.range
+        yMetric
       );
 
       bubbleChart.setOption(
@@ -2129,8 +2188,8 @@
             }
           },
           xAxis: {
-            type: "value",
-            name: xMetric.label,
+            type: xMetric.axisType,
+            name: bubbleAxisLabel(xMetric),
             nameLocation: "middle",
             nameGap: 44,
             min: xRange.min,
@@ -2146,8 +2205,8 @@
             }
           },
           yAxis: {
-            type: "value",
-            name: yMetric.label,
+            type: yMetric.axisType,
+            name: bubbleAxisLabel(yMetric),
             nameLocation: "middle",
             nameGap: 58,
             nameRotate: 90,
