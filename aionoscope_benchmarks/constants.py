@@ -25,6 +25,8 @@ FOUNDATIONAL_MODELS = (
     "LeNEPA-CauKer2M",
     "LeNEPA-CauKer2M-20k",
     "TTM",
+    "Time-MoE-Base",
+    "Time-MoE-Large",
     "Moirai",
     "Toto",
     "TiViT-H",

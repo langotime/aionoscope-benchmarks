@@ -101,7 +101,7 @@ The browser dashboard is a consumer of this JSON schema, not an independent sour
 
 ### Multi-environment execution is intentional
 
-The foundational model stack spans incompatible dependency sets. The repo therefore supports multiple pinned virtual environments such as `.venv`, `.venv-tivit`, and `.venv-tabular`. `scripts/run_foundational_sequential.py` dispatches each model into the interpreter mapped from its registry entry. This is part of the architecture, not a temporary workaround.
+The foundational model stack spans incompatible dependency sets. The repo therefore supports multiple pinned virtual environments such as `.venv`, `.venv-tabular`, `.venv-timemoe`, and `.venv-tivit`. `scripts/run_foundational_sequential.py` dispatches each model into the interpreter mapped from its registry entry. This is part of the architecture, not a temporary workaround.
 
 ## Execution Model
 

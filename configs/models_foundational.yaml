@@ -8,6 +8,8 @@ models:
   - LeNEPA-Aiono
   - LeNEPA-CauKer2M
   - TTM
+  - Time-MoE-Base
+  - Time-MoE-Large
   - Moirai
   - Toto
   - TiViT-H

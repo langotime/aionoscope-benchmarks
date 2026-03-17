@@ -18,6 +18,7 @@ ENV_TO_PYTHON = {
     "mantis": REPO_ROOT / ".venv-mantis2" / "bin" / "python",
     "chronos": REPO_ROOT / ".venv-chronos" / "bin" / "python",
     "ttm": REPO_ROOT / ".venv-ttm" / "bin" / "python",
+    "timemoe": REPO_ROOT / ".venv-timemoe" / "bin" / "python",
     "tirex": REPO_ROOT / ".venv-tirex" / "bin" / "python",
     "moirai": REPO_ROOT / ".venv-moirai" / "bin" / "python",
     "toto": REPO_ROOT / ".venv-toto" / "bin" / "python",

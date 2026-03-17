@@ -34,6 +34,17 @@ forecast-derived tabular adapters:
 uv pip install --python .venv-tabular/bin/python 'tabpfn-time-series' 'tabicl[forecast]'
 ```
 
+Time-MoE uses the official remote-code checkpoints and the upstream repo's
+published `transformers` pin. Install that in the dedicated Time-MoE env:
+
+```bash
+uv pip install --python .venv-timemoe/bin/python 'transformers==4.40.1'
+```
+
+When `flash-attn` is available in `.venv-timemoe`, the adapter prefers
+`flash_attention_2` on CUDA. Otherwise it falls back to eager attention and keeps
+the default encode batch size at `1`.
+
 ## Common Commands
 
 Run one model in the current environment:
@@ -166,6 +177,13 @@ layer `8` is the post-final-layer-norm encoder output, matching the published ex
 contract before mean pooling.
 More generally, adapters that expose a distinct embedding stream use layer `0` for that
 embedding and number transformer-style encoder blocks from `1`.
+`Time-MoE-Base` and `Time-MoE-Large` also reserve layer `0` for their input
+embedding stream. They load the official `Maple728/TimeMoE-50M` and
+`Maple728/TimeMoE-200M` checkpoints through `transformers` remote code, pin the
+exact benchmark length to the checkpoint `max_position_embeddings=4096`, apply the
+official per-series z-score normalization to the exact benchmark waveform, and
+mean-pool the causal token stream across time. Their final benchmark layer is the
+post-final-norm decoder output.
 
 The current exact benchmark lengths are:
 
@@ -177,6 +195,8 @@ The current exact benchmark lengths are:
 - `MOMENT`: `512`
 - `NuTime`: `176`
 - `T-Loss`: `5000`
+- `Time-MoE-Base`: `4096`
+- `Time-MoE-Large`: `4096`
 - `TTM`: `512`
 - `TabICL`: `128`
 - `TabPFN`: `128`

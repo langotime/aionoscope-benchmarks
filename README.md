@@ -65,7 +65,7 @@ Current exact lengths:
 
 - `8192`: `Chronos2`
 - `5000`: `LeNEPA-Aiono`, `LeNEPA-CauKer2M`, `LeNEPA-CauKer2M-20k`, `TiViT-H`, `TiConvNext`, `T-Loss`
-- `4096`: `Toto`
+- `4096`: `Toto`, `Time-MoE-Base`, `Time-MoE-Large`
 - `2048`: `TiRex`
 - `512`: `MantisV2`, `MOMENT`, `TTM`, `Moirai`
 - `176`: `NuTime`
@@ -181,6 +181,9 @@ For the full foundational sweep used in the current results, use
 `scripts/run_foundational_sequential.py`. It dispatches each model into the
 environment pinned for that model family, which is necessary because the
 foundational stack spans incompatible dependency sets.
+`Time-MoE-Base` and `Time-MoE-Large` use the dedicated `.venv-timemoe`
+interpreter because the official remote-code checkpoints require
+`transformers==4.40.1`.
 
 ## Foundational Benchmark Snapshot (2026-03-13)
 
@@ -207,8 +210,9 @@ reserve layer `0` for the embedding stream, so the checked-in best-layer ids are
 indices rather than current ones.
 
 The foundational registry now also includes `LeNEPA-Aiono`, `LeNEPA-CauKer2M`,
-and `LeNEPA-CauKer2M-20k`. Those entries were added after this checked-in snapshot,
-so they do not yet have checked-in JSON artifacts or rows in the table below.
+`LeNEPA-CauKer2M-20k`, `Time-MoE-Base`, and `Time-MoE-Large`. Those entries were
+added after this checked-in snapshot, so they do not yet have checked-in JSON
+artifacts or rows in the table below.
 Embedding-aware adapters now reserve layer `0` for the embedding stream. For both
 LeNEPA adapters, benchmark layers run from `0..8`: layer `0` is the tokenizer
 / embedding output, layers `1..7` are intermediate transformer-block outputs, and layer

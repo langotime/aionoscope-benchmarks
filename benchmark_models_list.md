@@ -69,6 +69,20 @@
   - Benchmark exact length: `512` samples, matching the backbone patching sequence length.
   - Note: the current latest public TTM release is `r2.1` within the `granite-timeseries-ttm-r2` model card, not the older `r1` / `v1` release.
 
+- `Time-MoE-Base`
+  - Source code: `https://github.com/Time-MoE/Time-MoE`
+  - Official checkpoint: `https://huggingface.co/Maple728/TimeMoE-50M`
+  - Import from: `transformers`; use `AutoModelForCausalLM.from_pretrained(..., trust_remote_code=True)`. The upstream repo explicitly pins `transformers==4.40.1`.
+  - Benchmark exact length: `4096` samples, matching the checkpoint `max_position_embeddings`.
+  - Note: this is the official `50M` checkpoint. The benchmark applies the upstream per-series z-score normalization, then mean-pools the decoder token stream. Layer `0` is the input embedding stream and layer `12` is the post-final-norm decoder output.
+
+- `Time-MoE-Large`
+  - Source code: `https://github.com/Time-MoE/Time-MoE`
+  - Official checkpoint: `https://huggingface.co/Maple728/TimeMoE-200M`
+  - Import from: `transformers`; use `AutoModelForCausalLM.from_pretrained(..., trust_remote_code=True)`. The upstream repo explicitly pins `transformers==4.40.1`.
+  - Benchmark exact length: `4096` samples, matching the checkpoint `max_position_embeddings`.
+  - Note: this is the official `200M` checkpoint. The benchmark applies the upstream per-series z-score normalization, then mean-pools the decoder token stream. Layer `0` is the input embedding stream and layer `12` is the post-final-norm decoder output.
+
 - `Moirai`
   - Source code: `https://github.com/SalesforceAIResearch/uni2ts`
   - Official checkpoint: the official checkpoints are hosted on Hugging Face under the Salesforce `Moirai` family, including `https://huggingface.co/Salesforce/moirai-1.1-R-small`, `https://huggingface.co/Salesforce/moirai-1.1-R-base`, `https://huggingface.co/Salesforce/moirai-1.1-R-large`, and the newer `https://huggingface.co/Salesforce/moirai-2.0-R-small`.
