@@ -253,6 +253,13 @@
       letter-spacing: 0.06em;
     }
 
+    .control-sublabel {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #4f5d74;
+      margin-top: 4px;
+    }
+
     select,
     input[type="search"] {
       width: 100%;
@@ -597,6 +604,37 @@
           </div>
 
           <div class="sidebar-section control-block">
+            <span class="control-label">Bubble chart</span>
+            <label class="control-sublabel" for="bubble-x-selector">X axis</label>
+            <select id="bubble-x-selector">
+              <option value="auroc">Macro AUROC</option>
+              <option value="auprc" selected>Macro AUPRC</option>
+              <option value="r2">Macro R2</option>
+              <option value="pearson">Macro Pearson</option>
+              <option value="inference">Encoder forward time</option>
+              <option value="parameters">Model parameters</option>
+            </select>
+            <label class="control-sublabel" for="bubble-y-selector">Y axis</label>
+            <select id="bubble-y-selector">
+              <option value="auroc">Macro AUROC</option>
+              <option value="auprc">Macro AUPRC</option>
+              <option value="r2" selected>Macro R2</option>
+              <option value="pearson">Macro Pearson</option>
+              <option value="inference">Encoder forward time</option>
+              <option value="parameters">Model parameters</option>
+            </select>
+            <label class="control-sublabel" for="bubble-size-selector">Bubble size</label>
+            <select id="bubble-size-selector">
+              <option value="auroc">Macro AUROC</option>
+              <option value="auprc">Macro AUPRC</option>
+              <option value="r2">Macro R2</option>
+              <option value="pearson">Macro Pearson</option>
+              <option value="inference" selected>Encoder forward time</option>
+              <option value="parameters">Model parameters</option>
+            </select>
+          </div>
+
+          <div class="sidebar-section control-block">
             <label class="control-label" for="model-search">Filter models</label>
             <input id="model-search" type="search" placeholder="Search by model name">
           </div>
@@ -628,13 +666,9 @@
         <section class="hero">
           <div class="panel hero-card">
             <h1>Aionoscope Foundational Benchmark Dashboard</h1>
-            <p>
-              Single-page ECharts view over the frozen-feature offline-probe JSON outputs in
-              <code>results/models/</code>. The page computes one selection-aware bubble chart,
-              the same 6 radar panels, and 4 layer curves in browser-side JavaScript, without
-              calling the Python plotting code. When JSONs contain repeated validation runs, the
-              charts use <code>median ± std</code> across the validation-seed pool.
-            </p>
+            <div id="status-banner" class="status-banner">
+              Loading JSON results…
+            </div>
           </div>
           <div class="panel hero-card">
             <div class="summary-grid">
@@ -650,38 +684,15 @@
           </div>
         </section>
 
-        <section class="panel info-panel">
-          <div id="status-banner" class="status-banner">
-            Loading JSON results…
-          </div>
-
-          <p class="help-text">
-            The bubble chart follows the current model selection and sizes each point by encoder
-            forward time across the train split plus all validation runs. Radar charts use the
-            current best-layer rule and plot the median across validation runs. Layer curves show
-            the median line with a shaded <code>± std</code> band, and the current best layer is
-            highlighted with a larger point.
-          </p>
-
-          <p class="help-text">
-            Negative R2 values are clipped to <code>0</code> in the radar and layer-curve plots
-            only, matching the benchmark visualization convention. Tooltips still show the raw
-            unclipped R2 median together with its standard deviation. Standard deviation uses
-            sample <code>ddof=1</code> when multiple validation runs are present. For automatic
-            JSON discovery, serve this repo with a static file server so the browser can fetch
-            <code>results/models/</code>.
-          </p>
-        </section>
-
         <section class="section">
           <div class="section-header">
             <h2>Model Bubble Map</h2>
-            <p>Selected models only, with bubble size scaled by encoder forward time</p>
+            <p>Selected models only, with any supported metric on X, Y, or bubble size</p>
           </div>
           <div class="panel chart-card">
             <div class="chart-card-header">
-              <div class="chart-card-title">Macro AUPRC vs Macro R2</div>
-              <div class="chart-card-note">X = best-layer macro AUPRC, Y = best-layer macro R2, bubble size = encoder forward time across train + validation runs</div>
+              <div class="chart-card-title">Model Metric Bubble Map</div>
+              <div id="bubble-chart-note" class="chart-card-note">Loading bubble chart settings…</div>
             </div>
             <div id="chart-bubble-overview" class="chart bubble"></div>
           </div>
@@ -1056,6 +1067,51 @@
       return `${numeric.toFixed(1)}s`;
     }
 
+    function formatDurationAxisValue(value) {
+      const numeric = finiteNumber(value);
+      if (numeric === null) {
+        return "N/A";
+      }
+      const abs = Math.abs(numeric);
+      if (abs >= 3600) {
+        return `${(numeric / 3600).toFixed(abs >= 36000 ? 0 : 1)}h`;
+      }
+      if (abs >= 60) {
+        return `${(numeric / 60).toFixed(abs >= 600 ? 0 : 1)}m`;
+      }
+      return `${numeric.toFixed(abs >= 10 ? 0 : 1)}s`;
+    }
+
+    function formatIntegerValue(value) {
+      const numeric = finiteNumber(value);
+      if (numeric === null) {
+        return "N/A";
+      }
+      return Math.round(numeric).toLocaleString("en-US");
+    }
+
+    function formatCompactInteger(value) {
+      const numeric = finiteNumber(value);
+      if (numeric === null) {
+        return "N/A";
+      }
+      const abs = Math.abs(numeric);
+      if (abs >= 1.0e9) {
+        return `${(numeric / 1.0e9).toFixed(abs >= 10.0e9 ? 0 : 1)}B`;
+      }
+      if (abs >= 1.0e6) {
+        return `${(numeric / 1.0e6).toFixed(abs >= 10.0e6 ? 0 : 1)}M`;
+      }
+      if (abs >= 1.0e3) {
+        return `${(numeric / 1.0e3).toFixed(abs >= 10.0e3 ? 0 : 1)}K`;
+      }
+      return formatIntegerValue(numeric);
+    }
+
+    function humanizeToken(value) {
+      return String(value).replace(/_/g, " ");
+    }
+
     function wrapCategoryLabel(value) {
       return String(value).replace(/_/g, "\n");
     }
@@ -1075,6 +1131,18 @@
 
     function getSearchTerm() {
       return document.getElementById("model-search").value.trim().toLowerCase();
+    }
+
+    function getBubbleXMetric() {
+      return document.getElementById("bubble-x-selector").value;
+    }
+
+    function getBubbleYMetric() {
+      return document.getElementById("bubble-y-selector").value;
+    }
+
+    function getBubbleSizeMetric() {
+      return document.getElementById("bubble-size-selector").value;
     }
 
     function setStatus(message, level = "info") {
@@ -1254,15 +1322,33 @@
       return { min, max };
     }
 
-    function bestMacroAuprc(result) {
-      return statMedian(result.results.summary.best_auprc.macro_auprc);
-    }
-
-    function bestMacroR2(result) {
-      return statMedian(result.results.summary.macro_best_layers.r2.value);
-    }
-
     function inferenceForwardBreakdown(result) {
+      const runtime = result.runtime || {};
+      const explicitTotal = finiteNumber(runtime.encoder_forward_total_s);
+      if (explicitTotal !== null) {
+        const trainForward = finiteNumber(runtime.encoder_forward_train_s);
+        const valForwardTotal = finiteNumber(runtime.encoder_forward_val_total_s);
+        const bySeed =
+          runtime.encoder_forward_by_validation_seed_s &&
+          typeof runtime.encoder_forward_by_validation_seed_s === "object" &&
+          !Array.isArray(runtime.encoder_forward_by_validation_seed_s)
+            ? Object.values(runtime.encoder_forward_by_validation_seed_s)
+                .map(finiteNumber)
+                .filter((value) => value !== null)
+            : [];
+        const validationRuns =
+          bySeed.length ||
+          finiteNumber(runtime.validation_seed_count) ||
+          finiteNumber(result.results.shared && result.results.shared.n_validation_runs);
+        return {
+          trainForward,
+          valForwardTotal: valForwardTotal !== null ? valForwardTotal : null,
+          validationRuns: validationRuns === null ? null : Number(validationRuns),
+          totalForward: explicitTotal,
+          source: "runtime"
+        };
+      }
+
       const sharedTimings = result.results.shared && result.results.shared.timings;
       if (
         !sharedTimings ||
@@ -1283,18 +1369,208 @@
         trainForward,
         valForwardTotal,
         validationRuns: valForwardValues.length,
-        totalForward: trainForward + valForwardTotal
+        totalForward: trainForward + valForwardTotal,
+        source: "shared.timings"
       };
     }
 
-    function bubbleSymbolSize(runtimeSeconds, minRuntime, maxRuntime) {
-      const runtime = Math.max(0, finiteNumber(runtimeSeconds) || 0);
-      if (!Number.isFinite(minRuntime) || !Number.isFinite(maxRuntime) || maxRuntime <= minRuntime) {
+    function parameterCountSummary(result) {
+      const adapterMetadata =
+        result.model && result.model.adapter && typeof result.model.adapter === "object"
+          ? result.model.adapter
+          : {};
+      const total =
+        finiteNumber(adapterMetadata.parameter_count) ??
+        finiteNumber(adapterMetadata.parameter_count_total);
+      if (total === null || total <= 0) {
+        return null;
+      }
+      const trainable = finiteNumber(adapterMetadata.trainable_parameter_count);
+      return {
+        total,
+        trainable,
+        source: adapterMetadata.parameter_count_source ? String(adapterMetadata.parameter_count_source) : null
+      };
+    }
+
+    function bubbleMetricConfig(metricKey) {
+      if (metricKey === "auroc") {
+        return {
+          key: "auroc",
+          label: "Macro AUROC",
+          missingHint: "macro AUROC summaries",
+          range: { lowerBound: 0.0, upperBound: 1.0, fallback: [0, 1] },
+          axisTickFormatter: (value) => Number(value).toFixed(2),
+          sizeTransform: (value) => Number(value),
+          summary: (result) => {
+            const value = statMedian(result.results.summary.best_auc.macro_auc);
+            const layer = finiteNumber(result.results.summary.best_auc.layer);
+            if (!Number.isFinite(value)) {
+              return null;
+            }
+            return {
+              value,
+              detailLines: [
+                `Macro AUROC: ${formatMetricValue(value)} (best layer ${layer === null ? "N/A" : Number(layer)})`
+              ]
+            };
+          }
+        };
+      }
+      if (metricKey === "auprc") {
+        return {
+          key: "auprc",
+          label: "Macro AUPRC",
+          missingHint: "macro AUPRC summaries",
+          range: { lowerBound: 0.0, upperBound: 1.0, fallback: [0, 1] },
+          axisTickFormatter: (value) => Number(value).toFixed(2),
+          sizeTransform: (value) => Number(value),
+          summary: (result) => {
+            const value = statMedian(result.results.summary.best_auprc.macro_auprc);
+            const layer = finiteNumber(result.results.summary.best_auprc.layer);
+            if (!Number.isFinite(value)) {
+              return null;
+            }
+            return {
+              value,
+              detailLines: [
+                `Macro AUPRC: ${formatMetricValue(value)} (best layer ${layer === null ? "N/A" : Number(layer)})`
+              ]
+            };
+          }
+        };
+      }
+      if (metricKey === "r2") {
+        return {
+          key: "r2",
+          label: "Macro R2",
+          missingHint: "macro R2 summaries",
+          range: { upperBound: 1.0, fallback: [0, 1] },
+          axisTickFormatter: (value) => Number(value).toFixed(2),
+          sizeTransform: (value) => Number(value),
+          summary: (result) => {
+            const payload = result.results.summary.macro_best_layers.r2;
+            const value = payload && payload.value ? statMedian(payload.value) : null;
+            const layer = payload && payload.layer !== null ? Number(payload.layer) : null;
+            if (!Number.isFinite(value)) {
+              return null;
+            }
+            return {
+              value,
+              detailLines: [`Macro R2: ${formatMetricValue(value)} (best layer ${layer === null ? "N/A" : layer})`]
+            };
+          }
+        };
+      }
+      if (metricKey === "pearson") {
+        return {
+          key: "pearson",
+          label: "Macro Pearson",
+          missingHint: "macro Pearson summaries",
+          range: { lowerBound: -1.0, upperBound: 1.0, fallback: [-1, 1] },
+          axisTickFormatter: (value) => Number(value).toFixed(2),
+          sizeTransform: (value) => Number(value),
+          summary: (result) => {
+            const payload = result.results.summary.macro_best_layers.pearson;
+            const value = payload && payload.value ? statMedian(payload.value) : null;
+            const layer = payload && payload.layer !== null ? Number(payload.layer) : null;
+            if (!Number.isFinite(value)) {
+              return null;
+            }
+            return {
+              value,
+              detailLines: [
+                `Macro Pearson: ${formatMetricValue(value)} (best layer ${layer === null ? "N/A" : layer})`
+              ]
+            };
+          }
+        };
+      }
+      if (metricKey === "inference") {
+        return {
+          key: "inference",
+          label: "Encoder forward time",
+          missingHint: "encoder forward timing metadata",
+          range: { lowerBound: 0.0, fallback: [0, 1] },
+          axisTickFormatter: formatDurationAxisValue,
+          sizeTransform: (value) => Math.sqrt(Math.max(0, Number(value))),
+          summary: (result) => {
+            const inference = inferenceForwardBreakdown(result);
+            if (!inference || !Number.isFinite(inference.totalForward)) {
+              return null;
+            }
+            const lines = [`Encoder forward time: ${formatDurationSeconds(inference.totalForward)}`];
+            if (inference.trainForward !== null) {
+              lines.push(`Train forward: ${formatDurationSeconds(inference.trainForward)}`);
+            }
+            if (inference.valForwardTotal !== null) {
+              const seedSuffix =
+                inference.validationRuns !== null ? ` (${Number(inference.validationRuns)} seeds)` : "";
+              lines.push(
+                `Validation forward total: ${formatDurationSeconds(inference.valForwardTotal)}${seedSuffix}`
+              );
+            }
+            if (inference.source) {
+              lines.push(`Timing source: ${humanizeToken(inference.source)}`);
+            }
+            return {
+              value: inference.totalForward,
+              detailLines: lines
+            };
+          }
+        };
+      }
+      if (metricKey === "parameters") {
+        return {
+          key: "parameters",
+          label: "Model parameters",
+          missingHint: "stored model parameter counts",
+          range: { lowerBound: 0.0, fallback: [0, 1] },
+          axisTickFormatter: formatCompactInteger,
+          sizeTransform: (value) => Math.sqrt(Math.max(0, Number(value))),
+          summary: (result) => {
+            const summary = parameterCountSummary(result);
+            if (!summary) {
+              return null;
+            }
+            const lines = [
+              `Model parameters: ${formatIntegerValue(summary.total)} (${formatCompactInteger(summary.total)})`
+            ];
+            if (summary.trainable !== null) {
+              lines.push(`Trainable parameters: ${formatIntegerValue(summary.trainable)}`);
+            }
+            if (summary.source) {
+              lines.push(`Count source: ${humanizeToken(summary.source)}`);
+            }
+            return {
+              value: summary.total,
+              detailLines: lines
+            };
+          }
+        };
+      }
+      throw new Error("Unsupported bubble metric: " + metricKey);
+    }
+
+    function bubbleSymbolSize(metricValue, metricConfig, allValues) {
+      const numeric = finiteNumber(metricValue);
+      if (numeric === null) {
         return 28;
       }
-      const sqrtRuntime = Math.sqrt(runtime);
-      const normalized =
-        (sqrtRuntime - Math.sqrt(minRuntime)) / (Math.sqrt(maxRuntime) - Math.sqrt(minRuntime));
+      const transformedValues = allValues
+        .map((value) => finiteNumber(value))
+        .filter((value) => value !== null)
+        .map((value) => metricConfig.sizeTransform(value));
+      if (!transformedValues.length) {
+        return 28;
+      }
+      const transformedCurrent = metricConfig.sizeTransform(numeric);
+      const minValue = Math.min(...transformedValues);
+      const maxValue = Math.max(...transformedValues);
+      if (!Number.isFinite(minValue) || !Number.isFinite(maxValue) || maxValue <= minValue) {
+        return 28;
+      }
+      const normalized = (transformedCurrent - minValue) / (maxValue - minValue);
       return 18 + Math.max(0, Math.min(1, normalized)) * 44;
     }
 
@@ -1744,8 +2020,17 @@
       return results[0] || state.allResults[0] || null;
     }
 
+    function updateBubbleChartNote(xMetric, yMetric, sizeMetric) {
+      const note = document.getElementById("bubble-chart-note");
+      note.textContent = `X = ${xMetric.label}, Y = ${yMetric.label}, bubble size = ${sizeMetric.label}`;
+    }
+
     function buildBubbleChart(results) {
       const bubbleChart = state.charts[CHART_IDS.bubbleOverview];
+      const xMetric = bubbleMetricConfig(getBubbleXMetric());
+      const yMetric = bubbleMetricConfig(getBubbleYMetric());
+      const sizeMetric = bubbleMetricConfig(getBubbleSizeMetric());
+      updateBubbleChartNote(xMetric, yMetric, sizeMetric);
       if (!results.length) {
         bubbleChart.setOption(
           emptyOption(
@@ -1754,52 +2039,61 @@
           ),
           true
         );
-        return;
+        return { warning: "" };
       }
 
+      const missingHints = Array.from(
+        new Set([xMetric.missingHint, yMetric.missingHint, sizeMetric.missingHint].filter(Boolean))
+      );
+      let skippedCount = 0;
       const bubbleRows = results
         .map((result) => {
-          const auprc = bestMacroAuprc(result);
-          const r2 = bestMacroR2(result);
-          const inference = inferenceForwardBreakdown(result);
-          if (!Number.isFinite(auprc) || !Number.isFinite(r2) || !inference) {
+          const xSummary = xMetric.summary(result);
+          const ySummary = yMetric.summary(result);
+          const sizeSummary = sizeMetric.summary(result);
+          const xValue = xSummary ? xSummary.value : null;
+          const yValue = ySummary ? ySummary.value : null;
+          const sizeValue = sizeSummary ? sizeSummary.value : null;
+          if (
+            !Number.isFinite(xValue) ||
+            !Number.isFinite(yValue) ||
+            !Number.isFinite(sizeValue)
+          ) {
+            skippedCount += 1;
             return null;
           }
           return {
             name: modelName(result),
-            auprc,
-            r2,
-            inferenceSeconds: inference.totalForward,
-            trainForwardSeconds: inference.trainForward,
-            valForwardSeconds: inference.valForwardTotal,
-            validationRuns: inference.validationRuns,
-            bestAuprcLayer: Number(result.results.summary.best_auprc.layer),
-            bestR2Layer: Number(result.results.summary.macro_best_layers.r2.layer)
+            xValue,
+            yValue,
+            sizeValue,
+            xDetailLines: xSummary.detailLines,
+            yDetailLines: ySummary.detailLines,
+            sizeDetailLines: sizeSummary.detailLines
           };
         })
         .filter(Boolean);
 
       if (!bubbleRows.length) {
+        const missingMessage = `Selected models are missing one or more of: ${missingHints.join(", ")}.`;
         bubbleChart.setOption(
           emptyOption(
             "No comparable models",
-            "Loaded JSON files are missing macro AUPRC, macro R2, or forward-pass timing metadata"
+            missingMessage
           ),
           true
         );
-        return;
+        return { warning: "" };
       }
 
-      const inferenceSeconds = bubbleRows.map((row) => row.inferenceSeconds);
-      const minRuntime = Math.min(...inferenceSeconds);
-      const maxRuntime = Math.max(...inferenceSeconds);
+      const sizeValues = bubbleRows.map((row) => row.sizeValue);
       const xRange = paddedMetricRange(
-        bubbleRows.map((row) => row.auprc),
-        { lowerBound: 0.0, upperBound: 1.0, fallback: [0, 1] }
+        bubbleRows.map((row) => row.xValue),
+        xMetric.range
       );
       const yRange = paddedMetricRange(
-        bubbleRows.map((row) => row.r2),
-        { upperBound: 1.0, fallback: [0, 1] }
+        bubbleRows.map((row) => row.yValue),
+        yMetric.range
       );
 
       bubbleChart.setOption(
@@ -1817,13 +2111,12 @@
             confine: true,
             formatter: (param) => {
               const row = param.data;
+              const uniqueDetailLines = Array.from(
+                new Set([...row.xDetailLines, ...row.yDetailLines, ...row.sizeDetailLines])
+              );
               return [
                 `<strong>${row.name}</strong>`,
-                `Macro AUPRC: ${formatMetricValue(row.auprc)} (best layer ${row.bestAuprcLayer})`,
-                `Macro R2: ${formatMetricValue(row.r2)} (best layer ${row.bestR2Layer})`,
-                `Encoder forward time: ${formatDurationSeconds(row.inferenceSeconds)}`,
-                `Train forward: ${formatDurationSeconds(row.trainForwardSeconds)}`,
-                `Validation forward total: ${formatDurationSeconds(row.valForwardSeconds)} (${row.validationRuns} seeds)`
+                ...uniqueDetailLines
               ].join("<br>");
             }
           },
@@ -1837,14 +2130,14 @@
           },
           xAxis: {
             type: "value",
-            name: "Macro AUPRC",
+            name: xMetric.label,
             nameLocation: "middle",
             nameGap: 44,
             min: xRange.min,
             max: xRange.max,
             axisLabel: {
               color: "#4f5d74",
-              formatter: (value) => Number(value).toFixed(2)
+              formatter: xMetric.axisTickFormatter
             },
             splitLine: {
               lineStyle: {
@@ -1854,7 +2147,7 @@
           },
           yAxis: {
             type: "value",
-            name: "Macro R2",
+            name: yMetric.label,
             nameLocation: "middle",
             nameGap: 58,
             nameRotate: 90,
@@ -1862,7 +2155,7 @@
             max: yRange.max,
             axisLabel: {
               color: "#4f5d74",
-              formatter: (value) => Number(value).toFixed(2)
+              formatter: yMetric.axisTickFormatter
             },
             splitLine: {
               lineStyle: {
@@ -1875,14 +2168,14 @@
               type: "scatter",
               data: bubbleRows.map((row) => ({
                 ...row,
-                value: [row.auprc, row.r2, row.inferenceSeconds],
+                value: [row.xValue, row.yValue, row.sizeValue],
                 itemStyle: {
                   color: rgbaWithAlpha(colorForModel(row.name), 0.68),
                   borderColor: colorForModel(row.name),
                   borderWidth: 1.5
                 }
               })),
-              symbolSize: (value) => bubbleSymbolSize(value[2], minRuntime, maxRuntime),
+              symbolSize: (value) => bubbleSymbolSize(value[2], sizeMetric, sizeValues),
               emphasis: {
                 focus: "self",
                 scale: 1.08,
@@ -1907,6 +2200,12 @@
         },
         true
       );
+      return {
+        warning:
+          skippedCount > 0
+            ? `Bubble chart skipped ${skippedCount} selected model${skippedCount === 1 ? "" : "s"} missing one or more of: ${missingHints.join(", ")}.`
+            : ""
+      };
     }
 
     function buildRadarCharts(results, selectorKey) {
@@ -2178,9 +2477,10 @@
       const results = getSelectedResults();
       renderModelPicker();
       updateSummaries();
-      buildBubbleChart(results);
+      const bubbleSummary = buildBubbleChart(results);
       buildRadarCharts(results, selectorKey);
       buildLineCharts(results, selectorKey);
+      const warnings = [state.discoveryWarning, bubbleSummary ? bubbleSummary.warning : ""].filter(Boolean);
 
       if (!state.allResults.length) {
         setStatus(
@@ -2189,9 +2489,9 @@
         );
       } else if (!results.length) {
         setStatus("No models selected. Use the filter list above to choose at least one model.", "warning");
-      } else if (state.discoveryWarning) {
+      } else if (warnings.length) {
         setStatus(
-          `Loaded ${state.allResults.length} JSON files via ${state.discoverySource}. ${state.discoveryWarning}`,
+          `Loaded ${state.allResults.length} JSON files via ${state.discoverySource}. ${warnings.join(" | ")}`,
           "warning"
         );
       } else {
@@ -2292,6 +2592,9 @@
 
     function bindControls() {
       document.getElementById("best-layer-selector").addEventListener("change", renderAll);
+      document.getElementById("bubble-x-selector").addEventListener("change", renderAll);
+      document.getElementById("bubble-y-selector").addEventListener("change", renderAll);
+      document.getElementById("bubble-size-selector").addEventListener("change", renderAll);
       document.getElementById("model-search").addEventListener("input", renderModelPicker);
       document.getElementById("sidebar-open-button").addEventListener("click", () => {
         setSidebarVisible(true);
