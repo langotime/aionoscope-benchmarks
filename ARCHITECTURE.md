@@ -148,7 +148,7 @@ The foundational model stack spans incompatible dependency sets. The repo theref
 
 ### Visualization
 
-`results/dashboard.html` is a static browser dashboard that reads `results/models/*.json` and visualizes the stored metrics. It must stay compatible with the JSON schema produced by `results.py`.
+`results/dashboard.html` is a static browser dashboard that reads `results/models/*.json` and visualizes the stored metrics. It must stay compatible with the JSON schema produced by `results.py`, including the explicit runtime encoder-forward totals and adapter parameter-count metadata used by the bubble chart controls.
 
 ## Architectural Invariants
 

@@ -42,6 +42,47 @@ def _log_run(model_name: str, message: str) -> None:
     print(f"[{_utc_timestamp()}] [{model_name}] {message}", file=sys.stderr, flush=True)
 
 
+def _require_numeric_timing(
+    *,
+    timings: dict[str, object],
+    key: str,
+    context: str,
+) -> float:
+    value = timings.get(key)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise ValueError(f"Missing numeric timing {key!r} for {context}, got {value!r}")
+    return float(value)
+
+
+def _encoder_forward_runtime_summary(
+    *,
+    train_collected,
+    val_collected_by_seed: dict[int, object],
+) -> dict[str, object]:
+    train_forward_s = _require_numeric_timing(
+        timings=train_collected.timings,
+        key="forward_s",
+        context="train feature collection",
+    )
+    val_forward_by_seed_s: dict[str, float] = {}
+    val_forward_total_s = 0.0
+    for seed_value in sorted(int(seed) for seed in val_collected_by_seed):
+        collected = val_collected_by_seed[int(seed_value)]
+        forward_s = _require_numeric_timing(
+            timings=collected.timings,
+            key="forward_s",
+            context=f"validation feature collection seed={int(seed_value)}",
+        )
+        val_forward_by_seed_s[str(int(seed_value))] = float(forward_s)
+        val_forward_total_s += float(forward_s)
+    return {
+        "encoder_forward_train_s": float(train_forward_s),
+        "encoder_forward_val_total_s": float(val_forward_total_s),
+        "encoder_forward_by_validation_seed_s": val_forward_by_seed_s,
+        "encoder_forward_total_s": float(train_forward_s + val_forward_total_s),
+    }
+
+
 def _load_probe_config(path: Path) -> tuple[OfflineProbeConfig, dict[str, object]]:
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
@@ -243,6 +284,12 @@ def run_single_model(
         )
     runtime_summary["collect_val_total_s"] = float(perf_counter() - collect_val_total_start)
     runtime_summary["collect_val_by_validation_seed_s"] = collect_val_by_seed_s
+    runtime_summary.update(
+        _encoder_forward_runtime_summary(
+            train_collected=train_collected,
+            val_collected_by_seed=val_collected_by_seed,
+        )
+    )
     _log_run(
         model_name,
         f"validation feature collection done in {_format_elapsed_s(runtime_summary['collect_val_total_s'])}",

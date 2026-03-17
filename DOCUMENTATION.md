@@ -200,10 +200,10 @@ Each model run writes `results/models/<slug>.json`.
 
 High-level structure:
 
-- `model`: model identity, source, checkpoint, layers evaluated, and adapter metadata;
+- `model`: model identity, source, checkpoint, layers evaluated, and adapter metadata, including stored parameter counts when the adapter exposes registered PyTorch parameters;
 - `dataset`: the benchmark manifest used to build the train and validation splits, including the config default length and the exact resolved length used for the run;
 - `probe_config`: probe hyperparameters plus the fixed `probe_seed`;
-- `runtime`: wall-clock and device metadata;
+- `runtime`: wall-clock and device metadata plus explicit encoder forward train/validation/total timings;
 - `results.categorical`: per-layer multi-label classification outputs;
 - `results.dense`: per-layer dense regression outputs;
 - `results.shared`: validation-run aggregates shared across sections;
@@ -253,7 +253,8 @@ mismatch is considered a benchmark bug, not a valid alternate evaluation.
 
 - layer ids are serialized as JSON object keys;
 - summary fields such as `best_auc`, `best_auprc`, macro best `r2`, and macro best `pearson` are read by the UI;
-- the selection-aware bubble chart reads `results.shared.timings.collect_train.forward_s` and `results.shared.timings.collect_val.forward_s` to size bubbles by encoder forward time rather than full benchmark wall time, and only plots currently enabled models;
+- the selection-aware bubble chart only plots currently enabled models and allows any supported bubble metric on the `x` axis, `y` axis, or bubble size; inference uses `runtime.encoder_forward_total_s`, parameter count uses `model.adapter.parameter_count`, and older JSONs may still fall back to `results.shared.timings.collect_*.*forward_s` for inference mode;
+- adapters that do not expose a registered PyTorch encoder may leave `model.adapter.parameter_count` as `null`; the dashboard must treat that as unavailable metadata rather than inventing a count;
 - grouped dense metrics depend on the target signal and target metric labels stored in the JSON;
 - browser charts may clip values for display, but raw metrics must remain preserved in the JSON.
 

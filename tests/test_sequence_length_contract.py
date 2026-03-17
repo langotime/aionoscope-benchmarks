@@ -22,6 +22,34 @@ class _DummyAdapter(FrozenTimeSeriesAdapter):
     benchmark_sequence_length = 123
     benchmark_sequence_length_source = "unit_test"
 
+    def __init__(self) -> None:
+        super().__init__()
+        self.proj = torch.nn.Linear(1, 1, bias=False)
+
+    @property
+    def available_layers(self) -> tuple[int, ...]:
+        return (0,)
+
+    def forward_layer_dict(
+        self,
+        x: torch.Tensor,
+        *,
+        layers: tuple[int, ...] | None = None,
+    ) -> dict[int, torch.Tensor]:
+        del layers
+        self.validate_benchmark_input(x, channels=1)
+        return {0: x.mean(dim=-1)}
+
+
+class _ParameterlessAdapter(FrozenTimeSeriesAdapter):
+    model_name = "Parameterless"
+    model_slug = "Parameterless"
+    source = "local"
+    checkpoint = "none"
+    import_path = "none"
+    benchmark_sequence_length = 16
+    benchmark_sequence_length_source = "unit_test"
+
     @property
     def available_layers(self) -> tuple[int, ...]:
         return (0,)
@@ -45,6 +73,19 @@ def test_base_adapter_metadata_reports_exact_length_contract() -> None:
     assert metadata["benchmark_sequence_length"] == 123
     assert metadata["benchmark_sequence_length_source"] == "unit_test"
     assert metadata["input_length_policy"] == "exact"
+    assert metadata["parameter_count"] == 1
+    assert metadata["trainable_parameter_count"] == 1
+    assert metadata["parameter_count_source"] == "torch_registered_parameters"
+
+
+def test_base_adapter_metadata_reports_unavailable_parameter_count_honestly() -> None:
+    adapter = _ParameterlessAdapter()
+
+    metadata = adapter.adapter_metadata()
+
+    assert metadata["parameter_count"] is None
+    assert metadata["trainable_parameter_count"] is None
+    assert metadata["parameter_count_source"] == "unavailable"
 
 
 def test_base_adapter_validation_rejects_wrong_sequence_length() -> None:

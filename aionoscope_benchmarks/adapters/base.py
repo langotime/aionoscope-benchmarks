@@ -43,7 +43,21 @@ class FrozenTimeSeriesAdapter(nn.Module, ABC):
             return torch.autocast(device_type="cuda", dtype=torch.bfloat16)
         return nullcontext()
 
+    def parameter_count(self) -> int | None:
+        total = sum(int(parameter.numel()) for parameter in self.parameters())
+        return int(total) if total > 0 else None
+
+    def trainable_parameter_count(self) -> int | None:
+        total = self.parameter_count()
+        if total is None:
+            return None
+        trainable = sum(
+            int(parameter.numel()) for parameter in self.parameters() if bool(parameter.requires_grad)
+        )
+        return int(trainable)
+
     def adapter_metadata(self) -> dict[str, Any]:
+        parameter_count = self.parameter_count()
         return {
             "env": self.env_name,
             "encode_batch_size": int(self.default_encode_batch_size),
@@ -51,6 +65,11 @@ class FrozenTimeSeriesAdapter(nn.Module, ABC):
             "benchmark_sequence_length": int(self.exact_benchmark_sequence_length()),
             "benchmark_sequence_length_source": str(self.benchmark_sequence_length_source),
             "input_length_policy": "exact",
+            "parameter_count": None if parameter_count is None else int(parameter_count),
+            "trainable_parameter_count": self.trainable_parameter_count(),
+            "parameter_count_source": (
+                "torch_registered_parameters" if parameter_count is not None else "unavailable"
+            ),
         }
 
     def exact_benchmark_sequence_length(self) -> int:
