@@ -10,6 +10,7 @@ def test_dashboard_tries_list_manifest_before_directory_listing_without_builtin_
     html = DASHBOARD_PATH.read_text(encoding="utf-8")
 
     assert 'const MODELS_LIST_PATH = "/models/list.txt";' in html
+    assert '<option value="parameters" selected>Model parameters</option>' in html
     assert "const FALLBACK_RESULT_FILES" not in html
     assert "fallback manifest" not in html
     assert html.index("fetch(MODELS_LIST_PATH") < html.index("fetch(MODELS_DIR")
