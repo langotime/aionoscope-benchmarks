@@ -221,12 +221,25 @@ def run_single_model(
         model_name,
         f"adapter prepare done in {_format_elapsed_s(runtime_summary['adapter_prepare_s'])}",
     )
+    adapter_runtime_prepare_start = perf_counter()
+    adapter.prepare_runtime(device=actual_device)
+    runtime_summary["adapter_runtime_prepare_s"] = float(perf_counter() - adapter_runtime_prepare_start)
+    _log_run(
+        model_name,
+        f"adapter runtime ready: device={actual_device} "
+        f"encode_batch_size={adapter.default_encode_batch_size} "
+        f"in {_format_elapsed_s(runtime_summary['adapter_runtime_prepare_s'])}",
+    )
 
     probe_train = getattr(adapter, "probe_train_split", None) or train
     selected_layers = tuple(int(layer) for layer in (layers or adapter.available_layers))
     if not selected_layers:
         raise ValueError(f"Adapter for {model_name} returned no layers")
     batch_size = int(encode_batch_size or adapter.default_encode_batch_size)
+    runtime_summary["feature_encode_batch_size"] = int(batch_size)
+    runtime_summary["feature_encode_batch_size_source"] = (
+        "cli_override" if encode_batch_size is not None else "adapter_default"
+    )
 
     collect_train_start = perf_counter()
     _log_run(

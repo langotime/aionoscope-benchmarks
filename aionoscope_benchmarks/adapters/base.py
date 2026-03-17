@@ -107,6 +107,9 @@ class FrozenTimeSeriesAdapter(nn.Module, ABC):
     ) -> None:
         del manifest, train_split, val_split
 
+    def prepare_runtime(self, *, device: torch.device) -> None:
+        del device
+
     def update_probe_val_split(
         self,
         *,

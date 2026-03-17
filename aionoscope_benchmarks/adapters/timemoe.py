@@ -47,6 +47,9 @@ class _TimeMoeAdapter(FrozenTimeSeriesAdapter):
         del manifest, val_split
         self._ensure_model_loaded(device=train_split["x"].device)
 
+    def prepare_runtime(self, *, device: torch.device) -> None:
+        self._ensure_model_loaded(device=device)
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["context_length"] = int(self.benchmark_sequence_length)
@@ -84,18 +87,38 @@ class _TimeMoeAdapter(FrozenTimeSeriesAdapter):
         self.default_encode_batch_size = int(self.eager_encode_batch_size)
 
     def _ensure_model_loaded(self, *, device: torch.device) -> None:
+        requested_attention_impl = self._preferred_attention_implementation(device)
         if isinstance(self.model, torch.nn.Module):
-            model_device = next(self.model.parameters()).device
-            if model_device != device:
-                self.model = self.model.to(device)
-                self.model.eval()
-                self.decoder = self.model.get_decoder()
-                self.model_input_dtype = next(self.model.parameters()).dtype
-            return
+            loaded_attention_impl = str(
+                getattr(self.model.config, "_attn_implementation", self.attention_implementation)
+            )
+            needs_attention_reload = (
+                requested_attention_impl == "flash_attention_2"
+                and loaded_attention_impl != requested_attention_impl
+            )
+            if not needs_attention_reload:
+                model_device = next(self.model.parameters()).device
+                if model_device != device:
+                    self.model = self.model.to(device)
+                    self.model.eval()
+                    self.decoder = self.model.get_decoder()
+                    self.model_input_dtype = next(self.model.parameters()).dtype
+                self.attention_implementation = loaded_attention_impl
+                self._set_runtime_batch_size()
+                return
+
+            # prepare() can warm the model on CPU before the benchmark switches to CUDA.
+            # Reload so the decoder layers are rebuilt with the flash-attention classes.
+            old_model = self.model
+            self.model = None
+            self.decoder = None
+            self.attention_implementation = "uninitialized"
+            del old_model
+            if device.type == "cuda":
+                torch.cuda.empty_cache()
 
         from transformers import AutoModelForCausalLM
 
-        requested_attention_impl = self._preferred_attention_implementation(device)
         loaded_model = AutoModelForCausalLM.from_pretrained(
             self.checkpoint,
             trust_remote_code=True,
@@ -209,11 +232,11 @@ class TimeMoeBaseAdapter(_TimeMoeAdapter):
     model_name = "Time-MoE-Base"
     model_slug = "Time-MoE-Base"
     checkpoint = "Maple728/TimeMoE-50M"
-    flash_encode_batch_size = 8
+    flash_encode_batch_size = 256
 
 
 class TimeMoeLargeAdapter(_TimeMoeAdapter):
     model_name = "Time-MoE-Large"
     model_slug = "Time-MoE-Large"
     checkpoint = "Maple728/TimeMoE-200M"
-    flash_encode_batch_size = 4
+    flash_encode_batch_size = 256
