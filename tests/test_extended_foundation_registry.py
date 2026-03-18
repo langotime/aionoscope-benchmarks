@@ -3,6 +3,7 @@ from __future__ import annotations
 from aionoscope_benchmarks.constants import FOUNDATIONAL_MODELS
 from aionoscope_benchmarks.model_registry import (
     MODEL_SPECS,
+    TRAINING_PARADIGM_DEFINITIONS,
     all_foundational_model_names,
     canonical_model_name,
     model_taxonomy,
@@ -102,3 +103,13 @@ def test_model_taxonomy_exposes_family_checkpoint_architecture_and_training_grou
     assert tivit.family == "TiViT"
     assert tivit.architecture_backbone == "vision_convnet"
     assert tivit.training_paradigm == "cross_modal_transfer"
+
+
+def test_training_paradigms_are_pretraining_based_and_do_not_include_task_finetune() -> None:
+    assert "task_finetune" not in TRAINING_PARADIGM_DEFINITIONS
+
+    mantis_utica = model_taxonomy("Mantis-UTICA-8M")
+    assert mantis_utica.training_paradigm == "representation_ssl"
+
+    unishape_finetune = model_taxonomy("UniShape-FineTune")
+    assert unishape_finetune.training_paradigm == "representation_ssl"

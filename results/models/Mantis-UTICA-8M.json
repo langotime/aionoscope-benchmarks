@@ -9,7 +9,7 @@
       "backbone": "transformer_full_attention"
     },
     "training": {
-      "paradigm": "task_finetune"
+      "paradigm": "representation_ssl"
     },
     "checkpoint": "fegounna/Utica",
     "source": "https://github.com/fegounna/Utica",

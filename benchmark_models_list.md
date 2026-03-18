@@ -24,6 +24,7 @@ Under that policy, the benchmark currently does **not** include `Timer-S1`, `Rev
   - Import from: `mantis-tsfm`; the official UTICA README reuses `mantis.architecture.Mantis8M`, downloads `pytorch_model.bin` from `fegounna/Utica`, and loads it with `strict=False`.
   - Benchmark exact length: `512` samples, matching the official UTICA README resize target.
   - Note: this is a different training of the legacy Mantis-8M backbone, not an alias of `MantisV2`.
+  - Taxonomy note: `model.training.paradigm` stays `representation_ssl` because the benchmark classifies by encoder pretraining recipe, not by downstream checkpoint packaging.
 
 - `TabPFN-v2`
   - Source code: `https://github.com/PriorLabs/TabPFN`
@@ -213,6 +214,7 @@ Under that policy, the benchmark currently does **not** include `Timer-S1`, `Rev
   - Import from: the official UniShape repo; the benchmark reuses the published multiscale tokenization and transformer code directly.
   - Benchmark exact length: `512` samples, matching the repository-published resized series length used by the fine-tune workflow.
   - Note: this is the documented repo-hosted exception to the usual Hugging Face checkpoint rule.
+  - Taxonomy note: `model.training.paradigm` stays `representation_ssl`; the checkpoint name reflects the released downstream fine-tuned artifact, while the taxonomy tracks the encoder pretraining recipe.
 
 - `Toto-Open-Base-1.0`
   - Source code: `https://github.com/DataDog/toto`

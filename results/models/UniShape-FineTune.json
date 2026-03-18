@@ -9,7 +9,7 @@
       "backbone": "transformer_full_attention"
     },
     "training": {
-      "paradigm": "task_finetune"
+      "paradigm": "representation_ssl"
     },
     "checkpoint": "pretrained_model_ckpt/unishape_checkpoint_finetune.pth",
     "source": "https://github.com/qianlima-lab/UniShape",

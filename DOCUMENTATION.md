@@ -333,11 +333,19 @@ Architecture classes:
 
 Training-paradigm classes:
 
-- `forecasting`: checkpoint trained primarily for forecasting / next-step prediction.
-- `representation_ssl`: checkpoint trained with self-supervised representation learning instead of a task-specific supervised head.
-- `task_finetune`: checkpoint released as an official task-fine-tuned model.
+- `forecasting`: benchmarked encoder/backbone pretrained primarily for forecasting / next-step prediction.
+- `representation_ssl`: benchmarked encoder/backbone pretrained with self-supervised or self-distillation representation learning instead of a task-specific supervised head.
 - `cross_modal_transfer`: checkpoint pretrained in another modality and transferred into this benchmark as a frozen encoder.
 - `tabular_supervised`: supervised tabular classifier reused on flattened benchmark features.
+
+`model.training.paradigm` is a pretraining taxonomy, not a checkpoint-packaging
+taxonomy. When adding new models, classify the benchmarked encoder path by the
+dominant upstream pretraining recipe and never add a separate fine-tune bucket. If
+an official released checkpoint is a downstream fine-tune of a self-supervised
+encoder, keep `representation_ssl` and document the downstream fine-tuned checkpoint
+under the model's source/checkpoint notes or adapter metadata instead. The same rule
+applies to forecasting-pretrained backbones: the training class stays `forecasting`
+even if the upstream release also provides a supervised adaptation stage.
 
 When a model family contains both encoder and decoder components, classify it by the
 path the benchmark actually reads. For example, `Kairos-*` is stored as

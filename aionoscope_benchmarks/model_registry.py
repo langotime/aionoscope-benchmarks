@@ -34,13 +34,19 @@ ARCHITECTURE_BACKBONE_DEFINITIONS: dict[str, str] = {
     "causal_cnn": "Purely causal convolutional encoder.",
 }
 
+# Training paradigms classify the benchmarked encoder/backbone by its dominant pretraining recipe.
+# Downstream checkpoint packaging, including official fine-tuned releases, stays in checkpoint/model notes
+# and must not introduce separate taxonomy classes.
 TRAINING_PARADIGM_DEFINITIONS: dict[str, str] = {
-    "forecasting": "Checkpoint trained primarily for forecasting / next-step prediction.",
-    "representation_ssl": (
-        "Checkpoint trained with self-supervised representation learning rather than a task-specific "
-        "supervised head."
+    "forecasting": (
+        "Checkpoint whose benchmarked encoder/backbone was pretrained primarily for forecasting / "
+        "next-step prediction."
     ),
-    "task_finetune": "Checkpoint released as an official task-fine-tuned model.",
+    "representation_ssl": (
+        "Checkpoint whose benchmarked encoder/backbone was pretrained with self-supervised or "
+        "self-distillation representation learning. Use this even when the published checkpoint "
+        "name or workflow includes downstream fine-tuning."
+    ),
     "cross_modal_transfer": (
         "Checkpoint pretrained in another modality and transferred into the benchmark as a frozen "
         "encoder."
@@ -486,7 +492,7 @@ MODEL_TAXONOMY: dict[str, ModelTaxonomy] = {
         family="Mantis",
         checkpoint_name="UTICA-8M",
         architecture_backbone="transformer_full_attention",
-        training_paradigm="task_finetune",
+        training_paradigm="representation_ssl",
     ),
     "TabPFN-v2": ModelTaxonomy(
         family="TabPFN",
@@ -660,7 +666,7 @@ MODEL_TAXONOMY: dict[str, ModelTaxonomy] = {
         family="UniShape",
         checkpoint_name="FineTune",
         architecture_backbone="transformer_full_attention",
-        training_paradigm="task_finetune",
+        training_paradigm="representation_ssl",
     ),
     "Toto-Open-Base-1.0": ModelTaxonomy(
         family="Toto",

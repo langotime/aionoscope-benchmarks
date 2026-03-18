@@ -130,11 +130,18 @@ Current architecture classes:
 
 Current training-paradigm classes:
 
-- `forecasting`: checkpoint trained primarily for forecasting / next-step prediction.
-- `representation_ssl`: checkpoint trained with self-supervised representation learning instead of a task-specific supervised head.
-- `task_finetune`: checkpoint released as an official task-fine-tuned model.
+- `forecasting`: benchmarked encoder/backbone pretrained primarily for forecasting / next-step prediction.
+- `representation_ssl`: benchmarked encoder/backbone pretrained with self-supervised or self-distillation representation learning instead of a task-specific supervised head.
 - `cross_modal_transfer`: checkpoint pretrained in another modality and transferred into this benchmark as a frozen encoder.
 - `tabular_supervised`: supervised tabular classifier reused on flattened benchmark features.
+
+`model.training.paradigm` is intentionally pretraining-based. It must classify the
+benchmarked encoder path by the dominant upstream pretraining recipe, not by
+downstream checkpoint packaging. Do not add a separate fine-tune bucket: official
+downstream fine-tuned releases of self-supervised encoders still stay under
+`representation_ssl`, and forecasting-pretrained backbones still stay under
+`forecasting`. Fine-tuned checkpoint provenance belongs in the model spec, adapter
+metadata, and model notes instead.
 
 ### Multi-environment execution is intentional
 
