@@ -464,6 +464,59 @@
       line-height: 1.45;
     }
 
+    .filter-class-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .filter-class-item {
+      width: 100%;
+      min-height: 0;
+      justify-content: flex-start;
+      padding: 8px 10px;
+      border-radius: 12px;
+      text-align: left;
+      font-weight: 600;
+      box-shadow: none;
+    }
+
+    .filter-class-item.active {
+      background: var(--chip-selected);
+      border-color: var(--chip-selected-border);
+      color: #0d5e57;
+    }
+
+    .filter-class-item:focus-visible {
+      outline: 3px solid rgba(18, 126, 118, 0.18);
+      outline-offset: 2px;
+    }
+
+    .filter-class-item:hover,
+    .filter-class-item.hover-linked {
+      transform: translateY(-1px);
+      border-color: #afbecf;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .filter-class-item.active.hover-linked {
+      border-color: #62b9ae;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
+    }
+
+    button:disabled {
+      cursor: default;
+      opacity: 0.58;
+    }
+
+    button:disabled:hover {
+      transform: none;
+      border-color: #c9d4e2;
+    }
+
     .status-banner {
       border-radius: 14px;
       padding: 12px 14px;
@@ -850,7 +903,28 @@
             </summary>
             <div class="sidebar-disclosure-body">
               <div class="sidebar-section control-block">
-                <input id="model-search" type="search" placeholder="Search by model name" aria-label="Filter models">
+                <input
+                  id="model-search"
+                  type="search"
+                  placeholder="Search by model name"
+                  aria-label="Search models by name"
+                >
+                <p class="help-text">
+                  Search narrows the model list by checkpoint name. Class filters follow the active Color
+                  palette grouping.
+                </p>
+                <div class="color-legend" aria-live="polite">
+                  <div class="color-legend-header">
+                    <span class="color-legend-title">Filter classes</span>
+                    <span id="model-filter-mode" class="color-legend-mode">Loading…</span>
+                  </div>
+                  <div class="button-row">
+                    <button id="model-filter-clear" type="button">Show all classes</button>
+                  </div>
+                  <div id="model-filter-class-list" class="filter-class-list">
+                    <div class="color-legend-empty">Loading filter classes…</div>
+                  </div>
+                </div>
               </div>
             </div>
           </details>
@@ -871,7 +945,7 @@
 
               <div class="sidebar-section">
                 <p class="help-text">
-                  Search narrows the list. Use the checkboxes to refine the current selection.
+                  Name and class filters narrow the list. Use the checkboxes to refine the current selection.
                 </p>
               </div>
 
@@ -1127,6 +1201,7 @@
       hoveredModelNames: [],
       hoveredColorGroupValue: null,
       hoveredColorGroupMode: null,
+      modelFilterGroupValues: new Set(),
       sidebarDesktopCollapsed: false,
       sidebarOverlayOpen: false,
       layoutRefreshTimer: null
@@ -1316,6 +1391,12 @@
         chip.classList.toggle("hover-linked", hoveredModels.has(String(chip.dataset.model || "")));
       });
       document.querySelectorAll("#color-legend-list .color-legend-item").forEach((item) => {
+        item.classList.toggle(
+          "hover-linked",
+          isHoveredLegendEntry(String(item.dataset.groupValue || ""), String(item.dataset.colorMode || getColorMode()))
+        );
+      });
+      document.querySelectorAll("#model-filter-class-list .filter-class-item").forEach((item) => {
         item.classList.toggle(
           "hover-linked",
           isHoveredLegendEntry(String(item.dataset.groupValue || ""), String(item.dataset.colorMode || getColorMode()))
@@ -1588,6 +1669,32 @@
 
     function getSearchTerm() {
       return document.getElementById("model-search").value.trim().toLowerCase();
+    }
+
+    function clearModelFilterGroups() {
+      state.modelFilterGroupValues = new Set();
+    }
+
+    function toggleModelFilterGroup(groupValue) {
+      const next = new Set(state.modelFilterGroupValues);
+      if (next.has(groupValue)) {
+        next.delete(groupValue);
+      } else {
+        next.add(groupValue);
+      }
+      state.modelFilterGroupValues = next;
+    }
+
+    function modelMatchesGroupFilters(result, mode = getColorMode()) {
+      return !state.modelFilterGroupValues.size || state.modelFilterGroupValues.has(colorGroupValue(result, mode));
+    }
+
+    function modelMatchesPickerFilters(result, mode = getColorMode()) {
+      const searchTerm = getSearchTerm();
+      return (
+        (!searchTerm || modelName(result).toLowerCase().includes(searchTerm)) &&
+        modelMatchesGroupFilters(result, mode)
+      );
     }
 
     function getBubbleXMetric() {
@@ -3199,15 +3306,90 @@
       setChartHoverTarget(CHART_IDS.lineR2, lineR2.hoverTarget);
     }
 
+    function renderModelFilterGroups() {
+      const mode = getColorMode();
+      const modeNode = document.getElementById("model-filter-mode");
+      const listNode = document.getElementById("model-filter-class-list");
+      const clearButton = document.getElementById("model-filter-clear");
+      const entries = colorLegendEntries(mode);
+      const activeCount = state.modelFilterGroupValues.size;
+
+      modeNode.textContent = entries.length
+        ? `${colorModeLabel(mode)} · ${activeCount ? `${activeCount} active` : "All classes"}`
+        : colorModeLabel(mode);
+      clearButton.disabled = activeCount === 0;
+      listNode.innerHTML = "";
+
+      if (!entries.length) {
+        const empty = document.createElement("div");
+        empty.className = "color-legend-empty";
+        empty.textContent = "Load benchmark JSON files to populate class filters.";
+        listNode.appendChild(empty);
+        return;
+      }
+
+      entries.forEach((entry) => {
+        const active = state.modelFilterGroupValues.has(entry.groupValue);
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = `color-legend-item filter-class-item${active ? " active" : ""}`;
+        item.dataset.groupValue = entry.groupValue;
+        item.dataset.colorMode = mode;
+        item.setAttribute("aria-pressed", String(active));
+        item.title = `${entry.label}: ${entry.count} model${entry.count === 1 ? "" : "s"}`;
+        item.addEventListener("click", () => {
+          toggleModelFilterGroup(entry.groupValue);
+          renderModelFilterGroups();
+          renderModelPicker();
+        });
+        item.addEventListener("pointerenter", () => {
+          setHoveredModels(modelNamesForColorGroup(entry.groupValue, mode));
+        });
+        item.addEventListener("pointerleave", () => {
+          clearHoveredModels();
+        });
+        item.addEventListener("focusin", () => {
+          setHoveredModels(modelNamesForColorGroup(entry.groupValue, mode));
+        });
+        item.addEventListener("focusout", (event) => {
+          if (!item.contains(event.relatedTarget)) {
+            clearHoveredModels();
+          }
+        });
+
+        const swatch = document.createElement("span");
+        swatch.className = "color-legend-swatch";
+        swatch.style.background = entry.color;
+
+        const label = document.createElement("span");
+        label.className = "color-legend-label";
+        label.textContent = entry.label;
+
+        const count = document.createElement("span");
+        count.className = "color-legend-count";
+        count.textContent = `${entry.count} model${entry.count === 1 ? "" : "s"}`;
+
+        item.appendChild(swatch);
+        item.appendChild(label);
+        item.appendChild(count);
+        listNode.appendChild(item);
+      });
+      syncHoverDecorations();
+    }
+
     function renderModelPicker() {
       const picker = document.getElementById("model-picker");
-      const searchTerm = getSearchTerm();
+      const mode = getColorMode();
+      let visibleCount = 0;
       picker.innerHTML = "";
 
       state.allResults.forEach((result) => {
         const name = modelName(result);
         const selected = state.selectedModels.has(name);
-        const visible = !searchTerm || name.toLowerCase().includes(searchTerm);
+        const visible = modelMatchesPickerFilters(result, mode);
+        if (visible) {
+          visibleCount += 1;
+        }
         const label = document.createElement("label");
         label.className = `model-chip${selected ? " selected" : ""}${visible ? "" : " hidden"}`;
         label.dataset.model = name;
@@ -3255,6 +3437,14 @@
         label.appendChild(text);
         picker.appendChild(label);
       });
+      if (!visibleCount) {
+        const empty = document.createElement("div");
+        empty.className = "color-legend-empty";
+        empty.textContent = state.allResults.length
+          ? "No models match the current name / class filters."
+          : "Load benchmark JSON files to populate the model selector.";
+        picker.appendChild(empty);
+      }
       syncHoverDecorations();
     }
 
@@ -3318,6 +3508,7 @@
       const results = getSelectedResults();
       normalizeHoveredState();
       renderColorLegend();
+      renderModelFilterGroups();
       renderModelPicker();
       updateSummaries();
       const bubbleSummary = buildBubbleChart(results);
@@ -3343,6 +3534,11 @@
       } else {
         setStatus(`Loaded ${state.allResults.length} JSON files via ${state.discoverySource}.`);
       }
+    }
+
+    function handleColorModeChange() {
+      clearModelFilterGroups();
+      renderAll();
     }
 
     function discoverFilesFromListText(listText) {
@@ -3491,12 +3687,17 @@
 
     function bindControls() {
       document.getElementById("best-layer-selector").addEventListener("change", renderAll);
-      document.getElementById("color-mode-selector").addEventListener("change", renderAll);
+      document.getElementById("color-mode-selector").addEventListener("change", handleColorModeChange);
       document.getElementById("bubble-x-selector").addEventListener("change", renderAll);
       document.getElementById("bubble-y-selector").addEventListener("change", renderAll);
       document.getElementById("bubble-size-selector").addEventListener("change", renderAll);
       document.getElementById("bubble-parameter-scope-selector").addEventListener("change", renderAll);
       document.getElementById("model-search").addEventListener("input", renderModelPicker);
+      document.getElementById("model-filter-clear").addEventListener("click", () => {
+        clearModelFilterGroups();
+        renderModelFilterGroups();
+        renderModelPicker();
+      });
       document.getElementById("sidebar-open-button").addEventListener("click", () => {
         setSidebarVisible(true);
       });

@@ -69,6 +69,24 @@ def test_dashboard_sidebar_disclosures_keep_only_model_selector_open_by_default(
     )
 
 
+def test_dashboard_model_filters_support_search_and_color_classes() -> None:
+    html = DASHBOARD_PATH.read_text(encoding="utf-8")
+
+    assert 'id="model-search"' in html
+    assert "Class filters follow the active Color" in html
+    assert '<span class="color-legend-title">Filter classes</span>' in html
+    assert 'id="model-filter-mode"' in html
+    assert 'id="model-filter-class-list"' in html
+    assert 'id="model-filter-clear"' in html
+    assert "modelFilterGroupValues: new Set()" in html
+    assert "function clearModelFilterGroups()" in html
+    assert "function modelMatchesPickerFilters(result, mode = getColorMode())" in html
+    assert "function renderModelFilterGroups()" in html
+    assert "No models match the current name / class filters." in html
+    assert 'document.getElementById("color-mode-selector").addEventListener("change", handleColorModeChange);' in html
+    assert 'document.getElementById("model-filter-clear").addEventListener("click", () => {' in html
+
+
 def test_documentation_does_not_keep_cloudflare_pages_setup_notes() -> None:
     documentation = DOCUMENTATION_PATH.read_text(encoding="utf-8")
 
