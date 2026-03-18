@@ -3,6 +3,15 @@
     "name": "TiRex",
     "slug": "TiRex",
     "type": "foundational",
+    "family": "TiRex",
+    "checkpoint_name": "TiRex",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "slstm"
+    },
+    "training": {
+      "paradigm": "representation_ssl"
+    },
     "checkpoint": "NX-AI/TiRex",
     "source": "https://github.com/NX-AI/tirex",
     "import_path": "tirex-ts",

@@ -290,7 +290,7 @@ Each model run writes `results/models/<slug>.json`.
 
 High-level structure:
 
-- `model`: model identity, source, checkpoint, layers evaluated, and adapter metadata, including stored parameter counts when the adapter exposes registered PyTorch parameters;
+- `model`: model identity, source, checkpoint, layers evaluated, adapter metadata, plus coarse dashboard taxonomy fields under `family`, `checkpoint_name`, `architecture.{role,backbone}`, and `training.paradigm`;
 - `dataset`: the benchmark manifest used to build the train and validation splits, including the config default length and the exact resolved length used for the run;
 - `probe_config`: probe hyperparameters plus the fixed `probe_seed`;
 - `runtime`: wall-clock and device metadata plus explicit encoder forward train/validation/total timings;
@@ -344,6 +344,7 @@ mismatch is considered a benchmark bug, not a valid alternate evaluation.
 - file discovery now tries root-relative `/models/list.txt` first, then relative `models/` directory listing; if neither works, the UI reports the discovery failure and loads no model files;
 - layer ids are serialized as JSON object keys;
 - summary fields such as `best_auc`, `best_auprc`, macro best `r2`, and macro best `pearson` are read by the UI;
+- the shared color selector reads canonical JSON metadata rather than inferring groups from filenames: `model.family`, `model.checkpoint_name`, `model.architecture.role`, `model.architecture.backbone`, and `model.training.paradigm`;
 - the selection-aware bubble chart only plots currently enabled models and allows any supported bubble metric on the `x` axis, `y` axis, or bubble size; inference uses `runtime.encoder_forward_total_s`; parameter axes can now switch between total registered model parameters and cumulative parameters through the furthest plotted best layer from the active layer-aware bubble metrics; parameter-count axes render on a log scale; and older JSONs may still fall back to `results.shared.timings.collect_*.*forward_s` for inference mode;
 - adapters that do not expose a registered PyTorch encoder may leave `model.adapter.parameter_count` as `null`; the dashboard must treat that as unavailable metadata rather than inventing a count;
 - total parameter metadata lives in `model.adapter.parameter_count` and the explicit alias `model.adapter.parameter_count_total`; cumulative representation-path counts live in `model.adapter.parameter_count_prefix_by_layer`; `TabPFN-v2` and `TabICL-v1` still report the single official backbone count rather than multiplying by one-vs-rest classifier replicas;

@@ -3,6 +3,15 @@
     "name": "UniShape-FineTune",
     "slug": "UniShape-FineTune",
     "type": "foundational",
+    "family": "UniShape",
+    "checkpoint_name": "FineTune",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "task_finetune"
+    },
     "checkpoint": "pretrained_model_ckpt/unishape_checkpoint_finetune.pth",
     "source": "https://github.com/qianlima-lab/UniShape",
     "import_path": "UniShape repo",

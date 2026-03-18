@@ -3,6 +3,15 @@
     "name": "Toto-Open-Base-1.0",
     "slug": "Toto-Open-Base-1.0",
     "type": "foundational",
+    "family": "Toto",
+    "checkpoint_name": "Open-Base-1.0",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "forecasting"
+    },
     "checkpoint": "Datadog/Toto-Open-Base-1.0",
     "source": "https://github.com/DataDog/toto",
     "import_path": "toto-ts",

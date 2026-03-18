@@ -3,6 +3,15 @@
     "name": "TTM-r2",
     "slug": "TTM-r2",
     "type": "foundational",
+    "family": "TTM",
+    "checkpoint_name": "r2",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "mlp_mixer"
+    },
+    "training": {
+      "paradigm": "forecasting"
+    },
     "checkpoint": "ibm-granite/granite-timeseries-ttm-r2",
     "source": "https://github.com/ibm-granite/granite-tsfm",
     "import_path": "tsfm_public",

@@ -181,8 +181,11 @@ ECharts, and lets you filter models, switch the best-layer selector between
 `AUROC`, `AUPRC`, `R2`, and `Pearson`, and choose any supported bubble metric
 for the chart `x` axis, `y` axis, or bubble size, including macro `AUROC`,
 macro `AUPRC`, macro `R2`, macro `Pearson`, encoder forward time, and stored
-model parameter count. When either bubble-chart axis is set to model parameter
-count, the dashboard uses a log scale for that axis automatically.
+model parameter count. The same sidebar also exposes one shared color palette
+mode for model chips and every chart: by exact model checkpoint, model family,
+architecture role, architecture backbone, or coarse training paradigm. When
+either bubble-chart axis is set to model parameter count, the dashboard uses a
+log scale for that axis automatically.
 When the JSON contains repeated validation runs, the dashboard plots the
 per-layer / per-category median and shows sample standard deviation (`ddof=1`)
 in tooltips, with shaded `± std` bands on the layer curves.
@@ -267,6 +270,7 @@ Benchmark gotchas:
 *   Every metric value in the new JSON schema stores the full validation-seed array plus `median/std`, and the dashboard visualizes those aggregated values. The historical checked-in snapshot predates this schema and also predates the versioned periodic contract, so it behaves like `n=1` legacy data rather than a current `v1` reference.
 *   The dashboard lets you choose the layer selector per model: `best_auc.layer`, `best_auprc.layer`, best macro `R2`, or best macro `Pearson`. Those best-layer choices are taken from the metric medians across validation runs. Do not confuse those selector views with the oracle-over-layer summaries stored in the JSON payloads.
 *   The selection-aware bubble chart only shows currently enabled models. Any supported bubble metric can drive the `x` axis, `y` axis, or bubble size: macro `AUROC`, macro `AUPRC`, macro `R2`, macro `Pearson`, explicit encoder forward time, or stored model parameter count. Parameter-count axes switch to log scale automatically so large and small models remain comparable on the same chart. When a bubble axis or size uses model parameters, the UI now exposes a parameter-scope selector: either total registered model parameters or cumulative parameters through the furthest plotted best layer across the currently selected layer-aware bubble metrics.
+*   Current benchmark JSONs also store coarse dashboard taxonomy under `model.family`, `model.checkpoint_name`, `model.architecture.{role,backbone}`, and `model.training.paradigm`. The shared color-mode selector uses those stored fields instead of inferring family or architecture groups from filenames in browser-only code.
 *   New benchmark JSONs store encoder forward timing explicitly in `runtime.encoder_forward_total_s` and related train/validation breakdown fields. The dashboard falls back to `results.shared.timings.collect_*.*forward_s` only for older JSONs that predate the explicit runtime fields.
 *   New benchmark JSONs store total parameter counts in `model.adapter.parameter_count` plus the explicit alias `model.adapter.parameter_count_total`, and also store cumulative representation-path counts in `model.adapter.parameter_count_prefix_by_layer`. The dashboard uses those prefix counts for the new through-best-layer parameter scope. For `TabPFN-v2` and `TabICL-v1`, the total count still comes from the single official backbone model exposed by the fitted public classifier API, and is not multiplied by one-vs-rest labels or estimator replicas.
 *   The dense regression panels are labeled `Regression By Component Type` and `Regression By Parameter Type`, and they use absolute `R2` and Pearson, not `MSE`. `MSE` varied too much across target types to be useful on a shared dashboard scale.

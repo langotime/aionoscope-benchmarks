@@ -3,6 +3,15 @@
     "name": "TimesFM-2.5-200M",
     "slug": "TimesFM-2.5-200M",
     "type": "foundational",
+    "family": "TimesFM",
+    "checkpoint_name": "2.5-200M",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "forecasting"
+    },
     "checkpoint": "google/timesfm-2.5-200m-pytorch",
     "source": "https://github.com/google-research/timesfm",
     "import_path": "timesfm repo",

@@ -3,6 +3,15 @@
     "name": "UniShape-ZeroShot",
     "slug": "UniShape-ZeroShot",
     "type": "foundational",
+    "family": "UniShape",
+    "checkpoint_name": "ZeroShot",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "representation_ssl"
+    },
     "checkpoint": "pretrained_model_ckpt/unishape_checkpoint_zeroshot.pth",
     "source": "https://github.com/qianlima-lab/UniShape",
     "import_path": "UniShape repo",

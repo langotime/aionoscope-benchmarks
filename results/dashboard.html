@@ -604,6 +604,20 @@
           </div>
 
           <div class="sidebar-section control-block">
+            <label class="control-label" for="color-mode-selector">Color palette</label>
+            <select id="color-mode-selector">
+              <option value="model" selected>By model checkpoint</option>
+              <option value="family">By model family</option>
+              <option value="architecture_role">By architecture role</option>
+              <option value="architecture_backbone">By architecture backbone</option>
+              <option value="training">By training paradigm</option>
+            </select>
+            <p class="help-text">
+              One shared palette for model chips, bubble chart, radar panels, and layer curves.
+            </p>
+          </div>
+
+          <div class="sidebar-section control-block">
             <span class="control-label">Bubble chart</span>
             <label class="control-sublabel" for="bubble-x-selector">X axis</label>
             <select id="bubble-x-selector">
@@ -851,6 +865,36 @@
       "#0d9488",
       "#9333ea"
     ];
+    const COLOR_MODE_LABELS = {
+      model: "Model checkpoint",
+      family: "Model family",
+      architecture_role: "Architecture role",
+      architecture_backbone: "Architecture backbone",
+      training: "Training paradigm"
+    };
+    const ARCHITECTURE_ROLE_LABELS = {
+      encoder: "Encoder",
+      decoder: "Decoder",
+      tabular: "Tabular"
+    };
+    const ARCHITECTURE_BACKBONE_LABELS = {
+      transformer: "Transformer",
+      transformer_moe: "Transformer + MoE",
+      tabular_transformer: "Tabular transformer",
+      slstm: "sLSTM",
+      mlp_mixer: "MLP-Mixer",
+      hybrid_sequence_model: "Hybrid sequence model",
+      vision_transformer: "Vision Transformer",
+      vision_convnet: "Vision ConvNet",
+      causal_cnn: "Causal CNN"
+    };
+    const TRAINING_PARADIGM_LABELS = {
+      forecasting: "Forecasting",
+      representation_ssl: "Representation / SSL",
+      task_finetune: "Task fine-tune",
+      cross_modal_transfer: "Cross-modal transfer",
+      tabular_supervised: "Tabular supervised"
+    };
 
     const CHART_IDS = {
       bubbleOverview: "chart-bubble-overview",
@@ -895,11 +939,109 @@
       return String(result.model.name);
     }
 
-    function colorForModel(name) {
-      const orderedNames = state.allResults.map(modelName);
-      const index = orderedNames.indexOf(String(name));
+    function resultByModelName(name) {
+      return state.allResults.find((result) => modelName(result) === String(name)) || null;
+    }
+
+    function modelFamily(result) {
+      const family = result && result.model ? result.model.family : null;
+      return typeof family === "string" && family ? family : "Unknown family";
+    }
+
+    function modelCheckpointName(result) {
+      const checkpointName = result && result.model ? result.model.checkpoint_name : null;
+      return typeof checkpointName === "string" && checkpointName ? checkpointName : modelName(result);
+    }
+
+    function modelArchitectureRole(result) {
+      const role = result && result.model && result.model.architecture ? result.model.architecture.role : null;
+      return typeof role === "string" && role ? role : "unknown";
+    }
+
+    function modelArchitectureBackbone(result) {
+      const backbone =
+        result && result.model && result.model.architecture ? result.model.architecture.backbone : null;
+      return typeof backbone === "string" && backbone ? backbone : "unknown";
+    }
+
+    function modelTrainingParadigm(result) {
+      const paradigm =
+        result && result.model && result.model.training ? result.model.training.paradigm : null;
+      return typeof paradigm === "string" && paradigm ? paradigm : "unknown";
+    }
+
+    function colorModeLabel(mode) {
+      return COLOR_MODE_LABELS[String(mode)] || humanizeToken(mode);
+    }
+
+    function architectureRoleLabel(role) {
+      return ARCHITECTURE_ROLE_LABELS[String(role)] || humanizeToken(role);
+    }
+
+    function architectureBackboneLabel(backbone) {
+      return ARCHITECTURE_BACKBONE_LABELS[String(backbone)] || humanizeToken(backbone);
+    }
+
+    function trainingParadigmLabel(paradigm) {
+      return TRAINING_PARADIGM_LABELS[String(paradigm)] || humanizeToken(paradigm);
+    }
+
+    function colorGroupValue(result, mode = getColorMode()) {
+      if (mode === "family") {
+        return modelFamily(result);
+      }
+      if (mode === "architecture_role") {
+        return modelArchitectureRole(result);
+      }
+      if (mode === "architecture_backbone") {
+        return modelArchitectureBackbone(result);
+      }
+      if (mode === "training") {
+        return modelTrainingParadigm(result);
+      }
+      return modelName(result);
+    }
+
+    function colorGroupLabel(result, mode = getColorMode()) {
+      const value = colorGroupValue(result, mode);
+      if (mode === "family") {
+        return value;
+      }
+      if (mode === "architecture_role") {
+        return architectureRoleLabel(value);
+      }
+      if (mode === "architecture_backbone") {
+        return architectureBackboneLabel(value);
+      }
+      if (mode === "training") {
+        return trainingParadigmLabel(value);
+      }
+      return value;
+    }
+
+    function orderedColorGroups(mode = getColorMode()) {
+      return Array.from(new Set(state.allResults.map((result) => colorGroupValue(result, mode))));
+    }
+
+    function colorForResult(result, mode = getColorMode()) {
+      const orderedGroups = orderedColorGroups(mode);
+      const index = orderedGroups.indexOf(colorGroupValue(result, mode));
       const safeIndex = index >= 0 ? index : 0;
       return COLOR_PALETTE[safeIndex % COLOR_PALETTE.length];
+    }
+
+    function colorForModel(name) {
+      const result = resultByModelName(name);
+      return result ? colorForResult(result) : COLOR_PALETTE[0];
+    }
+
+    function modelMetadataLines(result) {
+      return [
+        `Family: ${modelFamily(result)}`,
+        `Checkpoint: ${modelCheckpointName(result)}`,
+        `Architecture: ${architectureRoleLabel(modelArchitectureRole(result))} / ${architectureBackboneLabel(modelArchitectureBackbone(result))}`,
+        `Training: ${trainingParadigmLabel(modelTrainingParadigm(result))}`,
+      ];
     }
 
     function orderedCategories(categories, preferredOrder) {
@@ -1111,6 +1253,10 @@
 
     function getBestLayerSelector() {
       return document.getElementById("best-layer-selector").value;
+    }
+
+    function getColorMode() {
+      return document.getElementById("color-mode-selector").value;
     }
 
     function getSearchTerm() {
@@ -1838,7 +1984,7 @@
 
       return {
         animationDuration: 250,
-        color: results.map((result) => colorForModel(modelName(result))),
+        color: results.map((result) => colorForResult(result)),
         tooltip: {
           trigger: "item",
           confine: true,
@@ -1847,6 +1993,7 @@
             const stats = statsByModel[name] || [];
             const plottedValues = dataByModel[name] || param.value;
             const layer = layerByModel[name];
+            const result = resultByModelName(name);
             const rows = categories.map((category, index) => {
               const raw = statMedian(stats[index]);
               const rawStd = statStd(stats[index]);
@@ -1857,6 +2004,7 @@
             });
             return [
               `<strong>${name}</strong>`,
+              `Color group: ${result ? colorGroupLabel(result) : name}`,
               `Selected layer: ${layer}`,
               rows.join("<br>")
             ].join("<br>");
@@ -1957,7 +2105,7 @@
 
     function lineSeriesGroup(result, metricKey, selectorKey, layerCategories) {
       const name = modelName(result);
-      const color = colorForModel(name);
+      const color = colorForResult(result);
       const selectedLayer = selectedLayerForResult(result, selectorKey);
       const { layers, stats } = metricStatsByLayer(result, metricKey);
       const medians = stats.map((value) => statMedian(value));
@@ -2093,7 +2241,7 @@
 
       return {
         animationDuration: 250,
-        color: results.map((result) => colorForModel(modelName(result))),
+        color: results.map((result) => colorForResult(result)),
         grid: {
           top: 42,
           left: 54,
@@ -2120,7 +2268,10 @@
                 const clipped = Math.abs(rawValue - plottedValue) > 1e-12;
                 const selectedSuffix =
                   Number(param.data.selectedLayer) === Number(axisValue) ? " [selected layer]" : "";
-                return `${param.marker}${param.seriesName}: ${formatMetricValue(rawValue)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plottedValue)})` : ""}${selectedSuffix}`;
+                const result = resultByModelName(param.seriesName);
+                const colorGroupSuffix =
+                  result && getColorMode() !== "model" ? ` [${colorGroupLabel(result)}]` : "";
+                return `${param.marker}${param.seriesName}${colorGroupSuffix}: ${formatMetricValue(rawValue)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plottedValue)})` : ""}${selectedSuffix}`;
               });
             return [`<strong>Layer ${axisValue}</strong>`, ...rows].join("<br>");
           }
@@ -2174,6 +2325,7 @@
     function updateBubbleChartNote(xMetric, yMetric, sizeMetric, selection) {
       const note = document.getElementById("bubble-chart-note");
       const parts = [
+        `color = ${colorModeLabel(getColorMode())}`,
         `X = ${bubbleAxisLabel(xMetric)}`,
         `Y = ${bubbleAxisLabel(yMetric)}`,
         `bubble size = ${sizeMetric.label}`
@@ -2316,11 +2468,14 @@
             confine: true,
             formatter: (param) => {
               const row = param.data;
+              const result = resultByModelName(row.name);
               const uniqueDetailLines = Array.from(
                 new Set([...row.xDetailLines, ...row.yDetailLines, ...row.sizeDetailLines])
               );
               return [
                 `<strong>${row.name}</strong>`,
+                `Color group: ${result ? colorGroupLabel(result) : row.name}`,
+                ...(result ? modelMetadataLines(result) : []),
                 ...uniqueDetailLines
               ].join("<br>");
             }
@@ -2655,6 +2810,10 @@
         const label = document.createElement("label");
         label.className = `model-chip${selected ? " selected" : ""}${visible ? "" : " hidden"}`;
         label.dataset.model = name;
+        label.title = [
+          `Color group: ${colorGroupLabel(result)}`,
+          ...modelMetadataLines(result),
+        ].join(" | ");
 
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
@@ -2670,7 +2829,7 @@
 
         const swatch = document.createElement("span");
         swatch.className = "model-swatch";
-        swatch.style.background = colorForModel(name);
+        swatch.style.background = colorForResult(result);
 
         const text = document.createElement("span");
         text.className = "model-name";
@@ -2731,6 +2890,40 @@
       return Array.from(new Set(candidates));
     }
 
+    function normalizeLoadedResult(payload) {
+      if (!payload || typeof payload !== "object") {
+        throw new Error("Result payload is not a JSON object");
+      }
+      if (!payload.model || typeof payload.model !== "object" || Array.isArray(payload.model)) {
+        throw new Error("Result payload is missing the top-level model object");
+      }
+
+      const result = payload;
+      const model = result.model;
+      if (typeof model.family !== "string" || !model.family) {
+        model.family = typeof model.name === "string" && model.name ? model.name : "Unknown family";
+      }
+      if (typeof model.checkpoint_name !== "string" || !model.checkpoint_name) {
+        model.checkpoint_name = typeof model.name === "string" && model.name ? model.name : "Unknown checkpoint";
+      }
+      if (!model.architecture || typeof model.architecture !== "object" || Array.isArray(model.architecture)) {
+        model.architecture = {};
+      }
+      if (typeof model.architecture.role !== "string" || !model.architecture.role) {
+        model.architecture.role = "unknown";
+      }
+      if (typeof model.architecture.backbone !== "string" || !model.architecture.backbone) {
+        model.architecture.backbone = "unknown";
+      }
+      if (!model.training || typeof model.training !== "object" || Array.isArray(model.training)) {
+        model.training = {};
+      }
+      if (typeof model.training.paradigm !== "string" || !model.training.paradigm) {
+        model.training.paradigm = "unknown";
+      }
+      return result;
+    }
+
     async function resolveResultFiles() {
       let manifestError = null;
       try {
@@ -2781,7 +2974,7 @@
           if (!response.ok) {
             throw new Error(`${path} returned HTTP ${response.status}`);
           }
-          const payload = await response.json();
+          const payload = normalizeLoadedResult(await response.json());
           payload.__resultPath = path;
           return payload;
         })
@@ -2826,6 +3019,7 @@
 
     function bindControls() {
       document.getElementById("best-layer-selector").addEventListener("change", renderAll);
+      document.getElementById("color-mode-selector").addEventListener("change", renderAll);
       document.getElementById("bubble-x-selector").addEventListener("change", renderAll);
       document.getElementById("bubble-y-selector").addEventListener("change", renderAll);
       document.getElementById("bubble-size-selector").addEventListener("change", renderAll);

@@ -3,6 +3,15 @@
     "name": "Moirai-1.0-R-Base",
     "slug": "Moirai-1.0-R-Base",
     "type": "foundational",
+    "family": "Moirai",
+    "checkpoint_name": "1.0-R-Base",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "forecasting"
+    },
     "checkpoint": "Salesforce/moirai-1.0-R-base",
     "source": "https://github.com/SalesforceAIResearch/uni2ts",
     "import_path": "uni2ts",

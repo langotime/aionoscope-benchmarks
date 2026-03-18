@@ -3,6 +3,15 @@
     "name": "Timer-Base-84M",
     "slug": "Timer-Base-84M",
     "type": "foundational",
+    "family": "Timer",
+    "checkpoint_name": "Base-84M",
+    "architecture": {
+      "role": "decoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "forecasting"
+    },
     "checkpoint": "thuml/timer-base-84m",
     "source": "https://github.com/thuml/Timer",
     "import_path": "transformers",

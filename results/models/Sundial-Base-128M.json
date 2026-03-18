@@ -3,6 +3,15 @@
     "name": "Sundial-Base-128M",
     "slug": "Sundial-Base-128M",
     "type": "foundational",
+    "family": "Sundial",
+    "checkpoint_name": "Base-128M",
+    "architecture": {
+      "role": "decoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "forecasting"
+    },
     "checkpoint": "thuml/sundial-base-128m",
     "source": "https://github.com/thuml/Sundial",
     "import_path": "transformers",

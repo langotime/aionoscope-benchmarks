@@ -87,6 +87,7 @@ crop, pad, or waveform-resample the generated Aiono sequence to fit the model.
 One JSON file in `results/models/` is the canonical output for one model run. The JSON stores:
 
 - model identity and adapter metadata;
+- model taxonomy for dashboard grouping: family/checkpoint split plus architecture and training labels;
 - dataset manifest and probe configuration;
 - per-layer categorical and dense probe metrics;
 - aggregated validation-run statistics (`values`, `median`, `std`, `n`);
@@ -159,7 +160,7 @@ explicitly in the top-level docs instead of being treated as an implicit fallbac
 
 ### Visualization
 
-`results/dashboard.html` is a static browser dashboard that reads `results/models/*.json` and visualizes the stored metrics. It must stay compatible with the JSON schema produced by `results.py`, including the explicit runtime encoder-forward totals, the total adapter parameter counts, and the cumulative through-layer parameter metadata used by the bubble chart controls.
+`results/dashboard.html` is a static browser dashboard that reads `results/models/*.json` and visualizes the stored metrics. It must stay compatible with the JSON schema produced by `results.py`, including the explicit runtime encoder-forward totals, the total adapter parameter counts, the cumulative through-layer parameter metadata used by the bubble chart controls, and the canonical model taxonomy fields used by the shared color-palette selector across model chips, bubble charts, radar panels, and layer curves.
 
 ## Architectural Invariants
 

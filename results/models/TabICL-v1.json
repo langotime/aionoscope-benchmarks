@@ -3,6 +3,15 @@
     "name": "TabICL-v1",
     "slug": "TabICL-v1",
     "type": "foundational",
+    "family": "TabICL",
+    "checkpoint_name": "v1",
+    "architecture": {
+      "role": "tabular",
+      "backbone": "tabular_transformer"
+    },
+    "training": {
+      "paradigm": "tabular_supervised"
+    },
     "checkpoint": "tabicl-classifier-v1-20250208.ckpt",
     "source": "https://github.com/soda-inria/tabicl",
     "import_path": "tabicl",

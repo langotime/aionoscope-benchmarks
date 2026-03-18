@@ -3,6 +3,15 @@
     "name": "LeNEPA-CauKer2M-20k",
     "slug": "LeNEPA-CauKer2M-20k",
     "type": "foundational",
+    "family": "LeNEPA",
+    "checkpoint_name": "CauKer2M-20k",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "representation_ssl"
+    },
     "checkpoint": "Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256",
     "source": "https://huggingface.co/Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256",
     "import_path": "published inference.py via huggingface_hub",

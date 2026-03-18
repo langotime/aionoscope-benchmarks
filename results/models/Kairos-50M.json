@@ -3,6 +3,15 @@
     "name": "Kairos-50M",
     "slug": "Kairos-50M",
     "type": "foundational",
+    "family": "Kairos",
+    "checkpoint_name": "50M",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "forecasting"
+    },
     "checkpoint": "mldi-lab/Kairos_50m",
     "source": "https://github.com/foundation-model-research/Kairos",
     "import_path": "Kairos repo + transformers",

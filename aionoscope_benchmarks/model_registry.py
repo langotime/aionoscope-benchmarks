@@ -18,6 +18,28 @@ class ModelSpec:
     class_name: str
 
 
+@dataclass(frozen=True)
+class ModelTaxonomy:
+    family: str
+    checkpoint_name: str
+    architecture_role: str
+    architecture_backbone: str
+    training_paradigm: str
+
+    def to_payload(self) -> dict[str, object]:
+        return {
+            "family": self.family,
+            "checkpoint_name": self.checkpoint_name,
+            "architecture": {
+                "role": self.architecture_role,
+                "backbone": self.architecture_backbone,
+            },
+            "training": {
+                "paradigm": self.training_paradigm,
+            },
+        }
+
+
 MODEL_SPECS: dict[str, ModelSpec] = {
     "MantisV2": ModelSpec(
         name="MantisV2",
@@ -400,6 +422,269 @@ MODEL_ALIASES: dict[str, str] = {
     "UTICA": "Mantis-UTICA-8M",
 }
 
+MODEL_TAXONOMY: dict[str, ModelTaxonomy] = {
+    "MantisV2": ModelTaxonomy(
+        family="Mantis",
+        checkpoint_name="V2",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="representation_ssl",
+    ),
+    "Mantis-UTICA-8M": ModelTaxonomy(
+        family="Mantis",
+        checkpoint_name="UTICA-8M",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="task_finetune",
+    ),
+    "TabPFN-v2": ModelTaxonomy(
+        family="TabPFN",
+        checkpoint_name="v2",
+        architecture_role="tabular",
+        architecture_backbone="tabular_transformer",
+        training_paradigm="tabular_supervised",
+    ),
+    "TabICL-v1": ModelTaxonomy(
+        family="TabICL",
+        checkpoint_name="v1",
+        architecture_role="tabular",
+        architecture_backbone="tabular_transformer",
+        training_paradigm="tabular_supervised",
+    ),
+    "MOMENT-1-Large": ModelTaxonomy(
+        family="MOMENT",
+        checkpoint_name="1-Large",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="representation_ssl",
+    ),
+    "TiRex": ModelTaxonomy(
+        family="TiRex",
+        checkpoint_name="TiRex",
+        architecture_role="encoder",
+        architecture_backbone="slstm",
+        training_paradigm="representation_ssl",
+    ),
+    "Chronos-2": ModelTaxonomy(
+        family="Chronos",
+        checkpoint_name="2",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "LeNEPA-Aiono": ModelTaxonomy(
+        family="LeNEPA",
+        checkpoint_name="Aiono",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="representation_ssl",
+    ),
+    "LeNEPA-CauKer2M": ModelTaxonomy(
+        family="LeNEPA",
+        checkpoint_name="CauKer2M",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="representation_ssl",
+    ),
+    "LeNEPA-CauKer2M-20k": ModelTaxonomy(
+        family="LeNEPA",
+        checkpoint_name="CauKer2M-20k",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="representation_ssl",
+    ),
+    "TTM-r2": ModelTaxonomy(
+        family="TTM",
+        checkpoint_name="r2",
+        architecture_role="encoder",
+        architecture_backbone="mlp_mixer",
+        training_paradigm="forecasting",
+    ),
+    "Time-MoE-50M": ModelTaxonomy(
+        family="Time-MoE",
+        checkpoint_name="50M",
+        architecture_role="decoder",
+        architecture_backbone="transformer_moe",
+        training_paradigm="forecasting",
+    ),
+    "Time-MoE-200M": ModelTaxonomy(
+        family="Time-MoE",
+        checkpoint_name="200M",
+        architecture_role="decoder",
+        architecture_backbone="transformer_moe",
+        training_paradigm="forecasting",
+    ),
+    "Timer-Base-84M": ModelTaxonomy(
+        family="Timer",
+        checkpoint_name="Base-84M",
+        architecture_role="decoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "Sundial-Base-128M": ModelTaxonomy(
+        family="Sundial",
+        checkpoint_name="Base-128M",
+        architecture_role="decoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "TimesFM-2.5-200M": ModelTaxonomy(
+        family="TimesFM",
+        checkpoint_name="2.5-200M",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "Moirai-1.0-R-Small": ModelTaxonomy(
+        family="Moirai",
+        checkpoint_name="1.0-R-Small",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "Moirai-1.0-R-Base": ModelTaxonomy(
+        family="Moirai",
+        checkpoint_name="1.0-R-Base",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "Moirai-1.0-R-Large": ModelTaxonomy(
+        family="Moirai",
+        checkpoint_name="1.0-R-Large",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "Moirai-1.1-R-Small": ModelTaxonomy(
+        family="Moirai",
+        checkpoint_name="1.1-R-Small",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "Moirai-1.1-R-Base": ModelTaxonomy(
+        family="Moirai",
+        checkpoint_name="1.1-R-Base",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "Moirai-1.1-R-Large": ModelTaxonomy(
+        family="Moirai",
+        checkpoint_name="1.1-R-Large",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "Moirai-2.0-R-Small": ModelTaxonomy(
+        family="Moirai",
+        checkpoint_name="2.0-R-Small",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "Moirai-MoE-1.0-R-Small": ModelTaxonomy(
+        family="Moirai",
+        checkpoint_name="MoE-1.0-R-Small",
+        architecture_role="encoder",
+        architecture_backbone="transformer_moe",
+        training_paradigm="forecasting",
+    ),
+    "Moirai-MoE-1.0-R-Base": ModelTaxonomy(
+        family="Moirai",
+        checkpoint_name="MoE-1.0-R-Base",
+        architecture_role="encoder",
+        architecture_backbone="transformer_moe",
+        training_paradigm="forecasting",
+    ),
+    "Kairos-10M": ModelTaxonomy(
+        family="Kairos",
+        checkpoint_name="10M",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "Kairos-23M": ModelTaxonomy(
+        family="Kairos",
+        checkpoint_name="23M",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "Kairos-50M": ModelTaxonomy(
+        family="Kairos",
+        checkpoint_name="50M",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "Reverso-Small-550K": ModelTaxonomy(
+        family="Reverso",
+        checkpoint_name="Small-550K",
+        architecture_role="encoder",
+        architecture_backbone="hybrid_sequence_model",
+        training_paradigm="forecasting",
+    ),
+    "UniShape-ZeroShot": ModelTaxonomy(
+        family="UniShape",
+        checkpoint_name="ZeroShot",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="representation_ssl",
+    ),
+    "UniShape-FineTune": ModelTaxonomy(
+        family="UniShape",
+        checkpoint_name="FineTune",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="task_finetune",
+    ),
+    "Toto-Open-Base-1.0": ModelTaxonomy(
+        family="Toto",
+        checkpoint_name="Open-Base-1.0",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="forecasting",
+    ),
+    "TiViT-H-14-B79K": ModelTaxonomy(
+        family="TiViT",
+        checkpoint_name="H-14-B79K",
+        architecture_role="encoder",
+        architecture_backbone="vision_transformer",
+        training_paradigm="cross_modal_transfer",
+    ),
+    "TiConvNext-XXLarge-AugReg": ModelTaxonomy(
+        family="TiViT",
+        checkpoint_name="ConvNext-XXLarge-AugReg",
+        architecture_role="encoder",
+        architecture_backbone="vision_convnet",
+        training_paradigm="cross_modal_transfer",
+    ),
+    "NuTime-Bias9": ModelTaxonomy(
+        family="NuTime",
+        checkpoint_name="Bias9",
+        architecture_role="encoder",
+        architecture_backbone="transformer",
+        training_paradigm="representation_ssl",
+    ),
+    "T-Loss-CricketX": ModelTaxonomy(
+        family="T-Loss",
+        checkpoint_name="CricketX",
+        architecture_role="encoder",
+        architecture_backbone="causal_cnn",
+        training_paradigm="representation_ssl",
+    ),
+}
+
+_MISSING_TAXONOMY = set(MODEL_SPECS) - set(MODEL_TAXONOMY)
+_EXTRA_TAXONOMY = set(MODEL_TAXONOMY) - set(MODEL_SPECS)
+if _MISSING_TAXONOMY or _EXTRA_TAXONOMY:
+    raise RuntimeError(
+        "MODEL_TAXONOMY must cover the canonical registry exactly: "
+        f"missing={sorted(_MISSING_TAXONOMY)} extra={sorted(_EXTRA_TAXONOMY)}"
+    )
+
 
 def canonical_model_name(name: str) -> str:
     alias = MODEL_ALIASES.get(name)
@@ -411,6 +696,14 @@ def canonical_model_name(name: str) -> str:
         if name == spec.slug:
             return key
     raise KeyError(f"Unknown model name: {name!r}")
+
+
+def model_taxonomy(name: str) -> ModelTaxonomy:
+    key = canonical_model_name(name)
+    try:
+        return MODEL_TAXONOMY[key]
+    except KeyError as error:
+        raise KeyError(f"Missing model taxonomy for canonical name: {key!r}") from error
 
 
 def create_adapter(model_name: str):

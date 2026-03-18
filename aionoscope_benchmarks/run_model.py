@@ -12,7 +12,7 @@ import yaml
 from torch.utils.data import DataLoader, TensorDataset
 
 from .constants import DATASET_CONFIG_PATH, MODEL_RESULTS_ROOT, PROBE_CONFIG_PATH
-from .model_registry import create_adapter
+from .model_registry import create_adapter, model_taxonomy
 from .offline_probe import (
     OfflineProbeConfig,
     collect_probe_features_by_layer,
@@ -345,6 +345,7 @@ def run_single_model(
         model_name=spec.name,
         model_slug=spec.slug,
         model_type="foundational",
+        model_metadata=model_taxonomy(spec.name).to_payload(),
         checkpoint=spec.checkpoint,
         source=spec.source,
         import_path=spec.import_path,

@@ -5,6 +5,7 @@ from aionoscope_benchmarks.model_registry import (
     MODEL_SPECS,
     all_foundational_model_names,
     canonical_model_name,
+    model_taxonomy,
 )
 
 
@@ -74,3 +75,25 @@ def test_legacy_aliases_still_resolve_to_canonical_explicit_names() -> None:
     assert canonical_model_name("UTICA") == "Mantis-UTICA-8M"
     assert "Moirai" not in FOUNDATIONAL_MODELS
     assert "LeNEPA-CauKer2M-20k" in FOUNDATIONAL_MODELS
+
+
+def test_model_taxonomy_exposes_family_checkpoint_architecture_and_training_groups() -> None:
+    lenepa = model_taxonomy("LeNEPA-Aiono")
+    assert lenepa.family == "LeNEPA"
+    assert lenepa.checkpoint_name == "Aiono"
+    assert lenepa.architecture_role == "encoder"
+    assert lenepa.architecture_backbone == "transformer"
+    assert lenepa.training_paradigm == "representation_ssl"
+
+    time_moe = model_taxonomy("Time-MoE-200M")
+    assert time_moe.family == "Time-MoE"
+    assert time_moe.checkpoint_name == "200M"
+    assert time_moe.architecture_role == "decoder"
+    assert time_moe.architecture_backbone == "transformer_moe"
+    assert time_moe.training_paradigm == "forecasting"
+
+    tivit = model_taxonomy("TiConvNext-XXLarge-AugReg")
+    assert tivit.family == "TiViT"
+    assert tivit.architecture_role == "encoder"
+    assert tivit.architecture_backbone == "vision_convnet"
+    assert tivit.training_paradigm == "cross_modal_transfer"

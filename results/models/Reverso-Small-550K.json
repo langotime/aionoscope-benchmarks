@@ -3,6 +3,15 @@
     "name": "Reverso-Small-550K",
     "slug": "Reverso-Small-550K",
     "type": "foundational",
+    "family": "Reverso",
+    "checkpoint_name": "Small-550K",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "hybrid_sequence_model"
+    },
+    "training": {
+      "paradigm": "forecasting"
+    },
     "checkpoint": "shinfxh/reverso",
     "source": "https://github.com/shinfxh/reverso",
     "import_path": "reverso_torch + huggingface_hub",

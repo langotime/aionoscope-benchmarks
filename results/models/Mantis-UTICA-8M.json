@@ -3,6 +3,15 @@
     "name": "Mantis-UTICA-8M",
     "slug": "Mantis-UTICA-8M",
     "type": "foundational",
+    "family": "Mantis",
+    "checkpoint_name": "UTICA-8M",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "task_finetune"
+    },
     "checkpoint": "fegounna/Utica",
     "source": "https://github.com/fegounna/Utica",
     "import_path": "mantis-tsfm + huggingface_hub",

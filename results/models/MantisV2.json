@@ -3,6 +3,15 @@
     "name": "MantisV2",
     "slug": "MantisV2",
     "type": "foundational",
+    "family": "Mantis",
+    "checkpoint_name": "V2",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "representation_ssl"
+    },
     "checkpoint": "paris-noah/MantisV2",
     "source": "https://github.com/vfeofanov/mantis",
     "import_path": "mantis-tsfm",

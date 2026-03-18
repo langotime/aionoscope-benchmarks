@@ -10,6 +10,11 @@ def test_dashboard_tries_list_manifest_before_directory_listing_without_builtin_
     html = DASHBOARD_PATH.read_text(encoding="utf-8")
 
     assert 'const MODELS_LIST_PATH = "/models/list.txt";' in html
+    assert 'id="color-mode-selector"' in html
+    assert '<option value="family">By model family</option>' in html
+    assert '<option value="architecture_role">By architecture role</option>' in html
+    assert '<option value="architecture_backbone">By architecture backbone</option>' in html
+    assert '<option value="training">By training paradigm</option>' in html
     assert '<option value="parameters" selected>Model parameters</option>' in html
     assert 'id="bubble-parameter-scope-selector"' in html
     assert '<option value="best_layer">Through plotted best layer</option>' in html
@@ -23,7 +28,10 @@ def test_dashboard_bubble_warning_reports_model_specific_missing_fields() -> Non
     html = DASHBOARD_PATH.read_text(encoding="utf-8")
 
     assert "function summarizeBubbleMissingDetails(skippedDetails)" in html
+    assert "function normalizeLoadedResult(payload)" in html
     assert "function bubbleSelectionContext()" in html
+    assert "function colorGroupLabel(result, mode = getColorMode())" in html
+    assert "color = ${colorModeLabel(getColorMode())}" in html
     assert "parameter scope = through the furthest plotted best layer" in html
     assert 'Bubble chart skipped ${skippedCount} selected model${skippedCount === 1 ? "" : "s"}: ${detailsText}.' in html
     assert "Selected models are missing required fields: ${detailsText}." in html

@@ -3,6 +3,15 @@
     "name": "T-Loss-CricketX",
     "slug": "T-Loss-CricketX",
     "type": "foundational",
+    "family": "T-Loss",
+    "checkpoint_name": "CricketX",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "causal_cnn"
+    },
+    "training": {
+      "paradigm": "representation_ssl"
+    },
     "checkpoint": "CricketX_CausalCNN_encoder.pth",
     "source": "https://github.com/White-Link/UnsupervisedScalableRepresentationLearningTimeSeries",
     "import_path": "USRLTS repo",

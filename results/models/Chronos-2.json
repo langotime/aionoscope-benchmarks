@@ -3,6 +3,15 @@
     "name": "Chronos-2",
     "slug": "Chronos-2",
     "type": "foundational",
+    "family": "Chronos",
+    "checkpoint_name": "2",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "forecasting"
+    },
     "checkpoint": "amazon/chronos-2",
     "source": "https://github.com/amazon-science/chronos-forecasting",
     "import_path": "chronos-forecasting",

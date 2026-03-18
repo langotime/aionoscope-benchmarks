@@ -3,6 +3,15 @@
     "name": "MOMENT-1-Large",
     "slug": "MOMENT-1-Large",
     "type": "foundational",
+    "family": "MOMENT",
+    "checkpoint_name": "1-Large",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "representation_ssl"
+    },
     "checkpoint": "AutonLab/MOMENT-1-large",
     "source": "https://github.com/moment-timeseries-foundation-model/moment",
     "import_path": "momentfm",

@@ -3,6 +3,15 @@
     "name": "NuTime-Bias9",
     "slug": "NuTime-Bias9",
     "type": "foundational",
+    "family": "NuTime",
+    "checkpoint_name": "Bias9",
+    "architecture": {
+      "role": "encoder",
+      "backbone": "transformer"
+    },
+    "training": {
+      "paradigm": "representation_ssl"
+    },
     "checkpoint": "checkpoint_bias9.pth",
     "source": "https://github.com/chenguolin/NuTime",
     "import_path": "NuTime repo",
