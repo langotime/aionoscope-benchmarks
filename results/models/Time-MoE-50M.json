@@ -6,8 +6,7 @@
     "family": "Time-MoE",
     "checkpoint_name": "50M",
     "architecture": {
-      "role": "decoder",
-      "backbone": "transformer_moe"
+      "backbone": "transformer_moe_causal"
     },
     "training": {
       "paradigm": "forecasting"

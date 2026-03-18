@@ -6,6 +6,49 @@ from dataclasses import dataclass
 from .constants import FOUNDATIONAL_MODELS
 
 
+ARCHITECTURE_BACKBONE_DEFINITIONS: dict[str, str] = {
+    "transformer_full_attention": (
+        "Time-series transformer whose benchmark representation path uses full-context self-attention "
+        "without a causal time mask. Padding or group masks may still apply."
+    ),
+    "transformer_causal": (
+        "Time-series transformer whose benchmark representation path uses a causal time mask or "
+        "decoder-only token stream, so token states never attend to future positions."
+    ),
+    "transformer_moe_causal": (
+        "Causal time-series transformer with sparse mixture-of-experts routing in the benchmark "
+        "representation path."
+    ),
+    "tabular_transformer": (
+        "Transformer-style tabular model operating on fixed-width benchmark features rather than a "
+        "native sequential token stream."
+    ),
+    "slstm": "Structured/stateful LSTM backbone.",
+    "mlp_mixer": "Token/channel mixing MLP backbone.",
+    "hybrid_sequence_model": (
+        "Mixed sequence backbone that combines multiple modeling primitives and does not fit a "
+        "narrower architecture class cleanly."
+    ),
+    "vision_transformer": "Image-first Vision Transformer reused as a frozen benchmark encoder.",
+    "vision_convnet": "Image-first convolutional backbone reused as a frozen benchmark encoder.",
+    "causal_cnn": "Purely causal convolutional encoder.",
+}
+
+TRAINING_PARADIGM_DEFINITIONS: dict[str, str] = {
+    "forecasting": "Checkpoint trained primarily for forecasting / next-step prediction.",
+    "representation_ssl": (
+        "Checkpoint trained with self-supervised representation learning rather than a task-specific "
+        "supervised head."
+    ),
+    "task_finetune": "Checkpoint released as an official task-fine-tuned model.",
+    "cross_modal_transfer": (
+        "Checkpoint pretrained in another modality and transferred into the benchmark as a frozen "
+        "encoder."
+    ),
+    "tabular_supervised": "Supervised tabular classifier reused on flattened benchmark features.",
+}
+
+
 @dataclass(frozen=True)
 class ModelSpec:
     name: str
@@ -22,16 +65,26 @@ class ModelSpec:
 class ModelTaxonomy:
     family: str
     checkpoint_name: str
-    architecture_role: str
     architecture_backbone: str
     training_paradigm: str
+
+    def __post_init__(self) -> None:
+        if self.architecture_backbone not in ARCHITECTURE_BACKBONE_DEFINITIONS:
+            raise ValueError(
+                f"Unknown architecture_backbone {self.architecture_backbone!r}; "
+                f"expected one of {sorted(ARCHITECTURE_BACKBONE_DEFINITIONS)}"
+            )
+        if self.training_paradigm not in TRAINING_PARADIGM_DEFINITIONS:
+            raise ValueError(
+                f"Unknown training_paradigm {self.training_paradigm!r}; "
+                f"expected one of {sorted(TRAINING_PARADIGM_DEFINITIONS)}"
+            )
 
     def to_payload(self) -> dict[str, object]:
         return {
             "family": self.family,
             "checkpoint_name": self.checkpoint_name,
             "architecture": {
-                "role": self.architecture_role,
                 "backbone": self.architecture_backbone,
             },
             "training": {
@@ -426,252 +479,216 @@ MODEL_TAXONOMY: dict[str, ModelTaxonomy] = {
     "MantisV2": ModelTaxonomy(
         family="Mantis",
         checkpoint_name="V2",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="representation_ssl",
     ),
     "Mantis-UTICA-8M": ModelTaxonomy(
         family="Mantis",
         checkpoint_name="UTICA-8M",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="task_finetune",
     ),
     "TabPFN-v2": ModelTaxonomy(
         family="TabPFN",
         checkpoint_name="v2",
-        architecture_role="tabular",
         architecture_backbone="tabular_transformer",
         training_paradigm="tabular_supervised",
     ),
     "TabICL-v1": ModelTaxonomy(
         family="TabICL",
         checkpoint_name="v1",
-        architecture_role="tabular",
         architecture_backbone="tabular_transformer",
         training_paradigm="tabular_supervised",
     ),
     "MOMENT-1-Large": ModelTaxonomy(
         family="MOMENT",
         checkpoint_name="1-Large",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="representation_ssl",
     ),
     "TiRex": ModelTaxonomy(
         family="TiRex",
         checkpoint_name="TiRex",
-        architecture_role="encoder",
         architecture_backbone="slstm",
         training_paradigm="representation_ssl",
     ),
     "Chronos-2": ModelTaxonomy(
         family="Chronos",
         checkpoint_name="2",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="forecasting",
     ),
     "LeNEPA-Aiono": ModelTaxonomy(
         family="LeNEPA",
         checkpoint_name="Aiono",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_causal",
         training_paradigm="representation_ssl",
     ),
     "LeNEPA-CauKer2M": ModelTaxonomy(
         family="LeNEPA",
         checkpoint_name="CauKer2M",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_causal",
         training_paradigm="representation_ssl",
     ),
     "LeNEPA-CauKer2M-20k": ModelTaxonomy(
         family="LeNEPA",
         checkpoint_name="CauKer2M-20k",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_causal",
         training_paradigm="representation_ssl",
     ),
     "TTM-r2": ModelTaxonomy(
         family="TTM",
         checkpoint_name="r2",
-        architecture_role="encoder",
         architecture_backbone="mlp_mixer",
         training_paradigm="forecasting",
     ),
     "Time-MoE-50M": ModelTaxonomy(
         family="Time-MoE",
         checkpoint_name="50M",
-        architecture_role="decoder",
-        architecture_backbone="transformer_moe",
+        architecture_backbone="transformer_moe_causal",
         training_paradigm="forecasting",
     ),
     "Time-MoE-200M": ModelTaxonomy(
         family="Time-MoE",
         checkpoint_name="200M",
-        architecture_role="decoder",
-        architecture_backbone="transformer_moe",
+        architecture_backbone="transformer_moe_causal",
         training_paradigm="forecasting",
     ),
     "Timer-Base-84M": ModelTaxonomy(
         family="Timer",
         checkpoint_name="Base-84M",
-        architecture_role="decoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_causal",
         training_paradigm="forecasting",
     ),
     "Sundial-Base-128M": ModelTaxonomy(
         family="Sundial",
         checkpoint_name="Base-128M",
-        architecture_role="decoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_causal",
         training_paradigm="forecasting",
     ),
     "TimesFM-2.5-200M": ModelTaxonomy(
         family="TimesFM",
         checkpoint_name="2.5-200M",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_causal",
         training_paradigm="forecasting",
     ),
     "Moirai-1.0-R-Small": ModelTaxonomy(
         family="Moirai",
         checkpoint_name="1.0-R-Small",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="forecasting",
     ),
     "Moirai-1.0-R-Base": ModelTaxonomy(
         family="Moirai",
         checkpoint_name="1.0-R-Base",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="forecasting",
     ),
     "Moirai-1.0-R-Large": ModelTaxonomy(
         family="Moirai",
         checkpoint_name="1.0-R-Large",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="forecasting",
     ),
     "Moirai-1.1-R-Small": ModelTaxonomy(
         family="Moirai",
         checkpoint_name="1.1-R-Small",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="forecasting",
     ),
     "Moirai-1.1-R-Base": ModelTaxonomy(
         family="Moirai",
         checkpoint_name="1.1-R-Base",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="forecasting",
     ),
     "Moirai-1.1-R-Large": ModelTaxonomy(
         family="Moirai",
         checkpoint_name="1.1-R-Large",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="forecasting",
     ),
     "Moirai-2.0-R-Small": ModelTaxonomy(
         family="Moirai",
         checkpoint_name="2.0-R-Small",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_causal",
         training_paradigm="forecasting",
     ),
     "Moirai-MoE-1.0-R-Small": ModelTaxonomy(
         family="Moirai",
         checkpoint_name="MoE-1.0-R-Small",
-        architecture_role="encoder",
-        architecture_backbone="transformer_moe",
+        architecture_backbone="transformer_moe_causal",
         training_paradigm="forecasting",
     ),
     "Moirai-MoE-1.0-R-Base": ModelTaxonomy(
         family="Moirai",
         checkpoint_name="MoE-1.0-R-Base",
-        architecture_role="encoder",
-        architecture_backbone="transformer_moe",
+        architecture_backbone="transformer_moe_causal",
         training_paradigm="forecasting",
     ),
     "Kairos-10M": ModelTaxonomy(
         family="Kairos",
         checkpoint_name="10M",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="forecasting",
     ),
     "Kairos-23M": ModelTaxonomy(
         family="Kairos",
         checkpoint_name="23M",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="forecasting",
     ),
     "Kairos-50M": ModelTaxonomy(
         family="Kairos",
         checkpoint_name="50M",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="forecasting",
     ),
     "Reverso-Small-550K": ModelTaxonomy(
         family="Reverso",
         checkpoint_name="Small-550K",
-        architecture_role="encoder",
         architecture_backbone="hybrid_sequence_model",
         training_paradigm="forecasting",
     ),
     "UniShape-ZeroShot": ModelTaxonomy(
         family="UniShape",
         checkpoint_name="ZeroShot",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="representation_ssl",
     ),
     "UniShape-FineTune": ModelTaxonomy(
         family="UniShape",
         checkpoint_name="FineTune",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="task_finetune",
     ),
     "Toto-Open-Base-1.0": ModelTaxonomy(
         family="Toto",
         checkpoint_name="Open-Base-1.0",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="forecasting",
     ),
     "TiViT-H-14-B79K": ModelTaxonomy(
         family="TiViT",
         checkpoint_name="H-14-B79K",
-        architecture_role="encoder",
         architecture_backbone="vision_transformer",
         training_paradigm="cross_modal_transfer",
     ),
     "TiConvNext-XXLarge-AugReg": ModelTaxonomy(
         family="TiViT",
         checkpoint_name="ConvNext-XXLarge-AugReg",
-        architecture_role="encoder",
         architecture_backbone="vision_convnet",
         training_paradigm="cross_modal_transfer",
     ),
     "NuTime-Bias9": ModelTaxonomy(
         family="NuTime",
         checkpoint_name="Bias9",
-        architecture_role="encoder",
-        architecture_backbone="transformer",
+        architecture_backbone="transformer_full_attention",
         training_paradigm="representation_ssl",
     ),
     "T-Loss-CricketX": ModelTaxonomy(
         family="T-Loss",
         checkpoint_name="CricketX",
-        architecture_role="encoder",
         architecture_backbone="causal_cnn",
         training_paradigm="representation_ssl",
     ),

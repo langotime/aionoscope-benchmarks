@@ -6,8 +6,7 @@
     "family": "Kairos",
     "checkpoint_name": "10M",
     "architecture": {
-      "role": "encoder",
-      "backbone": "transformer"
+      "backbone": "transformer_full_attention"
     },
     "training": {
       "paradigm": "forecasting"

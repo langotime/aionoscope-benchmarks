@@ -6,8 +6,7 @@
     "family": "Moirai",
     "checkpoint_name": "2.0-R-Small",
     "architecture": {
-      "role": "encoder",
-      "backbone": "transformer"
+      "backbone": "transformer_causal"
     },
     "training": {
       "paradigm": "forecasting"

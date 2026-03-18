@@ -6,7 +6,6 @@
     "family": "TabICL",
     "checkpoint_name": "v1",
     "architecture": {
-      "role": "tabular",
       "backbone": "tabular_transformer"
     },
     "training": {

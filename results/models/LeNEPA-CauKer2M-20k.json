@@ -6,8 +6,7 @@
     "family": "LeNEPA",
     "checkpoint_name": "CauKer2M-20k",
     "architecture": {
-      "role": "encoder",
-      "backbone": "transformer"
+      "backbone": "transformer_causal"
     },
     "training": {
       "paradigm": "representation_ssl"

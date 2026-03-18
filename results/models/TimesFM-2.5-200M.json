@@ -6,8 +6,7 @@
     "family": "TimesFM",
     "checkpoint_name": "2.5-200M",
     "architecture": {
-      "role": "encoder",
-      "backbone": "transformer"
+      "backbone": "transformer_causal"
     },
     "training": {
       "paradigm": "forecasting"

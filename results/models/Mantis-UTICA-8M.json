@@ -6,8 +6,7 @@
     "family": "Mantis",
     "checkpoint_name": "UTICA-8M",
     "architecture": {
-      "role": "encoder",
-      "backbone": "transformer"
+      "backbone": "transformer_full_attention"
     },
     "training": {
       "paradigm": "task_finetune"

@@ -6,8 +6,7 @@
     "family": "UniShape",
     "checkpoint_name": "FineTune",
     "architecture": {
-      "role": "encoder",
-      "backbone": "transformer"
+      "backbone": "transformer_full_attention"
     },
     "training": {
       "paradigm": "task_finetune"

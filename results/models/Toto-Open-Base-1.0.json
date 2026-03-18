@@ -6,8 +6,7 @@
     "family": "Toto",
     "checkpoint_name": "Open-Base-1.0",
     "architecture": {
-      "role": "encoder",
-      "backbone": "transformer"
+      "backbone": "transformer_full_attention"
     },
     "training": {
       "paradigm": "forecasting"

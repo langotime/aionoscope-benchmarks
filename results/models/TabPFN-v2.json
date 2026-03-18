@@ -6,7 +6,6 @@
     "family": "TabPFN",
     "checkpoint_name": "v2",
     "architecture": {
-      "role": "tabular",
       "backbone": "tabular_transformer"
     },
     "training": {

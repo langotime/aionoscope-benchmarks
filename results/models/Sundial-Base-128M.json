@@ -6,8 +6,7 @@
     "family": "Sundial",
     "checkpoint_name": "Base-128M",
     "architecture": {
-      "role": "decoder",
-      "backbone": "transformer"
+      "backbone": "transformer_causal"
     },
     "training": {
       "paradigm": "forecasting"

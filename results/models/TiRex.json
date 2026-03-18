@@ -6,7 +6,6 @@
     "family": "TiRex",
     "checkpoint_name": "TiRex",
     "architecture": {
-      "role": "encoder",
       "backbone": "slstm"
     },
     "training": {

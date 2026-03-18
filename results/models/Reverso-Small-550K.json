@@ -6,7 +6,6 @@
     "family": "Reverso",
     "checkpoint_name": "Small-550K",
     "architecture": {
-      "role": "encoder",
       "backbone": "hybrid_sequence_model"
     },
     "training": {

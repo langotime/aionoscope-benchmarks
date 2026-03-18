@@ -6,7 +6,6 @@
     "family": "TTM",
     "checkpoint_name": "r2",
     "architecture": {
-      "role": "encoder",
       "backbone": "mlp_mixer"
     },
     "training": {

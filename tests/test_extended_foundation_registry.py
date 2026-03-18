@@ -81,19 +81,24 @@ def test_model_taxonomy_exposes_family_checkpoint_architecture_and_training_grou
     lenepa = model_taxonomy("LeNEPA-Aiono")
     assert lenepa.family == "LeNEPA"
     assert lenepa.checkpoint_name == "Aiono"
-    assert lenepa.architecture_role == "encoder"
-    assert lenepa.architecture_backbone == "transformer"
+    assert lenepa.architecture_backbone == "transformer_causal"
     assert lenepa.training_paradigm == "representation_ssl"
 
     time_moe = model_taxonomy("Time-MoE-200M")
     assert time_moe.family == "Time-MoE"
     assert time_moe.checkpoint_name == "200M"
-    assert time_moe.architecture_role == "decoder"
-    assert time_moe.architecture_backbone == "transformer_moe"
+    assert time_moe.architecture_backbone == "transformer_moe_causal"
     assert time_moe.training_paradigm == "forecasting"
+
+    moirai = model_taxonomy("Moirai-1.1-R-Small")
+    assert moirai.architecture_backbone == "transformer_full_attention"
+    assert moirai.training_paradigm == "forecasting"
+
+    moirai2 = model_taxonomy("Moirai-2.0-R-Small")
+    assert moirai2.architecture_backbone == "transformer_causal"
+    assert moirai2.training_paradigm == "forecasting"
 
     tivit = model_taxonomy("TiConvNext-XXLarge-AugReg")
     assert tivit.family == "TiViT"
-    assert tivit.architecture_role == "encoder"
     assert tivit.architecture_backbone == "vision_convnet"
     assert tivit.training_paradigm == "cross_modal_transfer"

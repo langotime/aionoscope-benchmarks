@@ -101,6 +101,41 @@ for the exact sequence length used in that run.
 
 The browser dashboard is a consumer of this JSON schema, not an independent source of truth.
 
+### Dashboard taxonomy is explicit and benchmark-path based
+
+The dashboard taxonomy stored in each result JSON is intentionally explicit:
+
+- `model.family`: the published model family name shared across checkpoints;
+- `model.checkpoint_name`: the checkpoint or variant token within that family;
+- `model.architecture.backbone`: the architecture class used for dashboard grouping;
+- `model.training.paradigm`: the coarse training-paradigm class used for dashboard grouping.
+
+`model.architecture.backbone` is defined by the representation path used inside the
+benchmark adapter, not by loose paper terminology. This matters for models that
+ship both encoder and decoder components: the classification must follow the token
+stream that the benchmark actually pools.
+
+Current architecture classes:
+
+- `transformer_full_attention`: time-series transformer path with full-context self-attention over the benchmark context. Padding or group masks are allowed, but there is no causal time mask on the pooled token stream. This includes encoder-style paths such as `Chronos-2`, `Kairos-*`, `MOMENT-1-Large`, `Moirai-1.x-*`, `NuTime-Bias9`, `Toto-Open-Base-1.0`, `MantisV2`, `Mantis-UTICA-8M`, and `UniShape-*`.
+- `transformer_causal`: time-series transformer path with causal masking or decoder-only token states. This includes `LeNEPA-*`, `Timer-Base-84M`, `Sundial-Base-128M`, `TimesFM-2.5-200M`, and `Moirai-2.0-R-Small`.
+- `transformer_moe_causal`: causal transformer path with sparse mixture-of-experts routing. This includes `Time-MoE-*` and `Moirai-MoE-*`.
+- `tabular_transformer`: transformer-style tabular classifier operating on flattened benchmark features.
+- `vision_transformer`: image-first ViT-style backbone reused as a frozen benchmark encoder.
+- `vision_convnet`: image-first convolutional backbone reused as a frozen benchmark encoder.
+- `slstm`: structured/stateful LSTM backbone.
+- `mlp_mixer`: token/channel mixing MLP backbone.
+- `hybrid_sequence_model`: mixed sequence backbone that combines multiple modeling primitives and does not fit a narrower class cleanly.
+- `causal_cnn`: purely causal convolutional encoder.
+
+Current training-paradigm classes:
+
+- `forecasting`: checkpoint trained primarily for forecasting / next-step prediction.
+- `representation_ssl`: checkpoint trained with self-supervised representation learning instead of a task-specific supervised head.
+- `task_finetune`: checkpoint released as an official task-fine-tuned model.
+- `cross_modal_transfer`: checkpoint pretrained in another modality and transferred into this benchmark as a frozen encoder.
+- `tabular_supervised`: supervised tabular classifier reused on flattened benchmark features.
+
 ### Multi-environment execution is intentional
 
 The foundational model stack spans incompatible dependency sets. The repo therefore supports multiple pinned virtual environments such as `.venv`, `.venv-tabular`, `.venv-timemoe`, `.venv-moirai`, `.venv-mantis2`, and `.venv-tivit`. `scripts/run_foundational_sequential.py` dispatches each model into the interpreter mapped from its registry entry. This is part of the architecture, not a temporary workaround.

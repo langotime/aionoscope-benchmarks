@@ -608,8 +608,7 @@
             <select id="color-mode-selector">
               <option value="model" selected>By model checkpoint</option>
               <option value="family">By model family</option>
-              <option value="architecture_role">By architecture role</option>
-              <option value="architecture_backbone">By architecture backbone</option>
+              <option value="architecture_backbone">By architecture type</option>
               <option value="training">By training paradigm</option>
             </select>
             <p class="help-text">
@@ -868,18 +867,15 @@
     const COLOR_MODE_LABELS = {
       model: "Model checkpoint",
       family: "Model family",
-      architecture_role: "Architecture role",
-      architecture_backbone: "Architecture backbone",
+      architecture_backbone: "Architecture type",
       training: "Training paradigm"
     };
-    const ARCHITECTURE_ROLE_LABELS = {
-      encoder: "Encoder",
-      decoder: "Decoder",
-      tabular: "Tabular"
-    };
     const ARCHITECTURE_BACKBONE_LABELS = {
-      transformer: "Transformer",
-      transformer_moe: "Transformer + MoE",
+      transformer_full_attention: "Transformer (full attention)",
+      transformer_causal: "Transformer (causal)",
+      transformer_moe_causal: "Transformer + MoE (causal)",
+      transformer: "Transformer (legacy / unspecified attention)",
+      transformer_moe: "Transformer + MoE (legacy / unspecified attention)",
       tabular_transformer: "Tabular transformer",
       slstm: "sLSTM",
       mlp_mixer: "MLP-Mixer",
@@ -953,11 +949,6 @@
       return typeof checkpointName === "string" && checkpointName ? checkpointName : modelName(result);
     }
 
-    function modelArchitectureRole(result) {
-      const role = result && result.model && result.model.architecture ? result.model.architecture.role : null;
-      return typeof role === "string" && role ? role : "unknown";
-    }
-
     function modelArchitectureBackbone(result) {
       const backbone =
         result && result.model && result.model.architecture ? result.model.architecture.backbone : null;
@@ -974,10 +965,6 @@
       return COLOR_MODE_LABELS[String(mode)] || humanizeToken(mode);
     }
 
-    function architectureRoleLabel(role) {
-      return ARCHITECTURE_ROLE_LABELS[String(role)] || humanizeToken(role);
-    }
-
     function architectureBackboneLabel(backbone) {
       return ARCHITECTURE_BACKBONE_LABELS[String(backbone)] || humanizeToken(backbone);
     }
@@ -989,9 +976,6 @@
     function colorGroupValue(result, mode = getColorMode()) {
       if (mode === "family") {
         return modelFamily(result);
-      }
-      if (mode === "architecture_role") {
-        return modelArchitectureRole(result);
       }
       if (mode === "architecture_backbone") {
         return modelArchitectureBackbone(result);
@@ -1006,9 +990,6 @@
       const value = colorGroupValue(result, mode);
       if (mode === "family") {
         return value;
-      }
-      if (mode === "architecture_role") {
-        return architectureRoleLabel(value);
       }
       if (mode === "architecture_backbone") {
         return architectureBackboneLabel(value);
@@ -1039,7 +1020,7 @@
       return [
         `Family: ${modelFamily(result)}`,
         `Checkpoint: ${modelCheckpointName(result)}`,
-        `Architecture: ${architectureRoleLabel(modelArchitectureRole(result))} / ${architectureBackboneLabel(modelArchitectureBackbone(result))}`,
+        `Architecture type: ${architectureBackboneLabel(modelArchitectureBackbone(result))}`,
         `Training: ${trainingParadigmLabel(modelTrainingParadigm(result))}`,
       ];
     }
@@ -2908,9 +2889,6 @@
       }
       if (!model.architecture || typeof model.architecture !== "object" || Array.isArray(model.architecture)) {
         model.architecture = {};
-      }
-      if (typeof model.architecture.role !== "string" || !model.architecture.role) {
-        model.architecture.role = "unknown";
       }
       if (typeof model.architecture.backbone !== "string" || !model.architecture.backbone) {
         model.architecture.backbone = "unknown";

@@ -6,8 +6,7 @@
     "family": "Moirai",
     "checkpoint_name": "MoE-1.0-R-Base",
     "architecture": {
-      "role": "encoder",
-      "backbone": "transformer_moe"
+      "backbone": "transformer_moe_causal"
     },
     "training": {
       "paradigm": "forecasting"

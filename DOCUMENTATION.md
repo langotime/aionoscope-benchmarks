@@ -290,7 +290,7 @@ Each model run writes `results/models/<slug>.json`.
 
 High-level structure:
 
-- `model`: model identity, source, checkpoint, layers evaluated, adapter metadata, plus coarse dashboard taxonomy fields under `family`, `checkpoint_name`, `architecture.{role,backbone}`, and `training.paradigm`;
+- `model`: model identity, source, checkpoint, layers evaluated, adapter metadata, plus explicit dashboard taxonomy fields under `family`, `checkpoint_name`, `architecture.backbone`, and `training.paradigm`;
 - `dataset`: the benchmark manifest used to build the train and validation splits, including the config default length and the exact resolved length used for the run;
 - `probe_config`: probe hyperparameters plus the fixed `probe_seed`;
 - `runtime`: wall-clock and device metadata plus explicit encoder forward train/validation/total timings;
@@ -311,6 +311,39 @@ Numeric values aggregated across validation seeds use the payload:
 ```
 
 The dashboard expects this schema for aggregated runs.
+
+### Dashboard Taxonomy Classes
+
+The dashboard taxonomy is benchmark-path based. Do not classify a model from its
+paper title alone; classify it from the token stream that the benchmark adapter
+actually exposes and pools.
+
+Architecture classes:
+
+- `transformer_full_attention`: time-series transformer path whose pooled states come from full-context self-attention over the benchmark context. Padding or group masks are allowed, but there is no causal time mask on the pooled token stream. Use this for encoder-style paths such as `Chronos-2`, `Kairos-*`, `MOMENT-1-Large`, `Moirai-1.x-*`, `NuTime-Bias9`, `Toto-Open-Base-1.0`, `MantisV2`, `Mantis-UTICA-8M`, and `UniShape-*`.
+- `transformer_causal`: time-series transformer path whose pooled states come from causal masking or a decoder-only token stream. Use this for `LeNEPA-*`, `Timer-Base-84M`, `Sundial-Base-128M`, `TimesFM-2.5-200M`, and `Moirai-2.0-R-Small`.
+- `transformer_moe_causal`: causal transformer path with sparse mixture-of-experts routing. Use this for `Time-MoE-*` and `Moirai-MoE-*`.
+- `tabular_transformer`: transformer-style tabular classifier operating on flattened benchmark features.
+- `vision_transformer`: image-first ViT-style backbone reused as a frozen benchmark encoder.
+- `vision_convnet`: image-first convolutional backbone reused as a frozen benchmark encoder.
+- `slstm`: structured/stateful LSTM backbone.
+- `mlp_mixer`: token/channel mixing MLP backbone.
+- `hybrid_sequence_model`: mixed sequence backbone that combines multiple modeling primitives and does not fit a narrower class cleanly.
+- `causal_cnn`: purely causal convolutional encoder.
+
+Training-paradigm classes:
+
+- `forecasting`: checkpoint trained primarily for forecasting / next-step prediction.
+- `representation_ssl`: checkpoint trained with self-supervised representation learning instead of a task-specific supervised head.
+- `task_finetune`: checkpoint released as an official task-fine-tuned model.
+- `cross_modal_transfer`: checkpoint pretrained in another modality and transferred into this benchmark as a frozen encoder.
+- `tabular_supervised`: supervised tabular classifier reused on flattened benchmark features.
+
+When a model family contains both encoder and decoder components, classify it by the
+path the benchmark actually reads. For example, `Kairos-*` is stored as
+`transformer_full_attention` because the adapter pools encoder states, while
+`TimesFM-2.5-200M` is stored as `transformer_causal` because the adapter reads the
+decoder-only causal transformer stack.
 
 ## Troubleshooting Periodic Metric Mismatches
 
@@ -344,7 +377,7 @@ mismatch is considered a benchmark bug, not a valid alternate evaluation.
 - file discovery now tries root-relative `/models/list.txt` first, then relative `models/` directory listing; if neither works, the UI reports the discovery failure and loads no model files;
 - layer ids are serialized as JSON object keys;
 - summary fields such as `best_auc`, `best_auprc`, macro best `r2`, and macro best `pearson` are read by the UI;
-- the shared color selector reads canonical JSON metadata rather than inferring groups from filenames: `model.family`, `model.checkpoint_name`, `model.architecture.role`, `model.architecture.backbone`, and `model.training.paradigm`;
+- the shared color selector reads canonical JSON metadata rather than inferring groups from filenames: `model.family`, `model.checkpoint_name`, `model.architecture.backbone`, and `model.training.paradigm`;
 - the selection-aware bubble chart only plots currently enabled models and allows any supported bubble metric on the `x` axis, `y` axis, or bubble size; inference uses `runtime.encoder_forward_total_s`; parameter axes can now switch between total registered model parameters and cumulative parameters through the furthest plotted best layer from the active layer-aware bubble metrics; parameter-count axes render on a log scale; and older JSONs may still fall back to `results.shared.timings.collect_*.*forward_s` for inference mode;
 - adapters that do not expose a registered PyTorch encoder may leave `model.adapter.parameter_count` as `null`; the dashboard must treat that as unavailable metadata rather than inventing a count;
 - total parameter metadata lives in `model.adapter.parameter_count` and the explicit alias `model.adapter.parameter_count_total`; cumulative representation-path counts live in `model.adapter.parameter_count_prefix_by_layer`; `TabPFN-v2` and `TabICL-v1` still report the single official backbone count rather than multiplying by one-vs-rest classifier replicas;
@@ -360,9 +393,10 @@ To add a new model:
 1. Add a `ModelSpec` entry in `aionoscope_benchmarks/model_registry.py`.
 2. Implement a `FrozenTimeSeriesAdapter` subclass in `aionoscope_benchmarks/adapters/`.
 3. Pick the environment name that can actually import the model stack.
-4. Expose an exact benchmark sequence length, honest `available_layers`, and stable `adapter_metadata()`.
-5. Make the adapter fail fast on sequence-length mismatch rather than silently cropping, padding, or waveform-resampling benchmark inputs.
-6. Run at least one benchmark invocation and verify that a JSON result is produced and the dashboard can read it.
+4. Assign explicit taxonomy fields in `MODEL_TAXONOMY`, using the benchmark-path rules above for `model.architecture.backbone` and `model.training.paradigm`.
+5. Expose an exact benchmark sequence length, honest `available_layers`, and stable `adapter_metadata()`.
+6. Make the adapter fail fast on sequence-length mismatch rather than silently cropping, padding, or waveform-resampling benchmark inputs.
+7. Run at least one benchmark invocation and verify that a JSON result is produced and the dashboard can read it.
 
 Use `prepare()` and `update_probe_val_split()` only for benchmark-facing preprocessing that the adapter genuinely needs.
 Forecast-derived adapters should prefer keeping the full exact waveform as context and

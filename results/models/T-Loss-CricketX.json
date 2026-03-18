@@ -6,7 +6,6 @@
     "family": "T-Loss",
     "checkpoint_name": "CricketX",
     "architecture": {
-      "role": "encoder",
       "backbone": "causal_cnn"
     },
     "training": {
