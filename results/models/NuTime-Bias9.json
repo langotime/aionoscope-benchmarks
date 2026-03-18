@@ -31,7 +31,18 @@
       "encoder": "wne",
       "pool_mode": "cls",
       "preprocess": "expect exact NuTime transform_size; run WindowNormEncoder; use WinT cls-token representation after each transformer block",
-      "layer_layout": "layer 0 is the token embedding stream after WindowNormEncoder and positional encoding; layers 1..N are transformer block outputs"
+      "layer_layout": "layer 0 is the token embedding stream after WindowNormEncoder and positional encoding; layers 1..N are transformer block outputs",
+      "parameter_count_total": 2428352,
+      "parameter_count_prefix_by_layer": {
+        "0": 28352,
+        "1": 422848,
+        "2": 817344,
+        "3": 1211840,
+        "4": 1606336,
+        "5": 2000832,
+        "6": 2395328
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

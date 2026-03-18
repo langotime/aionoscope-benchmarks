@@ -31,7 +31,16 @@
       "use_reg_token": true,
       "pooling": "mean over encoder tokens after attention_mask filtering",
       "preprocess": "apply the official instance normalization, FFT side features, and adaptive patching pipeline; mean-pool encoder token states over valid tokens",
-      "layer_layout": "layer 0 is the encoder input embedding stream; layers 1..N-1 are encoder block outputs; layer N is the post-final-norm encoder output"
+      "layer_layout": "layer 0 is the encoder input embedding stream; layers 1..N-1 are encoder block outputs; layer N is the post-final-norm encoder output",
+      "parameter_count_total": 9945088,
+      "parameter_count_prefix_by_layer": {
+        "0": 1250688,
+        "1": 2066560,
+        "2": 2882432,
+        "3": 3698304,
+        "4": 4514432
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

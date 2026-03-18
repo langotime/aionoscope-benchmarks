@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any
@@ -56,8 +57,48 @@ class FrozenTimeSeriesAdapter(nn.Module, ABC):
         )
         return int(trainable)
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]] | None:
+        return None
+
+    def _iter_parameter_source_parameters(self, source: object) -> Iterable[nn.Parameter]:
+        if source is None:
+            return
+        if isinstance(source, nn.Parameter):
+            yield source
+            return
+        if isinstance(source, nn.Module):
+            yield from source.parameters()
+            return
+        if isinstance(source, (list, tuple, set)):
+            for item in source:
+                yield from self._iter_parameter_source_parameters(item)
+            return
+        raise TypeError(
+            f"{self.model_name} parameter-count source must be an nn.Module, nn.Parameter, "
+            f"or a nested iterable of those, got {type(source).__name__}"
+        )
+
+    def parameter_count_prefix_by_layer(self) -> dict[int, int] | None:
+        sources_by_layer = self.parameter_count_prefix_sources()
+        if sources_by_layer is None:
+            return None
+        seen_parameter_ids: set[int] = set()
+        cumulative_total = 0
+        counts_by_layer: dict[int, int] = {}
+        for layer in sorted(int(layer) for layer in sources_by_layer):
+            for source in sources_by_layer[int(layer)]:
+                for parameter in self._iter_parameter_source_parameters(source):
+                    parameter_id = id(parameter)
+                    if parameter_id in seen_parameter_ids:
+                        continue
+                    seen_parameter_ids.add(parameter_id)
+                    cumulative_total += int(parameter.numel())
+            counts_by_layer[int(layer)] = int(cumulative_total)
+        return counts_by_layer
+
     def adapter_metadata(self) -> dict[str, Any]:
         parameter_count = self.parameter_count()
+        parameter_count_prefix_by_layer = self.parameter_count_prefix_by_layer()
         return {
             "env": self.env_name,
             "encode_batch_size": int(self.default_encode_batch_size),
@@ -66,9 +107,23 @@ class FrozenTimeSeriesAdapter(nn.Module, ABC):
             "benchmark_sequence_length_source": str(self.benchmark_sequence_length_source),
             "input_length_policy": "exact",
             "parameter_count": None if parameter_count is None else int(parameter_count),
+            "parameter_count_total": None if parameter_count is None else int(parameter_count),
             "trainable_parameter_count": self.trainable_parameter_count(),
             "parameter_count_source": (
                 "torch_registered_parameters" if parameter_count is not None else "unavailable"
+            ),
+            "parameter_count_prefix_by_layer": (
+                None
+                if parameter_count_prefix_by_layer is None
+                else {
+                    str(int(layer)): int(count)
+                    for layer, count in sorted(parameter_count_prefix_by_layer.items())
+                }
+            ),
+            "parameter_count_prefix_source": (
+                "cumulative_representation_path_unique_parameters"
+                if parameter_count_prefix_by_layer is not None
+                else "unavailable"
             ),
         }
 

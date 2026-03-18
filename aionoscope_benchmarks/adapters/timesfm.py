@@ -58,6 +58,15 @@ class TimesFM25Adapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_hidden_layers + 1))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        return {
+            0: (self.model.tokenizer,),
+            **{
+                int(layer_index): (layer,)
+                for layer_index, layer in enumerate(self.model.stacked_xf, start=1)
+            },
+        }
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["patch_size"] = int(self.patch_size)

@@ -23,7 +23,7 @@
     ],
     "adapter": {
       "env": "timemoe",
-      "encode_batch_size": 4,
+      "encode_batch_size": 256,
       "cpu_feature_cache_dtype": "float32",
       "benchmark_sequence_length": 4096,
       "benchmark_sequence_length_source": "time_moe_config.max_position_embeddings",
@@ -45,7 +45,24 @@
       ],
       "attention_implementation": "flash_attention_2",
       "preprocess": "per-series z-score normalization over the exact benchmark context with std clamped at 1e-6; mean-pool causal token states across time",
-      "layer_layout": "layer 0 is the mean-pooled input embedding stream; layers 1..N-1 are mean-pooled decoder block outputs; layer N is the mean-pooled post-final-norm decoder output"
+      "layer_layout": "layer 0 is the mean-pooled input embedding stream; layers 1..N-1 are mean-pooled decoder block outputs; layer N is the mean-pooled post-final-norm decoder output",
+      "parameter_count_total": 453196800,
+      "parameter_count_prefix_by_layer": {
+        "0": 1536,
+        "1": 37761024,
+        "2": 75520512,
+        "3": 113280000,
+        "4": 151039488,
+        "5": 188798976,
+        "6": 226558464,
+        "7": 264317952,
+        "8": 302077440,
+        "9": 339836928,
+        "10": 377596416,
+        "11": 415355904,
+        "12": 453116160
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

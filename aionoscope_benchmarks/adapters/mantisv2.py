@@ -33,6 +33,15 @@ class MantisV2Adapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_layers))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        return {
+            0: (self.model.tokgen_unit, self.model.transf_unit.cls_token),
+            **{
+                int(layer_index): (layer,)
+                for layer_index, layer in enumerate(self.model.transf_unit.transformer.layers, start=1)
+            },
+        }
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["output_token"] = "combined"

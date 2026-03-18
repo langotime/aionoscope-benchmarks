@@ -29,6 +29,22 @@ class MomentAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_layers))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        sources: dict[int, tuple[object, ...]] = {
+            0: (
+                self.model.normalizer,
+                self.model.tokenizer,
+                self.model.patch_embedding,
+            )
+        }
+        total_blocks = int(len(self.model.encoder.block))
+        for layer_index, block in enumerate(self.model.encoder.block, start=1):
+            block_sources: tuple[object, ...] = (block,)
+            if layer_index == total_blocks:
+                block_sources = block_sources + (self.model.encoder.final_layer_norm,)
+            sources[int(layer_index)] = block_sources
+        return sources
+
     def forward_layer_dict(
         self,
         x: torch.Tensor,

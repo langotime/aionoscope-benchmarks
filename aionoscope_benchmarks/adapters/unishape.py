@@ -42,6 +42,12 @@ class _BaseUniShapeAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_hidden_layers + 1))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        sources: dict[int, tuple[object, ...]] = {0: self._layer_zero_parameter_sources()}
+        for layer_index, (attn, ff) in enumerate(self._transformer_unit().transformer.layers, start=1):
+            sources[int(layer_index)] = (attn, ff)
+        return sources
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["hidden_size"] = int(self.hidden_size)
@@ -68,6 +74,9 @@ class _BaseUniShapeAdapter(FrozenTimeSeriesAdapter):
         raise NotImplementedError
 
     def _build_hidden(self, x: torch.Tensor) -> torch.Tensor:
+        raise NotImplementedError
+
+    def _layer_zero_parameter_sources(self) -> tuple[object, ...]:
         raise NotImplementedError
 
     def _load_checkpoint(self) -> None:
@@ -143,6 +152,15 @@ class UniShapeZeroShotAdapter(_BaseUniShapeAdapter):
     def _transformer_unit(self):
         return self.model.vit_unit
 
+    def _layer_zero_parameter_sources(self) -> tuple[object, ...]:
+        return (
+            self.model.encoder_scale_list,
+            self.model.inceptime_token,
+            self.model.layer_norm_inc,
+            self.model.attention_head,
+            self._transformer_unit().pos_encoder,
+        )
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["scale_len"] = 4
@@ -205,6 +223,21 @@ class UniShapeFineTuneAdapter(_BaseUniShapeAdapter):
 
     def _transformer_unit(self):
         return self.model.transformer_enc
+
+    def _layer_zero_parameter_sources(self) -> tuple[object, ...]:
+        scale_index = int(self.model.scale_len) - 1
+        scale_module = (
+            self.model.unit_scale_list[scale_index]
+            if scale_index == 4
+            else self.model.unit_scale_list_finetune[scale_index]
+        )
+        return (
+            scale_module,
+            self.model.inceptime_token,
+            self.model.layer_norm_inc,
+            self.model.attention_head,
+            self._transformer_unit().pos_encoder,
+        )
 
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()

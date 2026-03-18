@@ -46,7 +46,36 @@
       "seq_len": 512,
       "patch_len": 8,
       "preprocess": "expect exact MOMENT seq_len; tokenize and mean-pool valid patch tokens",
-      "layer_layout": "layer 0 is the encoder input embedding stream; layers 1..N are transformer block outputs"
+      "layer_layout": "layer 0 is the encoder input embedding stream; layers 1..N are transformer block outputs",
+      "parameter_count_total": 341248520,
+      "parameter_count_prefix_by_layer": {
+        "0": 9216,
+        "1": 12856832,
+        "2": 25703936,
+        "3": 38551040,
+        "4": 51398144,
+        "5": 64245248,
+        "6": 77092352,
+        "7": 89939456,
+        "8": 102786560,
+        "9": 115633664,
+        "10": 128480768,
+        "11": 141327872,
+        "12": 154174976,
+        "13": 167022080,
+        "14": 179869184,
+        "15": 192716288,
+        "16": 205563392,
+        "17": 218410496,
+        "18": 231257600,
+        "19": 244104704,
+        "20": 256951808,
+        "21": 269798912,
+        "22": 282646016,
+        "23": 295493120,
+        "24": 308341248
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

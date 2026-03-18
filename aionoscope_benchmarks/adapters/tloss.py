@@ -61,6 +61,16 @@ class TLossAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_causal_blocks + 1))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        blocks = self.encoder.network[0].network
+        sources = {
+            int(layer_index): (block,)
+            for layer_index, block in enumerate(blocks)
+        }
+        final_layer = int(self.num_causal_blocks)
+        sources[final_layer] = tuple(self.encoder.network[index] for index in range(1, 4))
+        return sources
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["channels"] = int(self.hyper["channels"])

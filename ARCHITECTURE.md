@@ -92,6 +92,7 @@ One JSON file in `results/models/` is the canonical output for one model run. Th
 - aggregated validation-run statistics (`values`, `median`, `std`, `n`);
 - shared runtime and validation-seed metadata;
 - summary selections such as best layers and oracle-per-target views.
+- explicit adapter metadata for both total model parameter count and cumulative representation-path parameter counts by layer.
 
 The dataset manifest is intentionally rich enough to diagnose semantic drift. It now
 includes benchmark family/version markers plus the resolved periodic-frequency contract
@@ -158,7 +159,7 @@ explicitly in the top-level docs instead of being treated as an implicit fallbac
 
 ### Visualization
 
-`results/dashboard.html` is a static browser dashboard that reads `results/models/*.json` and visualizes the stored metrics. It must stay compatible with the JSON schema produced by `results.py`, including the explicit runtime encoder-forward totals and adapter parameter-count metadata used by the bubble chart controls.
+`results/dashboard.html` is a static browser dashboard that reads `results/models/*.json` and visualizes the stored metrics. It must stay compatible with the JSON schema produced by `results.py`, including the explicit runtime encoder-forward totals, the total adapter parameter counts, and the cumulative through-layer parameter metadata used by the bubble chart controls.
 
 ## Architectural Invariants
 

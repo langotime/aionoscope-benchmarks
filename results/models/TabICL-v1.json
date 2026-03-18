@@ -18,7 +18,7 @@
       "input_length_policy": "exact",
       "parameter_count": 27051666,
       "trainable_parameter_count": 27051658,
-      "parameter_count_source": "official_tabicl_classifier_model",
+      "parameter_count_source": "unavailable",
       "representation_kind": "one-vs-rest positive-class probabilities",
       "feature_length": 128,
       "fit_samples_per_label_cap": 2048,
@@ -29,7 +29,12 @@
       "probe_val_sample_cap": 2048,
       "probe_train_sample_count": 2048,
       "probe_val_sample_count": 2048,
-      "parameter_count_reference": "single official TabICL backbone; not multiplied by one-vs-rest labels or estimator replicas"
+      "parameter_count_reference": "single official TabICL backbone; not multiplied by one-vs-rest labels or estimator replicas",
+      "parameter_count_total": 27051666,
+      "parameter_count_prefix_by_layer": {
+        "0": 27051666
+      },
+      "parameter_count_prefix_source": "single_layer_representation_total_parameter_count"
     }
   },
   "dataset": {

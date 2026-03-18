@@ -37,7 +37,26 @@
       "patch_length": 64,
       "patch_stride": 64,
       "resolution_prefix_tuning": false,
-      "preprocess": "expect exact model context length; transpose to [B,T,C] and build the observed-mask directly"
+      "preprocess": "expect exact model context length; transpose to [B,T,C] and build the observed-mask directly",
+      "parameter_count_total": 805280,
+      "parameter_count_prefix_by_layer": {
+        "0": 12480,
+        "1": 12480,
+        "2": 29632,
+        "3": 46784,
+        "4": 46784,
+        "5": 46784,
+        "6": 46784,
+        "7": 94976,
+        "8": 143168,
+        "9": 143168,
+        "10": 143168,
+        "11": 143168,
+        "12": 329376,
+        "13": 515584,
+        "14": 515584
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

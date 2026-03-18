@@ -32,7 +32,18 @@
       "preprocess": "use the official UniShape multiscale tokenization path at the repository-published resized series length and read the CLS token after each transformer layer",
       "layer_layout": "layer 0 is the CLS token after positional encoding and before the first transformer block; layers 1..N are the CLS token after each transformer block",
       "scale_len": 4,
-      "shape_sparse_ratio": 0.6
+      "shape_sparse_ratio": 0.6,
+      "parameter_count_total": 2835483,
+      "parameter_count_prefix_by_layer": {
+        "0": 364305,
+        "1": 758801,
+        "2": 1153297,
+        "3": 1547793,
+        "4": 1942289,
+        "5": 2336785,
+        "6": 2731281
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

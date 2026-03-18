@@ -34,6 +34,18 @@ class MantisUTICA8MAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_layers))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        sources: dict[int, tuple[object, ...]] = {
+            0: (
+                self.model.tokgen_unit,
+                self.model.vit_unit.cls_token,
+                self.model.vit_unit.pos_encoder,
+            )
+        }
+        for layer_index, layer in enumerate(self.model.vit_unit.transformer.layers, start=1):
+            sources[int(layer_index)] = tuple(layer)
+        return sources
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["num_patches"] = int(self.model.num_patches)

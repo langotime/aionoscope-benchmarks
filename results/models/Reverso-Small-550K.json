@@ -34,7 +34,20 @@
       "main_module": "conv,attn,conv,attn",
       "pooling": "mean over time after each published hybrid block",
       "preprocess": "transpose to [B,L,1]; apply the official min-max normalization path when enabled; mean-pool sequence states across time",
-      "layer_layout": "layer 0 is the input embedding stream; layers 1..N are the published sequential hybrid blocks from reverso_torch"
+      "layer_layout": "layer 0 is the input embedding stream; layers 1..N are the published sequential hybrid blocks from reverso_torch",
+      "parameter_count_total": 550161,
+      "parameter_count_prefix_by_layer": {
+        "0": 64,
+        "1": 135680,
+        "2": 168896,
+        "3": 186448,
+        "4": 219664,
+        "5": 355280,
+        "6": 388496,
+        "7": 406048,
+        "8": 439264
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

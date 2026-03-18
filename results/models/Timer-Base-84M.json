@@ -31,7 +31,20 @@
       "input_token_len": 96,
       "num_hidden_layers": 8,
       "preprocess": "feed the exact official quickstart lookback length directly into the published decoder-only model; mean-pool token states across time",
-      "layer_layout": "layer 0 is the patch embedding stream; layers 1..N-1 are decoder block outputs; layer N is the post-final-norm decoder output"
+      "layer_layout": "layer 0 is the patch embedding stream; layers 1..N-1 are decoder block outputs; layer N is the post-final-norm decoder output",
+      "parameter_count_total": 84142080,
+      "parameter_count_prefix_by_layer": {
+        "0": 98304,
+        "1": 10591232,
+        "2": 21084160,
+        "3": 31577088,
+        "4": 42070016,
+        "5": 52562944,
+        "6": 63055872,
+        "7": 73548800,
+        "8": 84043776
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

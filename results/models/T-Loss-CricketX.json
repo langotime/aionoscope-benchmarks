@@ -36,7 +36,23 @@
       "out_channels": 320,
       "kernel_size": 3,
       "preprocess": "expect exact benchmark waveform; run the causal CNN encoder without temporal padding",
-      "layer_layout": "layers 0..N-1 are adaptive-max-pooled outputs after each causal block; layer N is the final encoder linear output"
+      "layer_layout": "layers 0..N-1 are adaptive-max-pooled outputs after each causal block; layer N is the final encoder linear output",
+      "parameter_count_total": 247720,
+      "parameter_count_prefix_by_layer": {
+        "0": 5160,
+        "1": 14920,
+        "2": 24680,
+        "3": 34440,
+        "4": 44200,
+        "5": 53960,
+        "6": 63720,
+        "7": 73480,
+        "8": 83240,
+        "9": 93000,
+        "10": 196200,
+        "11": 247720
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

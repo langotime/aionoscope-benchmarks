@@ -44,7 +44,18 @@
         0.8,
         0.9
       ],
-      "layer_layout": "layer 0 is the encoder input embedding stream; layers 1..N-1 are transformer block outputs; layer N is the final encoder block output"
+      "layer_layout": "layer 0 is the encoder input embedding stream; layers 1..N-1 are transformer block outputs; layer N is the final encoder block output",
+      "parameter_count_total": 11387208,
+      "parameter_count_prefix_by_layer": {
+        "0": 173184,
+        "1": 1943564,
+        "2": 3713944,
+        "3": 5484324,
+        "4": 7254704,
+        "5": 9025084,
+        "6": 10795464
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

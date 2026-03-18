@@ -48,6 +48,37 @@ class TTMAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_layers))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        encoder = self.model.backbone.encoder
+        layer_zero_sources: tuple[object, ...] = (encoder.patcher,)
+        if hasattr(encoder, "freq_mod"):
+            layer_zero_sources = layer_zero_sources + (encoder.freq_mod,)
+        if getattr(encoder, "positional_encoder", None) is not None:
+            layer_zero_sources = layer_zero_sources + (encoder.positional_encoder,)
+
+        sources: dict[int, tuple[object, ...]] = {}
+        layer_index = 0
+        first_mixer = True
+        for mixer in encoder.mlp_mixer_encoder.mixers:
+            if first_mixer:
+                sources[int(layer_index)] = layer_zero_sources
+                first_mixer = False
+            else:
+                sources[int(layer_index)] = ()
+            layer_index += 1
+            if hasattr(mixer, "mixer_layers"):
+                sources[int(layer_index)] = ()
+                layer_index += 1
+                for mixer_layer in mixer.mixer_layers:
+                    sources[int(layer_index)] = (mixer_layer,)
+                    layer_index += 1
+                sources[int(layer_index)] = ()
+                layer_index += 1
+                continue
+            sources[int(layer_index)] = (mixer,)
+            layer_index += 1
+        return sources
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["context_length"] = int(self.sequence_length)

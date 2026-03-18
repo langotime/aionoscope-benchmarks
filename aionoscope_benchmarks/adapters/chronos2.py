@@ -31,6 +31,18 @@ class Chronos2Adapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_layers))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        layer_zero_sources: tuple[object, ...] = (self.model.input_patch_embedding,)
+        if bool(self.model.chronos_config.use_reg_token):
+            layer_zero_sources = layer_zero_sources + (self.model.shared,)
+        return {
+            0: layer_zero_sources,
+            **{
+                int(layer_index): (block,)
+                for layer_index, block in enumerate(self.model.encoder.block, start=1)
+            },
+        }
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["context_length"] = int(self.benchmark_sequence_length)

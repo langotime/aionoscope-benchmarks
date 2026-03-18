@@ -30,6 +30,15 @@ class TiRexAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_layers))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        sources: dict[int, tuple[object, ...]] = {}
+        for layer_index, block in enumerate(self.model.blocks):
+            if layer_index == 0:
+                sources[int(layer_index)] = (self.model.input_patch_embedding, block)
+                continue
+            sources[int(layer_index)] = (block,)
+        return sources
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["patch_size"] = int(self.model.config.input_patch_size)

@@ -35,7 +35,24 @@
       "patch_stride": 64,
       "embed_dim": 768,
       "preprocess": "expect exact benchmark length 4096, matching the official Toto Open Base quick-start context; squeeze channel dimension; use Toto patch embedding and transformer; mean-pool valid patch tokens",
-      "layer_layout": "layer 0 is the patch embedding stream; layers 1..N are transformer block outputs"
+      "layer_layout": "layer 0 is the patch embedding stream; layers 1..N are transformer block outputs",
+      "parameter_count_total": 151306080,
+      "parameter_count_prefix_by_layer": {
+        "0": 49920,
+        "1": 9498624,
+        "2": 18947328,
+        "3": 28396032,
+        "4": 37844736,
+        "5": 47293440,
+        "6": 56742144,
+        "7": 66190848,
+        "8": 75639552,
+        "9": 85088256,
+        "10": 94536960,
+        "11": 103985664,
+        "12": 113434368
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

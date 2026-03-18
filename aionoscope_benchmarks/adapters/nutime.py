@@ -64,6 +64,20 @@ class NuTimeAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.transformer_depth + 1))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        backbone = self.model[1]
+        layer_zero_sources: tuple[object, ...] = (self.model[0], backbone.norm)
+        if isinstance(backbone.pos_embed, torch.nn.Parameter):
+            layer_zero_sources = layer_zero_sources + (backbone.pos_embed,)
+        if backbone.cls_token is not None:
+            layer_zero_sources = layer_zero_sources + (backbone.cls_token,)
+        sources: dict[int, tuple[object, ...]] = {0: layer_zero_sources}
+        transformer_layers = backbone.transformer.layers
+        for layer_index in range(1, self.transformer_depth + 1):
+            start = (layer_index - 1) * 6
+            sources[int(layer_index)] = tuple(transformer_layers[start : start + 6])
+        return sources
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["transform_size"] = int(self.transform_size)

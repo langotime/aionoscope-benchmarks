@@ -86,6 +86,7 @@ Do not treat this repo as the source tree of the generator library itself.
 - Adapters must not use labels to build representations or introduce label-aware preprocessing shortcuts.
 - If an adapter changes the train or validation split for technical reasons, it must do so deterministically and describe the behavior in `adapter_metadata()`.
 - Adapter metadata must be honest and useful for interpreting benchmark outputs.
+- If adapter metadata exposes parameter counts, keep the semantics explicit: `parameter_count` / `parameter_count_total` mean the full registered model path, while any layer-aware cumulative count must be published separately (for example `parameter_count_prefix_by_layer`) instead of overloading the total-count field.
 
 ### Results and dashboard
 

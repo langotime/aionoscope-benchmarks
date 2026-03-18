@@ -51,6 +51,15 @@ class ReversoSmall550KAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_hidden_layers + 1))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        return {
+            0: (self.model.embedding,),
+            **{
+                int(layer_index): (layer,)
+                for layer_index, layer in enumerate(self.model.layers, start=1)
+            },
+        }
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["seq_len"] = int(self.config.seq_len)

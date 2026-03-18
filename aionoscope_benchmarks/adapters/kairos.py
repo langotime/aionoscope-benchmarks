@@ -41,6 +41,23 @@ class _BaseKairosAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_hidden_layers + 1))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        layer_zero_sources: tuple[object, ...] = (
+            self.model.instance_norm,
+            self.model.fft_norm,
+            self.model.patch,
+            self.model.input_patch_embedding,
+        )
+        if bool(self.model.config.use_reg_token):
+            layer_zero_sources = layer_zero_sources + (self.model.shared,)
+        sources: dict[int, tuple[object, ...]] = {0: layer_zero_sources}
+        for layer_index, block in enumerate(self.model.encoder.block, start=1):
+            block_sources: tuple[object, ...] = (block,)
+            if layer_index == self.num_hidden_layers:
+                block_sources = block_sources + (self.model.encoder.final_layer_norm,)
+            sources[int(layer_index)] = block_sources
+        return sources
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["context_length"] = int(self.context_length)

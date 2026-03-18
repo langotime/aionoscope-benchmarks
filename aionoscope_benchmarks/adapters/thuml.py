@@ -38,6 +38,15 @@ class _THUMLCausalAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_hidden_layers + 1))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        sources: dict[int, tuple[object, ...]] = {0: (self.decoder.embed_layer,)}
+        for layer_index, layer in enumerate(self.decoder.layers, start=1):
+            layer_sources: tuple[object, ...] = (layer,)
+            if layer_index == self.num_hidden_layers:
+                layer_sources = layer_sources + (self.decoder.norm,)
+            sources[int(layer_index)] = layer_sources
+        return sources
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["hidden_size"] = int(self.hidden_size)

@@ -35,7 +35,24 @@
       "input_patch_size": 16,
       "uses_reg_token": true,
       "preprocess": "expect exact model context length; squeeze channel dimension and mean-pool non-output encoder tokens",
-      "layer_layout": "layer 0 is the encoder input embedding stream; layers 1..N are encoder block outputs"
+      "layer_layout": "layer 0 is the encoder input embedding stream; layers 1..N are encoder block outputs",
+      "parameter_count_total": 119477664,
+      "parameter_count_prefix_by_layer": {
+        "0": 2549760,
+        "1": 11989248,
+        "2": 21428736,
+        "3": 30868224,
+        "4": 40307712,
+        "5": 49747200,
+        "6": 59186688,
+        "7": 68626176,
+        "8": 78065664,
+        "9": 87505152,
+        "10": 96944640,
+        "11": 106384128,
+        "12": 115823616
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

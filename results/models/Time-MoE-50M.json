@@ -45,7 +45,24 @@
       ],
       "attention_implementation": "flash_attention_2",
       "preprocess": "per-series z-score normalization over the exact benchmark context with std clamped at 1e-6; mean-pool causal token states across time",
-      "layer_layout": "layer 0 is the mean-pooled input embedding stream; layers 1..N-1 are mean-pooled decoder block outputs; layer N is the mean-pooled post-final-norm decoder output"
+      "layer_layout": "layer 0 is the mean-pooled input embedding stream; layers 1..N-1 are mean-pooled decoder block outputs; layer N is the mean-pooled post-final-norm decoder output",
+      "parameter_count_total": 113352192,
+      "parameter_count_prefix_by_layer": {
+        "0": 768,
+        "1": 9443328,
+        "2": 18885888,
+        "3": 28328448,
+        "4": 37771008,
+        "5": 47213568,
+        "6": 56656128,
+        "7": 66098688,
+        "8": 75541248,
+        "9": 84983808,
+        "10": 94426368,
+        "11": 103868928,
+        "12": 113311872
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

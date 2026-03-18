@@ -33,7 +33,18 @@
       "layer_layout": "layer 0 is the CLS token after positional encoding and before the first transformer block; layers 1..N are the CLS token after each transformer block",
       "scale_len": 5,
       "shape_ratio": 0.6,
-      "checkpoint_type": "official_finetune_checkpoint"
+      "checkpoint_type": "official_finetune_checkpoint",
+      "parameter_count_total": 3136283,
+      "parameter_count_prefix_by_layer": {
+        "0": 200593,
+        "1": 595089,
+        "2": 989585,
+        "3": 1384081,
+        "4": 1778577,
+        "5": 2173073,
+        "6": 2567569
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

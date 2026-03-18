@@ -40,7 +40,20 @@
       "tokenizer": "conv_patch_embed",
       "patch_stats_mode": "patch_norm",
       "preprocess": "pass through exact published benchmark waveform without temporal length normalization",
-      "layer_layout": "layer 0 is the mean-pooled tokenizer output; layers 1..N-1 are mean-pooled patch tokens after transformer blocks 1..N-1; layer N is mean-pooled post-final-norm tokens after the last transformer block"
+      "layer_layout": "layer 0 is the mean-pooled tokenizer output; layers 1..N-1 are mean-pooled patch tokens after transformer blocks 1..N-1; layer N is mean-pooled post-final-norm tokens after the last transformer block",
+      "parameter_count_total": 6321248,
+      "parameter_count_prefix_by_layer": {
+        "0": 1728,
+        "1": 791316,
+        "2": 1580904,
+        "3": 2370492,
+        "4": 3160080,
+        "5": 3949668,
+        "6": 4739256,
+        "7": 5528844,
+        "8": 6318944
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

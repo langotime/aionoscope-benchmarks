@@ -62,6 +62,12 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
         )
         return int(trainable)
 
+    def parameter_count_prefix_by_layer(self) -> dict[int, int] | None:
+        total = self.parameter_count()
+        if total is None:
+            return None
+        return {0: int(total)}
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         if payload["parameter_count"] is not None:

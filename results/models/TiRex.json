@@ -32,7 +32,23 @@
       "parameter_count_source": "torch_registered_parameters",
       "patch_size": 32,
       "train_context_length": 2048,
-      "preprocess": "expect exact training context length; squeeze channel dimension; token-mean pool per sLSTM block"
+      "preprocess": "expect exact training context length; squeeze channel dimension; token-mean pool per sLSTM block",
+      "parameter_count_total": 35291200,
+      "parameter_count_prefix_by_layer": {
+        "0": 3906048,
+        "1": 6596608,
+        "2": 9287168,
+        "3": 11977728,
+        "4": 14668288,
+        "5": 17358848,
+        "6": 20049408,
+        "7": 22739968,
+        "8": 25430528,
+        "9": 28121088,
+        "10": 30811648,
+        "11": 33502208
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

@@ -632,6 +632,11 @@
               <option value="inference">Encoder forward time</option>
               <option value="parameters" selected>Model parameters</option>
             </select>
+            <label class="control-sublabel" for="bubble-parameter-scope-selector">Parameter scope</label>
+            <select id="bubble-parameter-scope-selector">
+              <option value="total" selected>Total registered model</option>
+              <option value="best_layer">Through plotted best layer</option>
+            </select>
           </div>
 
           <div class="sidebar-section control-block">
@@ -865,6 +870,7 @@
     const RADAR_CENTER_Y = 0.56;
     const RADAR_RADIUS_RATIO = 0.66;
     const RADAR_SPLIT_NUMBER = 5;
+    const LAYER_ANCHORED_BUBBLE_METRICS = new Set(["auroc", "auprc", "r2", "pearson"]);
 
     const state = {
       allResults: [],
@@ -1121,6 +1127,10 @@
 
     function getBubbleSizeMetric() {
       return document.getElementById("bubble-size-selector").value;
+    }
+
+    function getBubbleParameterScope() {
+      return document.getElementById("bubble-parameter-scope-selector").value;
     }
 
     function setStatus(message, level = "info") {
@@ -1395,26 +1405,110 @@
       };
     }
 
-    function parameterCountSummary(result) {
+    function bubbleSelectionContext() {
+      return {
+        xKey: getBubbleXMetric(),
+        yKey: getBubbleYMetric(),
+        sizeKey: getBubbleSizeMetric(),
+        parameterScope: getBubbleParameterScope()
+      };
+    }
+
+    function bubbleUsesParameterMetric(selection) {
+      return [selection.xKey, selection.yKey, selection.sizeKey].includes("parameters");
+    }
+
+    function bubbleLayerAnchorMetricKeys(selection) {
+      return Array.from(
+        new Set(
+          [selection.xKey, selection.yKey, selection.sizeKey].filter((metricKey) =>
+            LAYER_ANCHORED_BUBBLE_METRICS.has(metricKey)
+          )
+        )
+      );
+    }
+
+    function bubbleMetricDisplayLabel(metricKey) {
+      if (metricKey === "auroc") {
+        return "Macro AUROC";
+      }
+      if (metricKey === "auprc") {
+        return "Macro AUPRC";
+      }
+      if (metricKey === "r2") {
+        return "Macro R2";
+      }
+      if (metricKey === "pearson") {
+        return "Macro Pearson";
+      }
+      if (metricKey === "inference") {
+        return "Encoder forward time";
+      }
+      if (metricKey === "parameters") {
+        return "Model parameters";
+      }
+      throw new Error("Unsupported bubble metric key: " + metricKey);
+    }
+
+    function parameterCountSummary(result, selection) {
       const adapterMetadata =
         result.model && result.model.adapter && typeof result.model.adapter === "object"
           ? result.model.adapter
           : {};
       const total =
-        finiteNumber(adapterMetadata.parameter_count) ??
-        finiteNumber(adapterMetadata.parameter_count_total);
+        finiteNumber(adapterMetadata.parameter_count_total) ??
+        finiteNumber(adapterMetadata.parameter_count);
       if (total === null || total <= 0) {
         return null;
       }
-      const trainable = finiteNumber(adapterMetadata.trainable_parameter_count);
+      if (!selection || selection.parameterScope !== "best_layer") {
+        const trainable = finiteNumber(adapterMetadata.trainable_parameter_count);
+        return {
+          value: total,
+          total,
+          trainable,
+          scope: "total",
+          source: adapterMetadata.parameter_count_source ? String(adapterMetadata.parameter_count_source) : null
+        };
+      }
+      const prefixByLayer =
+        adapterMetadata.parameter_count_prefix_by_layer &&
+        typeof adapterMetadata.parameter_count_prefix_by_layer === "object"
+          ? adapterMetadata.parameter_count_prefix_by_layer
+          : null;
+      if (!prefixByLayer) {
+        return null;
+      }
+      const anchorEntries = bubbleLayerAnchorMetricKeys(selection)
+        .map((metricKey) => ({
+          key: metricKey,
+          label: bubbleMetricDisplayLabel(metricKey),
+          layer: selectedLayerForResult(result, metricKey)
+        }))
+        .filter((entry) => Number.isFinite(entry.layer));
+      if (!anchorEntries.length) {
+        return null;
+      }
+      const furthestLayer = Math.max(...anchorEntries.map((entry) => Number(entry.layer)));
+      const value =
+        finiteNumber(prefixByLayer[String(furthestLayer)]) ??
+        finiteNumber(prefixByLayer[furthestLayer]);
+      if (value === null || value <= 0) {
+        return null;
+      }
       return {
+        value,
         total,
-        trainable,
-        source: adapterMetadata.parameter_count_source ? String(adapterMetadata.parameter_count_source) : null
+        scope: "best_layer",
+        furthestLayer,
+        anchorEntries,
+        source: adapterMetadata.parameter_count_prefix_source
+          ? String(adapterMetadata.parameter_count_prefix_source)
+          : null
       };
     }
 
-    function bubbleMetricConfig(metricKey) {
+    function bubbleMetricConfig(metricKey, selection) {
       if (metricKey === "auroc") {
         return {
           key: "auroc",
@@ -1549,16 +1643,36 @@
       if (metricKey === "parameters") {
         return {
           key: "parameters",
-          label: "Model parameters",
+          label:
+            selection && selection.parameterScope === "best_layer"
+              ? "Parameters Through Plotted Best Layer"
+              : "Model parameters",
           axisType: "log",
-          missingHint: "stored model parameter counts",
+          missingHint:
+            selection && selection.parameterScope === "best_layer"
+              ? "through-best-layer parameter counts"
+              : "stored model parameter counts",
           range: { lowerBound: 1.0, fallback: [1, 10] },
           axisTickFormatter: formatCompactInteger,
           sizeTransform: (value) => Math.sqrt(Math.max(0, Number(value))),
           summary: (result) => {
-            const summary = parameterCountSummary(result);
+            const summary = parameterCountSummary(result, selection);
             if (!summary) {
               return null;
+            }
+            if (summary.scope === "best_layer") {
+              return {
+                value: summary.value,
+                detailLines: [
+                  `Parameters through plotted best layer: ${formatIntegerValue(summary.value)} (${formatCompactInteger(summary.value)})`,
+                  `Furthest plotted best layer: ${summary.furthestLayer}`,
+                  `Anchor metrics: ${summary.anchorEntries
+                    .map((entry) => `${entry.label} -> layer ${entry.layer}`)
+                    .join("; ")}`,
+                  `Total registered model parameters: ${formatIntegerValue(summary.total)} (${formatCompactInteger(summary.total)})`,
+                  summary.source ? `Count source: ${humanizeToken(summary.source)}` : null
+                ].filter(Boolean)
+              };
             }
             const lines = [
               `Model parameters: ${formatIntegerValue(summary.total)} (${formatCompactInteger(summary.total)})`
@@ -1570,7 +1684,7 @@
               lines.push(`Count source: ${humanizeToken(summary.source)}`);
             }
             return {
-              value: summary.total,
+              value: summary.value,
               detailLines: lines
             };
           }
@@ -2057,9 +2171,32 @@
       return results[0] || state.allResults[0] || null;
     }
 
-    function updateBubbleChartNote(xMetric, yMetric, sizeMetric) {
+    function updateBubbleChartNote(xMetric, yMetric, sizeMetric, selection) {
       const note = document.getElementById("bubble-chart-note");
-      note.textContent = `X = ${bubbleAxisLabel(xMetric)}, Y = ${bubbleAxisLabel(yMetric)}, bubble size = ${sizeMetric.label}`;
+      const parts = [
+        `X = ${bubbleAxisLabel(xMetric)}`,
+        `Y = ${bubbleAxisLabel(yMetric)}`,
+        `bubble size = ${sizeMetric.label}`
+      ];
+      if (bubbleUsesParameterMetric(selection)) {
+        if (selection.parameterScope === "best_layer") {
+          const anchorMetricKeys = bubbleLayerAnchorMetricKeys(selection);
+          if (anchorMetricKeys.length) {
+            parts.push(
+              `parameter scope = through the furthest plotted best layer from ${anchorMetricKeys
+                .map((metricKey) => bubbleMetricDisplayLabel(metricKey))
+                .join(", ")}`
+            );
+          } else {
+            parts.push(
+              "parameter scope = through plotted best layer; requires AUROC, AUPRC, R2, or Pearson on one bubble axis or size"
+            );
+          }
+        } else {
+          parts.push("parameter scope = total registered model");
+        }
+      }
+      note.textContent = parts.join(", ");
     }
 
     function summarizeBubbleMissingDetails(skippedDetails) {
@@ -2076,10 +2213,11 @@
 
     function buildBubbleChart(results) {
       const bubbleChart = state.charts[CHART_IDS.bubbleOverview];
-      const xMetric = bubbleMetricConfig(getBubbleXMetric());
-      const yMetric = bubbleMetricConfig(getBubbleYMetric());
-      const sizeMetric = bubbleMetricConfig(getBubbleSizeMetric());
-      updateBubbleChartNote(xMetric, yMetric, sizeMetric);
+      const selection = bubbleSelectionContext();
+      const xMetric = bubbleMetricConfig(selection.xKey, selection);
+      const yMetric = bubbleMetricConfig(selection.yKey, selection);
+      const sizeMetric = bubbleMetricConfig(selection.sizeKey, selection);
+      updateBubbleChartNote(xMetric, yMetric, sizeMetric, selection);
       if (!results.length) {
         bubbleChart.setOption(
           emptyOption(
@@ -2691,6 +2829,7 @@
       document.getElementById("bubble-x-selector").addEventListener("change", renderAll);
       document.getElementById("bubble-y-selector").addEventListener("change", renderAll);
       document.getElementById("bubble-size-selector").addEventListener("change", renderAll);
+      document.getElementById("bubble-parameter-scope-selector").addEventListener("change", renderAll);
       document.getElementById("model-search").addEventListener("input", renderModelPicker);
       document.getElementById("sidebar-open-button").addEventListener("click", () => {
         setSidebarVisible(true);

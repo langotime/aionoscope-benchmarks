@@ -8,7 +8,7 @@ dependencies = [
     "aiono",
     "accelerate>=1.10",
     "einops>=0.8",
-    "huggingface-hub>=0.24,<0.25",
+    "huggingface-hub>=0.34,<1.0",
     "numpy>=1.25,<2",
     "open_clip_torch>=2.32",
     "pandas>=2.1,<2.3",

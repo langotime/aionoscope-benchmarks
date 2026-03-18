@@ -43,6 +43,20 @@ class TiConvNextAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_layers))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        sources: dict[int, tuple[object, ...]] = {}
+        layer_index = 0
+        for stage_index, stage in enumerate(self.visual.trunk.stages):
+            for block_index, block in enumerate(stage.blocks):
+                block_sources: tuple[object, ...] = (block,)
+                if stage_index == 0 and block_index == 0:
+                    block_sources = (self.visual.trunk.stem, stage.downsample, block)
+                elif block_index == 0:
+                    block_sources = (stage.downsample, block)
+                sources[int(layer_index)] = block_sources
+                layer_index += 1
+        return sources
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["patch_size_mode"] = "sqrt"

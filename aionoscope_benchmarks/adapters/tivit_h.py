@@ -34,6 +34,15 @@ class TiViTHAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_layers))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        return {
+            0: (self.model.vision_model.embeddings, self.model.vision_model.pre_layrnorm),
+            **{
+                int(layer_index): (layer,)
+                for layer_index, layer in enumerate(self.model.vision_model.encoder.layers, start=1)
+            },
+        }
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["aggregation"] = self.aggregation

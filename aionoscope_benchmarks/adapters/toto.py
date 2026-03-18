@@ -30,6 +30,15 @@ class TotoAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(int(self.model.num_layers) + 1))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        return {
+            0: (self.model.patch_embed,),
+            **{
+                int(layer_index): (layer,)
+                for layer_index, layer in enumerate(self.model.transformer.layers, start=1)
+            },
+        }
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["patch_size"] = int(self.model.patch_embed.patch_size)

@@ -35,7 +35,18 @@
       "patch_sizes": [
         16
       ],
-      "layer_layout": "layer 0 is the encoder input embedding stream after the official MoE projections; layers 1..N-1 are transformer block outputs; layer N is the final encoder block output"
+      "layer_layout": "layer 0 is the encoder input embedding stream after the official MoE projections; layers 1..N-1 are transformer block outputs; layer N is the final encoder block output",
+      "parameter_count_total": 117025800,
+      "parameter_count_prefix_by_layer": {
+        "0": 160896,
+        "1": 19625996,
+        "2": 39091096,
+        "3": 58556196,
+        "4": 78021296,
+        "5": 97486396,
+        "6": 116951496
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

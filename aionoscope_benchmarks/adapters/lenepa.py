@@ -41,6 +41,18 @@ class _LeNEPABaseAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_blocks + 1))
 
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]] | None:
+        patch_embed = getattr(self.model, "patch_embed", None)
+        if patch_embed is None:
+            return None
+        sources: dict[int, tuple[object, ...]] = {0: (patch_embed,)}
+        for layer_index, block in enumerate(self.model.blocks, start=1):
+            block_sources: tuple[object, ...] = (block,)
+            if layer_index == self.num_blocks:
+                block_sources = block_sources + (self.model.norm,)
+            sources[int(layer_index)] = block_sources
+        return sources
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["published_sampling_frequency"] = self.config["sampling_frequency"]

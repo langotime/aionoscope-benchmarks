@@ -65,6 +65,45 @@ class _ParameterlessAdapter(FrozenTimeSeriesAdapter):
         return {0: x.mean(dim=-1)}
 
 
+class _PrefixCountAdapter(FrozenTimeSeriesAdapter):
+    model_name = "PrefixCount"
+    model_slug = "PrefixCount"
+    source = "local"
+    checkpoint = "none"
+    import_path = "none"
+    benchmark_sequence_length = 8
+    benchmark_sequence_length_source = "unit_test"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.embedding = torch.nn.Linear(1, 2, bias=False)
+        self.block1 = torch.nn.Linear(2, 2, bias=False)
+        self.block2 = torch.nn.Linear(2, 2, bias=False)
+        self.shared_norm = torch.nn.LayerNorm(2)
+
+    @property
+    def available_layers(self) -> tuple[int, ...]:
+        return (0, 1, 2)
+
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        return {
+            0: (self.embedding, self.shared_norm),
+            1: (self.block1,),
+            2: (self.block2, self.shared_norm),
+        }
+
+    def forward_layer_dict(
+        self,
+        x: torch.Tensor,
+        *,
+        layers: tuple[int, ...] | None = None,
+    ) -> dict[int, torch.Tensor]:
+        del layers
+        self.validate_benchmark_input(x, channels=1)
+        pooled = x.mean(dim=-1)
+        return {0: pooled, 1: pooled, 2: pooled}
+
+
 def test_base_adapter_metadata_reports_exact_length_contract() -> None:
     adapter = _DummyAdapter()
 
@@ -74,8 +113,11 @@ def test_base_adapter_metadata_reports_exact_length_contract() -> None:
     assert metadata["benchmark_sequence_length_source"] == "unit_test"
     assert metadata["input_length_policy"] == "exact"
     assert metadata["parameter_count"] == 1
+    assert metadata["parameter_count_total"] == 1
     assert metadata["trainable_parameter_count"] == 1
     assert metadata["parameter_count_source"] == "torch_registered_parameters"
+    assert metadata["parameter_count_prefix_by_layer"] is None
+    assert metadata["parameter_count_prefix_source"] == "unavailable"
 
 
 def test_base_adapter_metadata_reports_unavailable_parameter_count_honestly() -> None:
@@ -84,8 +126,22 @@ def test_base_adapter_metadata_reports_unavailable_parameter_count_honestly() ->
     metadata = adapter.adapter_metadata()
 
     assert metadata["parameter_count"] is None
+    assert metadata["parameter_count_total"] is None
     assert metadata["trainable_parameter_count"] is None
     assert metadata["parameter_count_source"] == "unavailable"
+    assert metadata["parameter_count_prefix_by_layer"] is None
+    assert metadata["parameter_count_prefix_source"] == "unavailable"
+
+
+def test_base_adapter_metadata_reports_cumulative_prefix_parameter_counts() -> None:
+    adapter = _PrefixCountAdapter()
+
+    metadata = adapter.adapter_metadata()
+
+    assert metadata["parameter_count"] == 14
+    assert metadata["parameter_count_total"] == 14
+    assert metadata["parameter_count_prefix_by_layer"] == {"0": 6, "1": 10, "2": 14}
+    assert metadata["parameter_count_prefix_source"] == "cumulative_representation_path_unique_parameters"
 
 
 def test_base_adapter_validation_rejects_wrong_sequence_length() -> None:
@@ -141,8 +197,10 @@ def test_mantis_v2_uses_official_recommended_pretrained_length(
     class _FakeMantisV2:
         def __init__(self, **_: object) -> None:
             self.num_patches = 32
+            self.tokgen_unit = torch.nn.Linear(1, 1, bias=False)
             self.transf_unit = types.SimpleNamespace(
-                transformer=types.SimpleNamespace(layers=[object()] * 5)
+                cls_token=torch.nn.Parameter(torch.zeros(1)),
+                transformer=types.SimpleNamespace(layers=[torch.nn.Linear(1, 1, bias=False)] * 5),
             )
 
         def from_pretrained(self, checkpoint: str):
@@ -174,9 +232,14 @@ def test_toto_uses_official_quickstart_context_length(
 
     class _FakeBackbone:
         def __init__(self) -> None:
-            self.patch_embed = types.SimpleNamespace(patch_size=64, stride=64)
+            self.patch_embed = torch.nn.Linear(1, 1, bias=False)
+            self.patch_embed.patch_size = 64
+            self.patch_embed.stride = 64
             self.embed_dim = 256
             self.num_layers = 12
+            self.transformer = types.SimpleNamespace(
+                layers=[torch.nn.Linear(1, 1, bias=False)] * self.num_layers
+            )
 
         def eval(self):
             return self

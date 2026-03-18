@@ -11,6 +11,8 @@ def test_dashboard_tries_list_manifest_before_directory_listing_without_builtin_
 
     assert 'const MODELS_LIST_PATH = "/models/list.txt";' in html
     assert '<option value="parameters" selected>Model parameters</option>' in html
+    assert 'id="bubble-parameter-scope-selector"' in html
+    assert '<option value="best_layer">Through plotted best layer</option>' in html
     assert "const FALLBACK_RESULT_FILES" not in html
     assert "fallback manifest" not in html
     assert html.index("fetch(MODELS_LIST_PATH") < html.index("fetch(MODELS_DIR")
@@ -21,6 +23,8 @@ def test_dashboard_bubble_warning_reports_model_specific_missing_fields() -> Non
     html = DASHBOARD_PATH.read_text(encoding="utf-8")
 
     assert "function summarizeBubbleMissingDetails(skippedDetails)" in html
+    assert "function bubbleSelectionContext()" in html
+    assert "parameter scope = through the furthest plotted best layer" in html
     assert 'Bubble chart skipped ${skippedCount} selected model${skippedCount === 1 ? "" : "s"}: ${detailsText}.' in html
     assert "Selected models are missing required fields: ${detailsText}." in html
 

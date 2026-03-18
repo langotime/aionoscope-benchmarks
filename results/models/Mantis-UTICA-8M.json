@@ -28,7 +28,18 @@
       "num_patches": 32,
       "representation_token": "cls_token",
       "preprocess": "expect the official UTICA resize target of 512 samples; read the CLS token from the reused Mantis-8M backbone",
-      "layer_layout": "layer 0 is the tokenizer-plus-CLS embedding stream; layers 1..N are transformer block outputs"
+      "layer_layout": "layer 0 is the tokenizer-plus-CLS embedding stream; layers 1..N are transformer block outputs",
+      "parameter_count_total": 8103936,
+      "parameter_count_prefix_by_layer": {
+        "0": 161024,
+        "1": 1473792,
+        "2": 2786560,
+        "3": 4099328,
+        "4": 5412096,
+        "5": 6724864,
+        "6": 8037632
+      },
+      "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters"
     }
   },
   "dataset": {

@@ -27,6 +27,18 @@ class _BaseMoiraiAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_hidden_layers + 1))
 
+    def _layer_zero_parameter_sources(self) -> tuple[object, ...]:
+        raise NotImplementedError
+
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+        return {
+            0: self._layer_zero_parameter_sources(),
+            **{
+                int(layer_index): (layer,)
+                for layer_index, layer in enumerate(self.model.encoder.layers, start=1)
+            },
+        }
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
         payload["context_length"] = int(self.context_length)
@@ -97,6 +109,13 @@ class _BaseMoiraiAdapter(FrozenTimeSeriesAdapter):
 
 class _Moirai1BaseAdapter(_BaseMoiraiAdapter):
     patch_size: int
+
+    def _layer_zero_parameter_sources(self) -> tuple[object, ...]:
+        return (
+            self.model.scaler,
+            self.model.in_proj,
+            self.model.mask_encoding,
+        )
 
     def _load_model(self):
         from uni2ts.model.moirai import MoiraiModule
@@ -184,6 +203,12 @@ class _Moirai1BaseAdapter(_BaseMoiraiAdapter):
 class _Moirai2BaseAdapter(_BaseMoiraiAdapter):
     patch_size: int
 
+    def _layer_zero_parameter_sources(self) -> tuple[object, ...]:
+        return (
+            self.model.scaler,
+            self.model.in_proj,
+        )
+
     def _load_model(self):
         from uni2ts.model.moirai2 import Moirai2Module
 
@@ -267,6 +292,14 @@ class _Moirai2BaseAdapter(_BaseMoiraiAdapter):
 
 class _MoiraiMoEBaseAdapter(_BaseMoiraiAdapter):
     patch_size: int
+
+    def _layer_zero_parameter_sources(self) -> tuple[object, ...]:
+        return (
+            self.model.scaler,
+            self.model.in_proj,
+            self.model.feat_proj,
+            self.model.res_proj,
+        )
 
     def _load_model(self):
         from uni2ts.model.moirai_moe import MoiraiMoEModule
