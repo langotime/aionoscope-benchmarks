@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -50,6 +51,22 @@ def test_dashboard_bubble_warning_reports_model_specific_missing_fields() -> Non
     assert "parameter scope = through the furthest plotted best layer" in html
     assert 'Bubble chart skipped ${skippedCount} selected model${skippedCount === 1 ? "" : "s"}: ${detailsText}.' in html
     assert "Selected models are missing required fields: ${detailsText}." in html
+
+
+def test_dashboard_sidebar_disclosures_keep_only_model_selector_open_by_default() -> None:
+    html = DASHBOARD_PATH.read_text(encoding="utf-8")
+
+    assert 'class="sidebar-disclosure-summary"' in html
+    assert '<span class="sidebar-disclosure-title">Best layer selector</span>' in html
+    assert '<span class="sidebar-disclosure-title">Color palette</span>' in html
+    assert '<span class="sidebar-disclosure-title">Bubble chart</span>' in html
+    assert '<span class="sidebar-disclosure-title">Filter models</span>' in html
+    assert '<span class="sidebar-disclosure-title">Model selector</span>' in html
+    assert len(re.findall(r'<details class="sidebar-disclosure" open>', html)) == 1
+    assert re.search(
+        r'<details class="sidebar-disclosure" open>\s*<summary class="sidebar-disclosure-summary">\s*<span class="sidebar-disclosure-title">Model selector</span>',
+        html,
+    )
 
 
 def test_documentation_does_not_keep_cloudflare_pages_setup_notes() -> None:

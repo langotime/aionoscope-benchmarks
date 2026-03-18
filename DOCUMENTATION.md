@@ -385,6 +385,7 @@ mismatch is considered a benchmark bug, not a valid alternate evaluation.
 - file discovery now tries root-relative `/models/list.txt` first, then relative `models/` directory listing; if neither works, the UI reports the discovery failure and loads no model files;
 - layer ids are serialized as JSON object keys;
 - summary fields such as `best_auc`, `best_auprc`, macro best `r2`, and macro best `pearson` are read by the UI;
+- sidebar controls are grouped into independent HTML disclosure sections; only the `Model selector` section starts expanded by default, and multiple sections may remain open simultaneously;
 - the shared color selector reads canonical JSON metadata rather than inferring groups from filenames: `model.family`, `model.checkpoint_name`, `model.architecture.backbone`, and `model.training.paradigm`;
 - the selection-aware bubble chart only plots currently enabled models and allows any supported bubble metric on the `x` axis, `y` axis, or bubble size; inference uses `runtime.encoder_forward_total_s`; parameter axes can now switch between total registered model parameters and cumulative parameters through the furthest plotted best layer from the active layer-aware bubble metrics; parameter-count axes render on a log scale; and older JSONs may still fall back to `results.shared.timings.collect_*.*forward_s` for inference mode;
 - adapters that do not expose a registered PyTorch encoder may leave `model.adapter.parameter_count` as `null`; the dashboard must treat that as unavailable metadata rather than inventing a count;

@@ -185,7 +185,9 @@ model parameter count. The same sidebar also exposes one shared color palette
 mode for model chips and every chart: by exact model checkpoint, model family,
 architecture type, or coarse training paradigm. When
 either bubble-chart axis is set to model parameter count, the dashboard uses a
-log scale for that axis automatically.
+log scale for that axis automatically. The left sidebar groups controls into
+independent collapsible panels; only `Model selector` is expanded by default,
+and you can keep any number of sections open at once.
 When the JSON contains repeated validation runs, the dashboard plots the
 per-layer / per-category median and shows sample standard deviation (`ddof=1`)
 in tooltips, with shaded `± std` bands on the layer curves.

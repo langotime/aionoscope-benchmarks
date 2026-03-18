@@ -124,6 +124,74 @@
       gap: 10px;
     }
 
+    .sidebar-disclosure {
+      border: 1px solid #e1e8f0;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      overflow: hidden;
+      transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    }
+
+    .sidebar-disclosure[open] {
+      background: #fff;
+      border-color: #d3dde9;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+    }
+
+    .sidebar-disclosure-summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .sidebar-disclosure-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .sidebar-disclosure-summary::marker {
+      content: "";
+    }
+
+    .sidebar-disclosure-summary:hover {
+      background: rgba(240, 244, 248, 0.72);
+    }
+
+    .sidebar-disclosure-summary:focus-visible {
+      outline: 2px solid rgba(15, 118, 110, 0.32);
+      outline-offset: -2px;
+    }
+
+    .sidebar-disclosure-title {
+      font-size: 0.83rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .sidebar-disclosure-icon {
+      color: #708198;
+      transition: transform 120ms ease, color 120ms ease;
+    }
+
+    .sidebar-disclosure[open] .sidebar-disclosure-icon {
+      transform: rotate(180deg);
+      color: var(--accent);
+    }
+
+    .sidebar-disclosure-body {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 14px 16px 16px;
+      border-top: 1px solid #e6edf5;
+    }
+
     .sidebar-models {
       display: block;
     }
@@ -686,97 +754,132 @@
         </div>
 
         <div class="sidebar-body">
-          <div class="sidebar-section control-block">
-            <label class="control-label" for="best-layer-selector">Best layer selector</label>
-            <select id="best-layer-selector">
-              <option value="auroc">Best AUROC layer</option>
-              <option value="auprc">Best AUPRC layer</option>
-              <option value="r2">Best R2 layer</option>
-              <option value="pearson">Best Pearson layer</option>
-            </select>
-          </div>
-
-          <div class="sidebar-section control-block">
-            <label class="control-label" for="color-mode-selector">Color palette</label>
-            <select id="color-mode-selector">
-              <option value="model">By model checkpoint</option>
-              <option value="family" selected>By model family</option>
-              <option value="architecture_backbone">By architecture type</option>
-              <option value="training">By training paradigm</option>
-            </select>
-            <p class="help-text">
-              One shared palette for model chips, bubble chart, radar panels, and layer curves.
-            </p>
-            <div id="color-legend" class="color-legend" aria-live="polite">
-              <div class="color-legend-header">
-                <span class="color-legend-title">Palette legend</span>
-                <span id="color-legend-mode" class="color-legend-mode">Loading…</span>
-              </div>
-              <div id="color-legend-list" class="color-legend-list">
-                <div class="color-legend-empty">Loading color groups…</div>
+          <details class="sidebar-disclosure">
+            <summary class="sidebar-disclosure-summary">
+              <span class="sidebar-disclosure-title">Best layer selector</span>
+              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
+            </summary>
+            <div class="sidebar-disclosure-body">
+              <div class="sidebar-section control-block">
+                <select id="best-layer-selector" aria-label="Best layer selector">
+                  <option value="auroc">Best AUROC layer</option>
+                  <option value="auprc">Best AUPRC layer</option>
+                  <option value="r2">Best R2 layer</option>
+                  <option value="pearson">Best Pearson layer</option>
+                </select>
               </div>
             </div>
-          </div>
+          </details>
 
-          <div class="sidebar-section control-block">
-            <span class="control-label">Bubble chart</span>
-            <label class="control-sublabel" for="bubble-x-selector">X axis</label>
-            <select id="bubble-x-selector">
-              <option value="auroc">Macro AUROC</option>
-              <option value="auprc" selected>Macro AUPRC</option>
-              <option value="r2">Macro R2</option>
-              <option value="pearson">Macro Pearson</option>
-              <option value="inference">Encoder forward time</option>
-              <option value="parameters">Model parameters</option>
-            </select>
-            <label class="control-sublabel" for="bubble-y-selector">Y axis</label>
-            <select id="bubble-y-selector">
-              <option value="auroc">Macro AUROC</option>
-              <option value="auprc">Macro AUPRC</option>
-              <option value="r2" selected>Macro R2</option>
-              <option value="pearson">Macro Pearson</option>
-              <option value="inference">Encoder forward time</option>
-              <option value="parameters">Model parameters</option>
-            </select>
-            <label class="control-sublabel" for="bubble-size-selector">Bubble size</label>
-            <select id="bubble-size-selector">
-              <option value="auroc">Macro AUROC</option>
-              <option value="auprc">Macro AUPRC</option>
-              <option value="r2">Macro R2</option>
-              <option value="pearson">Macro Pearson</option>
-              <option value="inference">Encoder forward time</option>
-              <option value="parameters" selected>Model parameters</option>
-            </select>
-            <label class="control-sublabel" for="bubble-parameter-scope-selector">Parameter scope</label>
-            <select id="bubble-parameter-scope-selector">
-              <option value="total" selected>Total registered model</option>
-              <option value="best_layer">Through plotted best layer</option>
-            </select>
-          </div>
-
-          <div class="sidebar-section control-block">
-            <label class="control-label" for="model-search">Filter models</label>
-            <input id="model-search" type="search" placeholder="Search by model name">
-          </div>
-
-          <div class="sidebar-section control-block">
-            <span class="control-label">Selection</span>
-            <div class="button-row">
-              <button id="select-all" class="button-primary" type="button">Select all</button>
-              <button id="select-none" type="button">Clear all</button>
+          <details class="sidebar-disclosure">
+            <summary class="sidebar-disclosure-summary">
+              <span class="sidebar-disclosure-title">Color palette</span>
+              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
+            </summary>
+            <div class="sidebar-disclosure-body">
+              <div class="sidebar-section control-block">
+                <select id="color-mode-selector" aria-label="Color palette">
+                  <option value="model">By model checkpoint</option>
+                  <option value="family" selected>By model family</option>
+                  <option value="architecture_backbone">By architecture type</option>
+                  <option value="training">By training paradigm</option>
+                </select>
+                <p class="help-text">
+                  One shared palette for model chips, bubble chart, radar panels, and layer curves.
+                </p>
+                <div id="color-legend" class="color-legend" aria-live="polite">
+                  <div class="color-legend-header">
+                    <span class="color-legend-title">Palette legend</span>
+                    <span id="color-legend-mode" class="color-legend-mode">Loading…</span>
+                  </div>
+                  <div id="color-legend-list" class="color-legend-list">
+                    <div class="color-legend-empty">Loading color groups…</div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          </details>
 
-          <div class="sidebar-section">
-            <span class="control-label">Model selector</span>
-            <p class="help-text">
-              Search narrows the list. Use the checkboxes to refine the current selection.
-            </p>
-          </div>
+          <details class="sidebar-disclosure">
+            <summary class="sidebar-disclosure-summary">
+              <span class="sidebar-disclosure-title">Bubble chart</span>
+              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
+            </summary>
+            <div class="sidebar-disclosure-body">
+              <div class="sidebar-section control-block">
+                <label class="control-sublabel" for="bubble-x-selector">X axis</label>
+                <select id="bubble-x-selector">
+                  <option value="auroc">Macro AUROC</option>
+                  <option value="auprc" selected>Macro AUPRC</option>
+                  <option value="r2">Macro R2</option>
+                  <option value="pearson">Macro Pearson</option>
+                  <option value="inference">Encoder forward time</option>
+                  <option value="parameters">Model parameters</option>
+                </select>
+                <label class="control-sublabel" for="bubble-y-selector">Y axis</label>
+                <select id="bubble-y-selector">
+                  <option value="auroc">Macro AUROC</option>
+                  <option value="auprc">Macro AUPRC</option>
+                  <option value="r2" selected>Macro R2</option>
+                  <option value="pearson">Macro Pearson</option>
+                  <option value="inference">Encoder forward time</option>
+                  <option value="parameters">Model parameters</option>
+                </select>
+                <label class="control-sublabel" for="bubble-size-selector">Bubble size</label>
+                <select id="bubble-size-selector">
+                  <option value="auroc">Macro AUROC</option>
+                  <option value="auprc">Macro AUPRC</option>
+                  <option value="r2">Macro R2</option>
+                  <option value="pearson">Macro Pearson</option>
+                  <option value="inference">Encoder forward time</option>
+                  <option value="parameters" selected>Model parameters</option>
+                </select>
+                <label class="control-sublabel" for="bubble-parameter-scope-selector">Parameter scope</label>
+                <select id="bubble-parameter-scope-selector">
+                  <option value="total" selected>Total registered model</option>
+                  <option value="best_layer">Through plotted best layer</option>
+                </select>
+              </div>
+            </div>
+          </details>
 
-          <div class="sidebar-section sidebar-models">
-            <div id="model-picker" class="model-picker"></div>
-          </div>
+          <details class="sidebar-disclosure">
+            <summary class="sidebar-disclosure-summary">
+              <span class="sidebar-disclosure-title">Filter models</span>
+              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
+            </summary>
+            <div class="sidebar-disclosure-body">
+              <div class="sidebar-section control-block">
+                <input id="model-search" type="search" placeholder="Search by model name" aria-label="Filter models">
+              </div>
+            </div>
+          </details>
+
+          <details class="sidebar-disclosure" open>
+            <summary class="sidebar-disclosure-summary">
+              <span class="sidebar-disclosure-title">Model selector</span>
+              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
+            </summary>
+            <div class="sidebar-disclosure-body">
+              <div class="sidebar-section control-block">
+                <span class="control-label">Selection</span>
+                <div class="button-row">
+                  <button id="select-all" class="button-primary" type="button">Select all</button>
+                  <button id="select-none" type="button">Clear all</button>
+                </div>
+              </div>
+
+              <div class="sidebar-section">
+                <p class="help-text">
+                  Search narrows the list. Use the checkboxes to refine the current selection.
+                </p>
+              </div>
+
+              <div class="sidebar-section sidebar-models">
+                <div id="model-picker" class="model-picker"></div>
+              </div>
+            </div>
+          </details>
         </div>
       </section>
     </aside>
