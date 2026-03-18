@@ -464,7 +464,7 @@
       line-height: 1.45;
     }
 
-    .filter-class-list {
+    .selection-group-list {
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -473,36 +473,48 @@
       padding-right: 2px;
     }
 
-    .filter-class-item {
+    .selection-group-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       width: 100%;
-      min-height: 0;
+      min-height: 42px;
       justify-content: flex-start;
-      padding: 8px 10px;
+      padding: 10px 12px;
       border-radius: 12px;
+      border: 1px solid #e1e8f0;
+      background: #fff;
       text-align: left;
       font-weight: 600;
       box-shadow: none;
     }
 
-    .filter-class-item.active {
+    .selection-group-item.active {
       background: var(--chip-selected);
       border-color: var(--chip-selected-border);
       color: #0d5e57;
     }
 
-    .filter-class-item:focus-visible {
+    .selection-group-item.partial {
+      background: #f5fbfa;
+      border-color: #afd8d2;
+      color: #0d5e57;
+    }
+
+    .selection-group-item:focus-visible {
       outline: 3px solid rgba(18, 126, 118, 0.18);
       outline-offset: 2px;
     }
 
-    .filter-class-item:hover,
-    .filter-class-item.hover-linked {
+    .selection-group-item:hover,
+    .selection-group-item.hover-linked {
       transform: translateY(-1px);
       border-color: #afbecf;
       box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
     }
 
-    .filter-class-item.active.hover-linked {
+    .selection-group-item.active.hover-linked,
+    .selection-group-item.partial.hover-linked {
       border-color: #62b9ae;
       box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
     }
@@ -896,39 +908,6 @@
             </div>
           </details>
 
-          <details class="sidebar-disclosure">
-            <summary class="sidebar-disclosure-summary">
-              <span class="sidebar-disclosure-title">Filter models</span>
-              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
-            </summary>
-            <div class="sidebar-disclosure-body">
-              <div class="sidebar-section control-block">
-                <input
-                  id="model-search"
-                  type="search"
-                  placeholder="Search by model name"
-                  aria-label="Search models by name"
-                >
-                <p class="help-text">
-                  Search narrows the model list by checkpoint name. Class filters follow the active Color
-                  palette grouping.
-                </p>
-                <div class="color-legend" aria-live="polite">
-                  <div class="color-legend-header">
-                    <span class="color-legend-title">Filter classes</span>
-                    <span id="model-filter-mode" class="color-legend-mode">Loading…</span>
-                  </div>
-                  <div class="button-row">
-                    <button id="model-filter-clear" type="button">Show all classes</button>
-                  </div>
-                  <div id="model-filter-class-list" class="filter-class-list">
-                    <div class="color-legend-empty">Loading filter classes…</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </details>
-
           <details class="sidebar-disclosure" open>
             <summary class="sidebar-disclosure-summary">
               <span class="sidebar-disclosure-title">Model selector</span>
@@ -941,12 +920,30 @@
                   <button id="select-all" class="button-primary" type="button">Select all</button>
                   <button id="select-none" type="button">Clear all</button>
                 </div>
+                <input
+                  id="model-search"
+                  type="search"
+                  placeholder="Search by model name"
+                  aria-label="Search models by name"
+                >
               </div>
 
-              <div class="sidebar-section">
-                <p class="help-text">
-                  Name and class filters narrow the list. Use the checkboxes to refine the current selection.
-                </p>
+              <div class="sidebar-section control-block">
+                <label class="control-sublabel" for="model-selection-mode-selector">Select by class</label>
+                <select id="model-selection-mode-selector" aria-label="Select models by class">
+                  <option value="family">Model family</option>
+                  <option value="architecture_backbone" selected>Architecture type</option>
+                  <option value="training">Training paradigm</option>
+                </select>
+                <div class="color-legend" aria-live="polite">
+                  <div class="color-legend-header">
+                    <span class="color-legend-title">Selection classes</span>
+                    <span id="model-selection-mode" class="color-legend-mode">Loading…</span>
+                  </div>
+                  <div id="model-selection-group-list" class="selection-group-list">
+                    <div class="color-legend-empty">Loading selection classes…</div>
+                  </div>
+                </div>
               </div>
 
               <div class="sidebar-section sidebar-models">
@@ -1143,7 +1140,7 @@
       "#0d9488",
       "#9333ea"
     ];
-    const COLOR_MODE_LABELS = {
+    const GROUP_MODE_LABELS = {
       model: "Model checkpoint",
       family: "Model family",
       architecture_backbone: "Architecture type",
@@ -1199,9 +1196,6 @@
       discoverySource: "loading",
       discoveryWarning: "",
       hoveredModelNames: [],
-      hoveredColorGroupValue: null,
-      hoveredColorGroupMode: null,
-      modelFilterGroupValues: new Set(),
       sidebarDesktopCollapsed: false,
       sidebarOverlayOpen: false,
       layoutRefreshTimer: null
@@ -1245,8 +1239,8 @@
       return typeof paradigm === "string" && paradigm ? paradigm : "unknown";
     }
 
-    function colorModeLabel(mode) {
-      return COLOR_MODE_LABELS[String(mode)] || humanizeToken(mode);
+    function groupModeLabel(mode) {
+      return GROUP_MODE_LABELS[String(mode)] || humanizeToken(mode);
     }
 
     function architectureBackboneLabel(backbone) {
@@ -1257,7 +1251,7 @@
       return TRAINING_PARADIGM_LABELS[String(paradigm)] || humanizeToken(paradigm);
     }
 
-    function colorGroupValueLabel(value, mode = getColorMode()) {
+    function groupValueLabel(value, mode = getColorMode()) {
       if (mode === "architecture_backbone") {
         return architectureBackboneLabel(value);
       }
@@ -1267,7 +1261,7 @@
       return value;
     }
 
-    function colorGroupValue(result, mode = getColorMode()) {
+    function groupValueForResult(result, mode = getColorMode()) {
       if (mode === "family") {
         return modelFamily(result);
       }
@@ -1280,23 +1274,23 @@
       return modelName(result);
     }
 
-    function colorGroupLabel(result, mode = getColorMode()) {
-      return colorGroupValueLabel(colorGroupValue(result, mode), mode);
+    function groupLabelForResult(result, mode = getColorMode()) {
+      return groupValueLabel(groupValueForResult(result, mode), mode);
     }
 
-    function orderedColorGroups(mode = getColorMode()) {
-      return Array.from(new Set(state.allResults.map((result) => colorGroupValue(result, mode))));
+    function orderedGroupValues(mode = getColorMode()) {
+      return Array.from(new Set(state.allResults.map((result) => groupValueForResult(result, mode))));
     }
 
     function colorForGroupValue(groupValue, mode = getColorMode()) {
-      const orderedGroups = orderedColorGroups(mode);
+      const orderedGroups = orderedGroupValues(mode);
       const index = orderedGroups.indexOf(groupValue);
       const safeIndex = index >= 0 ? index : 0;
       return COLOR_PALETTE[safeIndex % COLOR_PALETTE.length];
     }
 
     function colorForResult(result, mode = getColorMode()) {
-      return colorForGroupValue(colorGroupValue(result, mode), mode);
+      return colorForGroupValue(groupValueForResult(result, mode), mode);
     }
 
     function colorForModel(name) {
@@ -1304,18 +1298,18 @@
       return result ? colorForResult(result) : COLOR_PALETTE[0];
     }
 
-    function colorLegendEntries(mode = getColorMode()) {
-      return orderedColorGroups(mode).map((groupValue) => ({
+    function groupEntries(mode = getColorMode()) {
+      return orderedGroupValues(mode).map((groupValue) => ({
         groupValue,
-        label: colorGroupValueLabel(groupValue, mode),
+        label: groupValueLabel(groupValue, mode),
         color: colorForGroupValue(groupValue, mode),
-        count: state.allResults.filter((result) => colorGroupValue(result, mode) === groupValue).length,
+        count: state.allResults.filter((result) => groupValueForResult(result, mode) === groupValue).length,
       }));
     }
 
-    function modelNamesForColorGroup(groupValue, mode = getColorMode()) {
+    function modelNamesForGroup(groupValue, mode = getColorMode()) {
       return state.allResults
-        .filter((result) => colorGroupValue(result, mode) === groupValue)
+        .filter((result) => groupValueForResult(result, mode) === groupValue)
         .map((result) => modelName(result));
     }
 
@@ -1324,47 +1318,43 @@
     }
 
     function normalizeHoveredState() {
-      const uniqueNames = Array.from(
+      state.hoveredModelNames = Array.from(
         new Set(
           state.hoveredModelNames
             .map((name) => String(name))
             .filter((name) => resultByModelName(name))
         )
       );
-      if (!uniqueNames.length) {
-        state.hoveredModelNames = [];
-        state.hoveredColorGroupValue = null;
-        state.hoveredColorGroupMode = null;
-        return;
-      }
+    }
 
-      const mode = getColorMode();
+    function hoveredGroupValue(mode) {
+      if (!state.hoveredModelNames.length) {
+        return null;
+      }
       const hoveredGroups = Array.from(
         new Set(
-          uniqueNames
+          state.hoveredModelNames
             .map((name) => {
               const result = resultByModelName(name);
-              return result ? colorGroupValue(result, mode) : null;
+              return result ? groupValueForResult(result, mode) : null;
             })
             .filter((groupValue) => groupValue !== null)
         )
       );
-      state.hoveredModelNames = uniqueNames;
-      state.hoveredColorGroupValue = hoveredGroups.length === 1 ? hoveredGroups[0] : null;
-      state.hoveredColorGroupMode = hoveredGroups.length === 1 ? mode : null;
+      return hoveredGroups.length === 1 ? hoveredGroups[0] : null;
     }
 
-    function isHoveredLegendEntry(groupValue, mode = getColorMode()) {
-      return state.hoveredColorGroupMode === mode && state.hoveredColorGroupValue === groupValue;
+    function isHoveredGroupEntry(groupValue, mode = getColorMode()) {
+      return hoveredGroupValue(mode) === groupValue;
     }
 
     function setHoveredModels(modelNames) {
       const nextNames = Array.from(new Set((modelNames || []).map((name) => String(name)).filter(Boolean)));
       const previousSignature = state.hoveredModelNames.join("\u0001");
-      const nextSignature = nextNames.join("\u0001");
       state.hoveredModelNames = nextNames;
       normalizeHoveredState();
-      if (previousSignature === nextSignature && state.hoveredColorGroupMode === getColorMode()) {
+      const nextSignature = state.hoveredModelNames.join("\u0001");
+      if (previousSignature === nextSignature) {
         return;
       }
       syncHoverDecorations();
@@ -1372,11 +1362,10 @@
     }
 
     function clearHoveredModels() {
-      if (!state.hoveredModelNames.length && state.hoveredColorGroupValue === null) {
+      if (!state.hoveredModelNames.length) {
         return;
       }
       state.hoveredModelNames = [];
-      normalizeHoveredState();
       syncHoverDecorations();
       syncChartHoverState();
     }
@@ -1393,13 +1382,16 @@
       document.querySelectorAll("#color-legend-list .color-legend-item").forEach((item) => {
         item.classList.toggle(
           "hover-linked",
-          isHoveredLegendEntry(String(item.dataset.groupValue || ""), String(item.dataset.colorMode || getColorMode()))
+          isHoveredGroupEntry(String(item.dataset.groupValue || ""), String(item.dataset.groupMode || getColorMode()))
         );
       });
-      document.querySelectorAll("#model-filter-class-list .filter-class-item").forEach((item) => {
+      document.querySelectorAll("#model-selection-group-list .selection-group-item").forEach((item) => {
         item.classList.toggle(
           "hover-linked",
-          isHoveredLegendEntry(String(item.dataset.groupValue || ""), String(item.dataset.colorMode || getColorMode()))
+          isHoveredGroupEntry(
+            String(item.dataset.groupValue || ""),
+            String(item.dataset.groupMode || getModelSelectionMode())
+          )
         );
       });
     }
@@ -1667,34 +1659,17 @@
       return document.getElementById("color-mode-selector").value;
     }
 
+    function getModelSelectionMode() {
+      return document.getElementById("model-selection-mode-selector").value;
+    }
+
     function getSearchTerm() {
       return document.getElementById("model-search").value.trim().toLowerCase();
     }
 
-    function clearModelFilterGroups() {
-      state.modelFilterGroupValues = new Set();
-    }
-
-    function toggleModelFilterGroup(groupValue) {
-      const next = new Set(state.modelFilterGroupValues);
-      if (next.has(groupValue)) {
-        next.delete(groupValue);
-      } else {
-        next.add(groupValue);
-      }
-      state.modelFilterGroupValues = next;
-    }
-
-    function modelMatchesGroupFilters(result, mode = getColorMode()) {
-      return !state.modelFilterGroupValues.size || state.modelFilterGroupValues.has(colorGroupValue(result, mode));
-    }
-
-    function modelMatchesPickerFilters(result, mode = getColorMode()) {
+    function modelMatchesPickerFilters(result) {
       const searchTerm = getSearchTerm();
-      return (
-        (!searchTerm || modelName(result).toLowerCase().includes(searchTerm)) &&
-        modelMatchesGroupFilters(result, mode)
-      );
+      return !searchTerm || modelName(result).toLowerCase().includes(searchTerm);
     }
 
     function getBubbleXMetric() {
@@ -2457,7 +2432,7 @@
               });
               return [
                 `<strong>${name}</strong>`,
-                `Color group: ${result ? colorGroupLabel(result) : name}`,
+                `Color group: ${result ? groupLabelForResult(result) : name}`,
                 `Selected layer: ${layer}`,
                 rows.join("<br>")
               ].join("<br>");
@@ -2759,7 +2734,7 @@
                     Number(param.data.selectedLayer) === Number(axisValue) ? " [selected layer]" : "";
                   const result = resultByModelName(param.seriesName);
                   const colorGroupSuffix =
-                    result && getColorMode() !== "model" ? ` [${colorGroupLabel(result)}]` : "";
+                    result && getColorMode() !== "model" ? ` [${groupLabelForResult(result)}]` : "";
                   return `${param.marker}${param.seriesName}${colorGroupSuffix}: ${formatMetricValue(rawValue)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plottedValue)})` : ""}${selectedSuffix}`;
                 });
               return [`<strong>Layer ${axisValue}</strong>`, ...rows].join("<br>");
@@ -2819,7 +2794,7 @@
     function updateBubbleChartNote(xMetric, yMetric, sizeMetric, selection) {
       const note = document.getElementById("bubble-chart-note");
       const parts = [
-        `color = ${colorModeLabel(getColorMode())}`,
+        `color = ${groupModeLabel(getColorMode())}`,
         `X = ${bubbleAxisLabel(xMetric)}`,
         `Y = ${bubbleAxisLabel(yMetric)}`,
         `bubble size = ${sizeMetric.label}`
@@ -2869,7 +2844,7 @@
         bubbleChart.setOption(
           emptyOption(
             state.allResults.length ? "No models selected" : "No data",
-            state.allResults.length ? "Use the filter list above to choose at least one model" : "No JSON results loaded"
+            state.allResults.length ? "Use the Model selector to choose at least one model" : "No JSON results loaded"
           ),
           true
         );
@@ -2970,7 +2945,7 @@
               );
               return [
                 `<strong>${row.name}</strong>`,
-                `Color group: ${result ? colorGroupLabel(result) : row.name}`,
+                `Color group: ${result ? groupLabelForResult(result) : row.name}`,
                 ...(result ? modelMetadataLines(result) : []),
                 ...uniqueDetailLines
               ].join("<br>");
@@ -3306,50 +3281,70 @@
       setChartHoverTarget(CHART_IDS.lineR2, lineR2.hoverTarget);
     }
 
-    function renderModelFilterGroups() {
-      const mode = getColorMode();
-      const modeNode = document.getElementById("model-filter-mode");
-      const listNode = document.getElementById("model-filter-class-list");
-      const clearButton = document.getElementById("model-filter-clear");
-      const entries = colorLegendEntries(mode);
-      const activeCount = state.modelFilterGroupValues.size;
+    function groupSelectionStats(groupValue, mode = getModelSelectionMode()) {
+      const names = modelNamesForGroup(groupValue, mode);
+      const selectedCount = names.filter((name) => state.selectedModels.has(name)).length;
+      return {
+        names,
+        selectedCount,
+        totalCount: names.length,
+        isAllSelected: names.length > 0 && selectedCount === names.length,
+        isPartiallySelected: selectedCount > 0 && selectedCount < names.length
+      };
+    }
+
+    function toggleModelSelectionGroup(groupValue, mode = getModelSelectionMode()) {
+      const { names, isAllSelected } = groupSelectionStats(groupValue, mode);
+      names.forEach((name) => {
+        if (isAllSelected) {
+          state.selectedModels.delete(name);
+        } else {
+          state.selectedModels.add(name);
+        }
+      });
+    }
+
+    function renderModelSelectionGroups() {
+      const mode = getModelSelectionMode();
+      const modeNode = document.getElementById("model-selection-mode");
+      const listNode = document.getElementById("model-selection-group-list");
+      const entries = groupEntries(mode);
+      const selectedCount = getSelectedResults().length;
 
       modeNode.textContent = entries.length
-        ? `${colorModeLabel(mode)} · ${activeCount ? `${activeCount} active` : "All classes"}`
-        : colorModeLabel(mode);
-      clearButton.disabled = activeCount === 0;
+        ? `${groupModeLabel(mode)} · ${selectedCount}/${state.allResults.length}`
+        : groupModeLabel(mode);
       listNode.innerHTML = "";
 
       if (!entries.length) {
         const empty = document.createElement("div");
         empty.className = "color-legend-empty";
-        empty.textContent = "Load benchmark JSON files to populate class filters.";
+        empty.textContent = "Load benchmark JSON files to populate selection classes.";
         listNode.appendChild(empty);
         return;
       }
 
       entries.forEach((entry) => {
-        const active = state.modelFilterGroupValues.has(entry.groupValue);
+        const selection = groupSelectionStats(entry.groupValue, mode);
         const item = document.createElement("button");
         item.type = "button";
-        item.className = `color-legend-item filter-class-item${active ? " active" : ""}`;
+        item.className = `selection-group-item${selection.isAllSelected ? " active" : ""}${selection.isPartiallySelected ? " partial" : ""}`;
         item.dataset.groupValue = entry.groupValue;
-        item.dataset.colorMode = mode;
-        item.setAttribute("aria-pressed", String(active));
-        item.title = `${entry.label}: ${entry.count} model${entry.count === 1 ? "" : "s"}`;
+        item.dataset.groupMode = mode;
+        item.setAttribute("aria-pressed", String(selection.selectedCount > 0));
+        item.title = `${entry.label}: ${selection.selectedCount}/${selection.totalCount}`;
         item.addEventListener("click", () => {
-          toggleModelFilterGroup(entry.groupValue);
-          renderModelFilterGroups();
-          renderModelPicker();
+          toggleModelSelectionGroup(entry.groupValue, mode);
+          renderAll();
         });
         item.addEventListener("pointerenter", () => {
-          setHoveredModels(modelNamesForColorGroup(entry.groupValue, mode));
+          setHoveredModels(selection.names);
         });
         item.addEventListener("pointerleave", () => {
           clearHoveredModels();
         });
         item.addEventListener("focusin", () => {
-          setHoveredModels(modelNamesForColorGroup(entry.groupValue, mode));
+          setHoveredModels(selection.names);
         });
         item.addEventListener("focusout", (event) => {
           if (!item.contains(event.relatedTarget)) {
@@ -3357,19 +3352,14 @@
           }
         });
 
-        const swatch = document.createElement("span");
-        swatch.className = "color-legend-swatch";
-        swatch.style.background = entry.color;
-
         const label = document.createElement("span");
         label.className = "color-legend-label";
         label.textContent = entry.label;
 
         const count = document.createElement("span");
         count.className = "color-legend-count";
-        count.textContent = `${entry.count} model${entry.count === 1 ? "" : "s"}`;
+        count.textContent = `${selection.selectedCount}/${selection.totalCount}`;
 
-        item.appendChild(swatch);
         item.appendChild(label);
         item.appendChild(count);
         listNode.appendChild(item);
@@ -3379,14 +3369,15 @@
 
     function renderModelPicker() {
       const picker = document.getElementById("model-picker");
-      const mode = getColorMode();
+      const colorMode = getColorMode();
+      const selectionMode = getModelSelectionMode();
       let visibleCount = 0;
       picker.innerHTML = "";
 
       state.allResults.forEach((result) => {
         const name = modelName(result);
         const selected = state.selectedModels.has(name);
-        const visible = modelMatchesPickerFilters(result, mode);
+        const visible = modelMatchesPickerFilters(result);
         if (visible) {
           visibleCount += 1;
         }
@@ -3394,9 +3385,12 @@
         label.className = `model-chip${selected ? " selected" : ""}${visible ? "" : " hidden"}`;
         label.dataset.model = name;
         label.title = [
-          `Color group: ${colorGroupLabel(result)}`,
+          `Color group (${groupModeLabel(colorMode)}): ${groupLabelForResult(result, colorMode)}`,
+          colorMode === selectionMode
+            ? null
+            : `Selection group (${groupModeLabel(selectionMode)}): ${groupLabelForResult(result, selectionMode)}`,
           ...modelMetadataLines(result),
-        ].join(" | ");
+        ].filter(Boolean).join(" | ");
         label.addEventListener("pointerenter", () => {
           setHoveredModels([name]);
         });
@@ -3441,7 +3435,7 @@
         const empty = document.createElement("div");
         empty.className = "color-legend-empty";
         empty.textContent = state.allResults.length
-          ? "No models match the current name / class filters."
+          ? "No models match the current search."
           : "Load benchmark JSON files to populate the model selector.";
         picker.appendChild(empty);
       }
@@ -3452,11 +3446,11 @@
       const mode = getColorMode();
       const modeNode = document.getElementById("color-legend-mode");
       const listNode = document.getElementById("color-legend-list");
-      const entries = colorLegendEntries(mode);
+      const entries = groupEntries(mode);
 
       modeNode.textContent = entries.length
-        ? `${colorModeLabel(mode)} · ${entries.length} ${entries.length === 1 ? "group" : "groups"}`
-        : colorModeLabel(mode);
+        ? `${groupModeLabel(mode)} · ${entries.length} ${entries.length === 1 ? "group" : "groups"}`
+        : groupModeLabel(mode);
       listNode.innerHTML = "";
 
       if (!entries.length) {
@@ -3471,10 +3465,10 @@
         const item = document.createElement("div");
         item.className = "color-legend-item";
         item.dataset.groupValue = entry.groupValue;
-        item.dataset.colorMode = mode;
+        item.dataset.groupMode = mode;
         item.title = `${entry.label}${mode === "model" ? "" : `: ${entry.count} model${entry.count === 1 ? "" : "s"}`}`;
         item.addEventListener("pointerenter", () => {
-          setHoveredModels(modelNamesForColorGroup(entry.groupValue, mode));
+          setHoveredModels(modelNamesForGroup(entry.groupValue, mode));
         });
         item.addEventListener("pointerleave", () => {
           clearHoveredModels();
@@ -3508,7 +3502,7 @@
       const results = getSelectedResults();
       normalizeHoveredState();
       renderColorLegend();
-      renderModelFilterGroups();
+      renderModelSelectionGroups();
       renderModelPicker();
       updateSummaries();
       const bubbleSummary = buildBubbleChart(results);
@@ -3525,7 +3519,7 @@
           "warning"
         );
       } else if (!results.length) {
-        setStatus("No models selected. Use the filter list above to choose at least one model.", "warning");
+        setStatus("No models selected. Use the Model selector to choose at least one model.", "warning");
       } else if (warnings.length) {
         setStatus(
           `Loaded ${state.allResults.length} JSON files via ${state.discoverySource}. ${warnings.join(" | ")}`,
@@ -3537,8 +3531,13 @@
     }
 
     function handleColorModeChange() {
-      clearModelFilterGroups();
       renderAll();
+    }
+
+    function handleModelSelectionModeChange() {
+      renderModelSelectionGroups();
+      renderModelPicker();
+      syncHoverDecorations();
     }
 
     function discoverFilesFromListText(listText) {
@@ -3688,16 +3687,12 @@
     function bindControls() {
       document.getElementById("best-layer-selector").addEventListener("change", renderAll);
       document.getElementById("color-mode-selector").addEventListener("change", handleColorModeChange);
+      document.getElementById("model-selection-mode-selector").addEventListener("change", handleModelSelectionModeChange);
       document.getElementById("bubble-x-selector").addEventListener("change", renderAll);
       document.getElementById("bubble-y-selector").addEventListener("change", renderAll);
       document.getElementById("bubble-size-selector").addEventListener("change", renderAll);
       document.getElementById("bubble-parameter-scope-selector").addEventListener("change", renderAll);
       document.getElementById("model-search").addEventListener("input", renderModelPicker);
-      document.getElementById("model-filter-clear").addEventListener("click", () => {
-        clearModelFilterGroups();
-        renderModelFilterGroups();
-        renderModelPicker();
-      });
       document.getElementById("sidebar-open-button").addEventListener("click", () => {
         setSidebarVisible(true);
       });

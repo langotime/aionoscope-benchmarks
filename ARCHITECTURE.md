@@ -202,7 +202,7 @@ explicitly in the top-level docs instead of being treated as an implicit fallbac
 
 ### Visualization
 
-`results/dashboard.html` is a static browser dashboard that reads `results/models/*.json` and visualizes the stored metrics. It must stay compatible with the JSON schema produced by `results.py`, including the explicit runtime encoder-forward totals, the total adapter parameter counts, the cumulative through-layer parameter metadata used by the bubble chart controls, and the canonical model taxonomy fields used by the shared color-palette selector across model chips, bubble charts, radar panels, and layer curves.
+`results/dashboard.html` is a static browser dashboard that reads `results/models/*.json` and visualizes the stored metrics. It must stay compatible with the JSON schema produced by `results.py`, including the explicit runtime encoder-forward totals, the total adapter parameter counts, the cumulative through-layer parameter metadata used by the bubble chart controls, and the canonical model taxonomy fields used both by the shared color-palette selector and by the independent model-selection grouping controls.
 
 ## Architectural Invariants
 
