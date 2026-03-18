@@ -11,6 +11,9 @@ def test_dashboard_tries_list_manifest_before_directory_listing_without_builtin_
 
     assert 'const MODELS_LIST_PATH = "/models/list.txt";' in html
     assert 'id="color-mode-selector"' in html
+    assert 'id="color-legend"' in html
+    assert 'id="color-legend-list"' in html
+    assert "Palette legend" in html
     assert '<option value="family">By model family</option>' in html
     assert '<option value="architecture_backbone">By architecture type</option>' in html
     assert '<option value="training">By training paradigm</option>' in html
@@ -32,6 +35,8 @@ def test_dashboard_bubble_warning_reports_model_specific_missing_fields() -> Non
     assert "function summarizeBubbleMissingDetails(skippedDetails)" in html
     assert "function normalizeLoadedResult(payload)" in html
     assert "function bubbleSelectionContext()" in html
+    assert "function colorLegendEntries(mode = getColorMode())" in html
+    assert "function renderColorLegend()" in html
     assert "function colorGroupLabel(result, mode = getColorMode())" in html
     assert "color = ${colorModeLabel(getColorMode())}" in html
     assert "parameter scope = through the furthest plotted best layer" in html
