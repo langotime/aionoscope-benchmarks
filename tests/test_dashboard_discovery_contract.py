@@ -17,6 +17,14 @@ def test_dashboard_tries_list_manifest_before_directory_listing_without_builtin_
     assert "Could not discover model JSON files via ${MODELS_LIST_PATH} or directory listing" in html
 
 
+def test_dashboard_bubble_warning_reports_model_specific_missing_fields() -> None:
+    html = DASHBOARD_PATH.read_text(encoding="utf-8")
+
+    assert "function summarizeBubbleMissingDetails(skippedDetails)" in html
+    assert 'Bubble chart skipped ${skippedCount} selected model${skippedCount === 1 ? "" : "s"}: ${detailsText}.' in html
+    assert "Selected models are missing required fields: ${detailsText}." in html
+
+
 def test_documentation_does_not_keep_cloudflare_pages_setup_notes() -> None:
     documentation = DOCUMENTATION_PATH.read_text(encoding="utf-8")
 

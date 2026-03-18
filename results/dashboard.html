@@ -2062,6 +2062,18 @@
       note.textContent = `X = ${bubbleAxisLabel(xMetric)}, Y = ${bubbleAxisLabel(yMetric)}, bubble size = ${sizeMetric.label}`;
     }
 
+    function summarizeBubbleMissingDetails(skippedDetails) {
+      if (!skippedDetails.length) {
+        return "";
+      }
+      const maxItems = 6;
+      const preview = skippedDetails
+        .slice(0, maxItems)
+        .map((detail) => `${detail.name} (${detail.missingHints.join(", ")})`);
+      const remainder = skippedDetails.length - preview.length;
+      return `${preview.join("; ")}${remainder > 0 ? `; +${remainder} more` : ""}`;
+    }
+
     function buildBubbleChart(results) {
       const bubbleChart = state.charts[CHART_IDS.bubbleOverview];
       const xMetric = bubbleMetricConfig(getBubbleXMetric());
@@ -2083,6 +2095,7 @@
         new Set([xMetric.missingHint, yMetric.missingHint, sizeMetric.missingHint].filter(Boolean))
       );
       let skippedCount = 0;
+      const skippedDetails = [];
       const bubbleRows = results
         .map((result) => {
           const xSummary = xMetric.summary(result);
@@ -2097,6 +2110,20 @@
             !Number.isFinite(sizeValue)
           ) {
             skippedCount += 1;
+            const resultMissingHints = [];
+            if (!Number.isFinite(xValue) && xMetric.missingHint) {
+              resultMissingHints.push(xMetric.missingHint);
+            }
+            if (!Number.isFinite(yValue) && yMetric.missingHint) {
+              resultMissingHints.push(yMetric.missingHint);
+            }
+            if (!Number.isFinite(sizeValue) && sizeMetric.missingHint) {
+              resultMissingHints.push(sizeMetric.missingHint);
+            }
+            skippedDetails.push({
+              name: modelName(result),
+              missingHints: Array.from(new Set(resultMissingHints))
+            });
             return null;
           }
           return {
@@ -2112,7 +2139,10 @@
         .filter(Boolean);
 
       if (!bubbleRows.length) {
-        const missingMessage = `Selected models are missing one or more of: ${missingHints.join(", ")}.`;
+        const detailsText = summarizeBubbleMissingDetails(skippedDetails);
+        const missingMessage = detailsText
+          ? `Selected models are missing required fields: ${detailsText}.`
+          : `Selected models are missing one or more of: ${missingHints.join(", ")}.`;
         bubbleChart.setOption(
           emptyOption(
             "No comparable models",
@@ -2240,7 +2270,13 @@
       return {
         warning:
           skippedCount > 0
-            ? `Bubble chart skipped ${skippedCount} selected model${skippedCount === 1 ? "" : "s"} missing one or more of: ${missingHints.join(", ")}.`
+            ? (() => {
+                const detailsText = summarizeBubbleMissingDetails(skippedDetails);
+                if (detailsText) {
+                  return `Bubble chart skipped ${skippedCount} selected model${skippedCount === 1 ? "" : "s"}: ${detailsText}.`;
+                }
+                return `Bubble chart skipped ${skippedCount} selected model${skippedCount === 1 ? "" : "s"} missing one or more of: ${missingHints.join(", ")}.`;
+              })()
             : ""
       };
     }

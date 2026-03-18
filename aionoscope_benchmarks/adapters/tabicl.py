@@ -39,8 +39,35 @@ class TabICLAdapter(FrozenTimeSeriesAdapter):
     def available_layers(self) -> tuple[int, ...]:
         return (0,)
 
+    def _backbone_model(self):
+        if not self._classifiers:
+            return None
+        classifier = self._classifiers[0]
+        return getattr(classifier, "model_", None)
+
+    def parameter_count(self) -> int | None:
+        model = self._backbone_model()
+        if model is None or not hasattr(model, "parameters"):
+            return None
+        total = sum(int(parameter.numel()) for parameter in model.parameters())
+        return int(total) if total > 0 else None
+
+    def trainable_parameter_count(self) -> int | None:
+        model = self._backbone_model()
+        if model is None or not hasattr(model, "parameters"):
+            return None
+        trainable = sum(
+            int(parameter.numel()) for parameter in model.parameters() if bool(parameter.requires_grad)
+        )
+        return int(trainable)
+
     def adapter_metadata(self) -> dict[str, object]:
         payload = super().adapter_metadata()
+        if payload["parameter_count"] is not None:
+            payload["parameter_count_source"] = "official_tabicl_classifier_model"
+            payload["parameter_count_reference"] = (
+                "single official TabICL backbone; not multiplied by one-vs-rest labels or estimator replicas"
+            )
         payload["representation_kind"] = "one-vs-rest positive-class probabilities"
         payload["feature_length"] = int(self.reduced_feature_length)
         payload["fit_samples_per_label_cap"] = int(self.max_fit_samples_per_label)
