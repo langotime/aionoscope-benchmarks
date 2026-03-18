@@ -81,6 +81,8 @@ Do not treat this repo as the source tree of the generator library itself.
 
 - Every model integration must go through a `FrozenTimeSeriesAdapter`.
 - Keep model-specific hacks, external repo shims, and environment-specific logic inside the adapter layer or the model registry, not spread through the benchmark pipeline.
+- Canonical benchmark model names must include the exact official version and size whenever a family publishes multiple checkpoints or generations. Prefer names such as `TimesFM-2.5-200M` or `Moirai-1.1-R-Small`; do not introduce ambiguous family-only names such as `Moirai`.
+- Use the official upstream repository and the official Hugging Face checkpoint whenever one exists. If the only official published checkpoint is hosted directly in the upstream repo instead of Hugging Face, treat that as an explicit documented exception and record it in `README.md`, `DOCUMENTATION.md`, and `benchmark_models_list.md`.
 - Adapters must not use labels to build representations or introduce label-aware preprocessing shortcuts.
 - If an adapter changes the train or validation split for technical reasons, it must do so deterministically and describe the behavior in `adapter_metadata()`.
 - Adapter metadata must be honest and useful for interpreting benchmark outputs.

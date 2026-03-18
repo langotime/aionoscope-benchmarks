@@ -1,5 +1,6 @@
 models:
   - MantisV2
+  - Mantis-UTICA-8M
   - TabPFN
   - TabICL
   - MOMENT
@@ -7,10 +8,28 @@ models:
   - Chronos2
   - LeNEPA-Aiono
   - LeNEPA-CauKer2M
+  - LeNEPA-CauKer2M-20k
   - TTM
   - Time-MoE-Base
   - Time-MoE-Large
-  - Moirai
+  - Timer-Base-84M
+  - Sundial-Base-128M
+  - TimesFM-2.5-200M
+  - Moirai-1.0-R-Small
+  - Moirai-1.0-R-Base
+  - Moirai-1.0-R-Large
+  - Moirai-1.1-R-Small
+  - Moirai-1.1-R-Base
+  - Moirai-1.1-R-Large
+  - Moirai-2.0-R-Small
+  - Moirai-MoE-1.0-R-Small
+  - Moirai-MoE-1.0-R-Base
+  - Kairos-10M
+  - Kairos-23M
+  - Kairos-50M
+  - Reverso-Small-550K
+  - UniShape-ZeroShot
+  - UniShape-FineTune
   - Toto
   - TiViT-H
   - TiConvNext

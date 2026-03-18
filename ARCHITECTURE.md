@@ -101,7 +101,7 @@ The browser dashboard is a consumer of this JSON schema, not an independent sour
 
 ### Multi-environment execution is intentional
 
-The foundational model stack spans incompatible dependency sets. The repo therefore supports multiple pinned virtual environments such as `.venv`, `.venv-tabular`, `.venv-timemoe`, and `.venv-tivit`. `scripts/run_foundational_sequential.py` dispatches each model into the interpreter mapped from its registry entry. This is part of the architecture, not a temporary workaround.
+The foundational model stack spans incompatible dependency sets. The repo therefore supports multiple pinned virtual environments such as `.venv`, `.venv-tabular`, `.venv-timemoe`, `.venv-moirai`, `.venv-mantis2`, and `.venv-tivit`. `scripts/run_foundational_sequential.py` dispatches each model into the interpreter mapped from its registry entry. This is part of the architecture, not a temporary workaround.
 
 ## Execution Model
 
@@ -131,6 +131,14 @@ The foundational model stack spans incompatible dependency sets. The repo theref
 ### Model registry and adapters
 
 `aionoscope_benchmarks/model_registry.py` maps canonical model names to source metadata, environment names, and adapter classes. Adapters implement the stable representation-extraction interface.
+Canonical model names are versioned and size-qualified whenever the upstream family
+publishes multiple official checkpoints. The registry therefore prefers entries such as
+`TimesFM-2.5-200M`, `Moirai-1.1-R-Small`, or `Mantis-UTICA-8M` over ambiguous family-only
+labels.
+Registry entries are expected to point at the official upstream repository and, when one
+exists, the official Hugging Face checkpoint. If the only official published checkpoint
+is shipped directly inside the upstream repo, that exception must be documented
+explicitly in the top-level docs instead of being treated as an implicit fallback.
 
 ### Offline probe engine
 

@@ -11,6 +11,11 @@ Current scope:
 - one JSON result per model
 - interactive browser dashboard from those JSON results
 
+Canonical benchmark model names now include explicit version and size whenever an
+upstream family publishes multiple official checkpoints. The registry and model docs
+also point to the official upstream repo and, when available, the official Hugging
+Face checkpoint rather than an unofficial mirror or alias.
+
 Additional docs:
 
 - `ARCHITECTURE.md` for the stable benchmark design and execution model
@@ -63,16 +68,18 @@ padding, or waveform-resampling the benchmark data.
 
 Current exact lengths:
 
+- `16384`: `TimesFM-2.5-200M`
 - `8192`: `Chronos2`
 - `5000`: `LeNEPA-Aiono`, `LeNEPA-CauKer2M`, `LeNEPA-CauKer2M-20k`, `TiViT-H`, `TiConvNext`, `T-Loss`
 - `4096`: `Toto`, `Time-MoE-Base`, `Time-MoE-Large`
-- `2048`: `TiRex`
-- `512`: `MantisV2`, `MOMENT`, `TTM`, `Moirai`
+- `2880`: `Timer-Base-84M`, `Sundial-Base-128M`
+- `2048`: `TiRex`, `Kairos-10M`, `Kairos-23M`, `Kairos-50M`, `Reverso-Small-550K`
+- `512`: `MantisV2`, `Mantis-UTICA-8M`, `MOMENT`, `TTM`, `Moirai-1.0-R-Small`, `Moirai-1.0-R-Base`, `Moirai-1.0-R-Large`, `Moirai-1.1-R-Small`, `Moirai-1.1-R-Base`, `Moirai-1.1-R-Large`, `Moirai-2.0-R-Small`, `Moirai-MoE-1.0-R-Small`, `Moirai-MoE-1.0-R-Base`, `UniShape-ZeroShot`, `UniShape-FineTune`
 - `176`: `NuTime`
 - `128`: `TabPFN`, `TabICL`
 
 That means signal duration is now model-dependent. At `500 Hz`, durations range from
-`0.256` seconds for the tabular fallbacks up to `16.384` seconds for `Chronos2`.
+`0.256` seconds for the tabular fallbacks up to `32.766` seconds for `TimesFM-2.5-200M`.
 
 ### What gets mixed into each signal
 
@@ -185,9 +192,11 @@ For the full foundational sweep used in the current results, use
 `scripts/run_foundational_sequential.py`. It dispatches each model into the
 environment pinned for that model family, which is necessary because the
 foundational stack spans incompatible dependency sets.
-`Time-MoE-Base` and `Time-MoE-Large` use the dedicated `.venv-timemoe`
-interpreter because the official remote-code checkpoints require
-`transformers==4.40.1`.
+`Time-MoE-Base`, `Time-MoE-Large`, `Timer-Base-84M`, and `Sundial-Base-128M`
+use the dedicated `.venv-timemoe` interpreter because those official remote-code
+checkpoints require the published `transformers==4.40.1` stack.
+The explicit `Moirai-*` family uses `.venv-moirai`, and `MantisV2` plus
+`Mantis-UTICA-8M` use `.venv-mantis2`.
 
 ## Foundational Benchmark Snapshot (2026-03-13)
 
@@ -214,9 +223,17 @@ reserve layer `0` for the embedding stream, so the checked-in best-layer ids are
 indices rather than current ones.
 
 The foundational registry now also includes `LeNEPA-Aiono`, `LeNEPA-CauKer2M`,
-`LeNEPA-CauKer2M-20k`, `Time-MoE-Base`, and `Time-MoE-Large`. Those entries were
-added after this checked-in snapshot, so they do not yet have checked-in JSON
-artifacts or rows in the table below.
+`LeNEPA-CauKer2M-20k`, `Time-MoE-Base`, `Time-MoE-Large`, `Timer-Base-84M`,
+`Sundial-Base-128M`, `TimesFM-2.5-200M`, the explicit `Moirai-*` / `Moirai-MoE-*`
+variants, `Kairos-*`, `Reverso-Small-550K`, `UniShape-*`, and `Mantis-UTICA-8M`.
+Those entries now live as separate per-model JSON artifacts under `results/models/`,
+but the table below remains the original `2026-03-13` single-seed snapshot and was not
+regenerated for the expanded registry. For univariate zero-shot forecasting, the
+official Timer workflow uses `thuml/timer-base-84m` as the published `Timer-XL`
+checkpoint, so the benchmark keeps the exact published checkpoint name
+`Timer-Base-84M`. The old standalone `results/models/Moirai.json` artifact has been
+retired; current Moirai results live only under the explicit versioned `Moirai-*` and
+`Moirai-MoE-*` names.
 Embedding-aware adapters now reserve layer `0` for the embedding stream. For both
 LeNEPA adapters, benchmark layers run from `0..8`: layer `0` is the tokenizer
 / embedding output, layers `1..7` are intermediate transformer-block outputs, and layer
@@ -253,7 +270,7 @@ Benchmark gotchas:
 *   The dense regression panels are labeled `Regression By Component Type` and `Regression By Parameter Type`, and they use absolute `R2` and Pearson, not `MSE`. `MSE` varied too much across target types to be useful on a shared dashboard scale.
 *   Negative `R2` values are clipped to `0` in the dashboard charts only so the useful range stays readable. Tooltips still expose the raw `R2` median and its standard deviation, and the JSON files keep the raw values.
 *   `TabPFN` and `TabICL` are not natural frozen layerwise encoders. In this benchmark they use fallback adapters that expose a synthetic single `layer 0`, run on exact `128`-sample waveforms as tabular features, train one-vs-rest classifiers, and cap both probe train and probe val subsets at `2048` samples.
-*   `TabPFN` could not use the gated `v2.5` checkpoint in an unattended run, so the benchmark falls back to the public `v2` model.
+*   `TabPFN` now points at the official `Prior-Labs/tabpfn_2_5` checkpoint; benchmark older than that switch should be treated as legacy.
 *   Model-native exact lengths can materially increase RAM usage because the benchmark still materializes finite train/validation tensors in memory. `Chronos2` is the most extreme case because its exact context length is `8192`.
 *   `TTM` peaks at different layers for different selectors, notably AUROC vs AUPRC (`13` vs `12`).
 *   The TiViT image-backbone wrappers are the slowest and heaviest foundational runs on the full balanced online-generated split, especially `TiConvNext`.

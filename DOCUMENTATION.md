@@ -34,8 +34,18 @@ forecast-derived tabular adapters:
 uv pip install --python .venv-tabular/bin/python 'tabpfn-time-series' 'tabicl[forecast]'
 ```
 
-Time-MoE uses the official remote-code checkpoints and the upstream repo's
-published `transformers` pin. Install that in the dedicated Time-MoE env:
+The base `core` environment now also hosts the official `TimesFM`, `Kairos`,
+`Reverso`, and `UniShape` integrations. `Kairos` follows the upstream repo's
+published newer `transformers` stack, and `UniShape` needs `fastai` for the
+official model code:
+
+```bash
+uv pip install --python .venv/bin/python 'transformers>=4.56,<4.57' 'jaxtyping>=0.3,<0.4' 'fastai<3'
+```
+
+Time-MoE, Timer, and Sundial use the official remote-code checkpoints and the
+upstream THUML / Time-MoE published `transformers` pin. Install that in the
+dedicated `.venv-timemoe` env:
 
 ```bash
 uv pip install --python .venv-timemoe/bin/python 'transformers==4.40.1'
@@ -167,6 +177,15 @@ square `duty_cycle`.
 ### Foundational model list
 
 `configs/models_foundational.yaml` is the human-facing sweep list. The code-level source of truth for metadata and adapters is `aionoscope_benchmarks/model_registry.py`.
+Canonical benchmark names must include the exact official version and size whenever a
+family publishes multiple checkpoints. The sweep therefore uses names such as
+`TimesFM-2.5-200M`, `Moirai-1.1-R-Small`, `Moirai-MoE-1.0-R-Base`, and
+`Mantis-UTICA-8M` instead of ambiguous family-only labels.
+Registry entries are expected to point at the official upstream repo and, when one
+exists, the official Hugging Face checkpoint. `UniShape` is the current explicit
+documented exception: the official repo ships the published checkpoints directly under
+`pretrained_model_ckpt/`, and no official Hugging Face checkpoint is used for that
+integration.
 
 The two LeNEPA entries (`LeNEPA-Aiono` and `LeNEPA-CauKer2M`) run in the base `core`
 environment. On first use, their adapters download the published `inference.py`,
@@ -184,20 +203,64 @@ exact benchmark length to the checkpoint `max_position_embeddings=4096`, apply t
 official per-series z-score normalization to the exact benchmark waveform, and
 mean-pool the causal token stream across time. Their final benchmark layer is the
 post-final-norm decoder output.
+`Timer-Base-84M` and `Sundial-Base-128M` run at the official `2880`-sample quickstart
+lookback length and expose their remote-code decoder hidden states through the same
+layer-0-plus-block-output convention. For univariate zero-shot forecasting, the
+official Timer repo uses `thuml/timer-base-84m` as the published `Timer-XL`
+checkpoint, so the benchmark keeps the exact published checkpoint name
+`Timer-Base-84M` rather than introducing a second alias entry.
+`TimesFM-2.5-200M` uses the official Google PyTorch checkpoint, keeps the exact context
+length at `16384`, applies the upstream running-stat ReVIN prefill normalization used by
+TimesFM decode, and mean-pools patch tokens across the tokenizer stream plus each
+stacked transformer block.
+The explicit `Moirai-*` and `Moirai-MoE-*` entries all pin exact context length to the
+checkpoint `max_seq_len` and use the official `uni2ts` forecast helper packing path
+before mean-pooling observed non-prediction tokens. The benchmark no longer keeps a
+separate legacy `results/models/Moirai.json` artifact; current Moirai results live only
+under the explicit versioned `Moirai-*` and `Moirai-MoE-*` names.
+`Kairos-10M`, `Kairos-23M`, and `Kairos-50M` use the official Kairos repo code against
+the official `mldi-lab/*` checkpoints, pin exact context length to `2048`, and expose
+encoder hidden states after the official adaptive patching pipeline.
+`Reverso-Small-550K` uses the official `shinfxh/reverso` Hugging Face repo together
+with the official pure-PyTorch `reverso_torch` implementation from the upstream repo.
+`UniShape-ZeroShot` and `UniShape-FineTune` use the official repo-hosted checkpoints and
+the official multiscale tokenization code at the repository-published resized length of
+`512`.
+`Mantis-UTICA-8M` reuses the official `mantis-tsfm` `Mantis8M` backbone with the
+official `fegounna/Utica` weights and uses the official README resize target of `512`.
 
 The current exact benchmark lengths are:
 
+- `TimesFM-2.5-200M`: `16384`
 - `Chronos2`: `8192`
 - `LeNEPA-Aiono`: `5000`
 - `LeNEPA-CauKer2M`: `5000`
+- `LeNEPA-CauKer2M-20k`: `5000`
 - `MantisV2`: `512`
-- `Moirai`: `512`
+- `Mantis-UTICA-8M`: `512`
+- `Moirai-1.0-R-Small`: `512`
+- `Moirai-1.0-R-Base`: `512`
+- `Moirai-1.0-R-Large`: `512`
+- `Moirai-1.1-R-Small`: `512`
+- `Moirai-1.1-R-Base`: `512`
+- `Moirai-1.1-R-Large`: `512`
+- `Moirai-2.0-R-Small`: `512`
+- `Moirai-MoE-1.0-R-Small`: `512`
+- `Moirai-MoE-1.0-R-Base`: `512`
 - `MOMENT`: `512`
 - `NuTime`: `176`
 - `T-Loss`: `5000`
+- `Timer-Base-84M`: `2880`
+- `Sundial-Base-128M`: `2880`
 - `Time-MoE-Base`: `4096`
 - `Time-MoE-Large`: `4096`
 - `TTM`: `512`
+- `Kairos-10M`: `2048`
+- `Kairos-23M`: `2048`
+- `Kairos-50M`: `2048`
+- `Reverso-Small-550K`: `2048`
+- `UniShape-ZeroShot`: `512`
+- `UniShape-FineTune`: `512`
 - `TabICL`: `128`
 - `TabPFN`: `128`
 - `TiConvNext`: `5000`

@@ -2,12 +2,27 @@
 
 ## Foundational Methods With Official Pretrained Weights
 
+Naming policy for this file and the code registry:
+
+- when a family has multiple official releases, benchmark entries use the exact official version and size in the canonical name, such as `TimesFM-2.5-200M` or `Moirai-1.1-R-Small`;
+- prefer the official upstream repo plus the official Hugging Face checkpoint when one exists;
+- if the only official published checkpoint is shipped directly in the repo, document that explicitly as a repo-hosted exception instead of treating it as an implicit fallback.
+
+Under that policy, the benchmark currently does **not** include `Timer-S1`, `Reverso` (2.6M), or `Reverso-Nano`, because an official benchmarkable Hugging Face checkpoint was not identified for those exact variants. For univariate zero-shot forecasting, the official Timer repo uses the published `thuml/timer-base-84m` checkpoint as the `Timer-XL` checkpoint, so the benchmark keeps the exact published checkpoint name `Timer-Base-84M` instead of adding a second `Timer-XL` alias entry. The currently benchmarked official entries are the ones listed below.
+
 - `MantisV2`
   - Source code: `https://github.com/vfeofanov/mantis`
   - Official checkpoint: `https://huggingface.co/paris-noah/MantisV2`
   - Import from: `mantis-tsfm` package; the PyPI docs map `MantisV2` to the `mantis.architecture` module and the `paris-noah/MantisV2` checkpoint.
   - Benchmark exact length: `512` samples. The official package says Mantis accepts any sequence length divisible by `32`, and recommends `512` because the pretrained model was trained at that length.
   - Paper note: this file keeps only the bare non-ensembled, non-fine-tuned `MantisV2` model.
+
+- `Mantis-UTICA-8M`
+  - Source code: `https://github.com/fegounna/Utica`
+  - Official checkpoint: `https://huggingface.co/fegounna/Utica`
+  - Import from: `mantis-tsfm`; the official UTICA README reuses `mantis.architecture.Mantis8M`, downloads `pytorch_model.bin` from `fegounna/Utica`, and loads it with `strict=False`.
+  - Benchmark exact length: `512` samples, matching the official UTICA README resize target.
+  - Note: this is a different training of the legacy Mantis-8M backbone, not an alias of `MantisV2`.
 
 - `TabPFN`
   - Source code: `https://github.com/PriorLabs/TabPFN`
@@ -83,12 +98,119 @@
   - Benchmark exact length: `4096` samples, matching the checkpoint `max_position_embeddings`.
   - Note: this is the official `200M` checkpoint. The benchmark applies the upstream per-series z-score normalization, then mean-pools the decoder token stream. Layer `0` is the input embedding stream and layer `12` is the post-final-norm decoder output.
 
-- `Moirai`
+- `Timer-Base-84M`
+  - Source code: `https://github.com/thuml/Timer`
+  - Official checkpoint: `https://huggingface.co/thuml/timer-base-84m`
+  - Import from: `transformers`; use `AutoModelForCausalLM.from_pretrained(..., trust_remote_code=True)`. The official model card pins `transformers==4.40.1`.
+  - Benchmark exact length: `2880` samples, matching the official Timer model-card context length.
+  - Note: this is the official published checkpoint used by the upstream `Timer-XL` univariate zero-shot forecasting flow. The benchmark keeps the published checkpoint name instead of adding a second `Timer-XL` alias row.
+
+- `Sundial-Base-128M`
+  - Source code: `https://github.com/thuml/Sundial`
+  - Official checkpoint: `https://huggingface.co/thuml/sundial-base-128m`
+  - Import from: `transformers`; use `AutoModelForCausalLM.from_pretrained(..., trust_remote_code=True)`.
+  - Benchmark exact length: `2880` samples, matching the official Sundial quickstart lookback length.
+  - Note: this is the currently published official HF Sundial checkpoint.
+
+- `TimesFM-2.5-200M`
+  - Source code: `https://github.com/google-research/timesfm`
+  - Official checkpoint: `https://huggingface.co/google/timesfm-2.5-200m-pytorch`
+  - Import from: the official TimesFM repo; use `TimesFM_2p5_200M_torch.from_pretrained(...)`.
+  - Benchmark exact length: `16384` samples, matching the official TimesFM 2.5 context limit.
+  - Note: the benchmark intentionally names the exact published generation and size because the TimesFM family has multiple official versions (`1.0`, `2.0`, `2.5`).
+
+- `Moirai-1.0-R-Small`
   - Source code: `https://github.com/SalesforceAIResearch/uni2ts`
-  - Official checkpoint: the official checkpoints are hosted on Hugging Face under the Salesforce `Moirai` family, including `https://huggingface.co/Salesforce/moirai-1.1-R-small`, `https://huggingface.co/Salesforce/moirai-1.1-R-base`, `https://huggingface.co/Salesforce/moirai-1.1-R-large`, and the newer `https://huggingface.co/Salesforce/moirai-2.0-R-small`.
-  - Import from: `uni2ts`; the official examples use `from uni2ts.model.moirai import MoiraiForecast, MoiraiModule`.
-  - Benchmark exact length: `512` samples, matching `max_seq_len` for the checked-in checkpoint.
-  - Note: treat this as a forecasting foundation-model family with multiple official checkpoint variants rather than a single fixed checkpoint id.
+  - Official checkpoint: `https://huggingface.co/Salesforce/moirai-1.0-R-small`
+  - Import from: `uni2ts`; use the official `MoiraiModule` / `MoiraiForecast` API.
+  - Benchmark exact length: `512` samples, matching `max_seq_len`.
+
+- `Moirai-1.0-R-Base`
+  - Source code: `https://github.com/SalesforceAIResearch/uni2ts`
+  - Official checkpoint: `https://huggingface.co/Salesforce/moirai-1.0-R-base`
+  - Import from: `uni2ts`; use the official `MoiraiModule` / `MoiraiForecast` API.
+  - Benchmark exact length: `512` samples, matching `max_seq_len`.
+
+- `Moirai-1.0-R-Large`
+  - Source code: `https://github.com/SalesforceAIResearch/uni2ts`
+  - Official checkpoint: `https://huggingface.co/Salesforce/moirai-1.0-R-large`
+  - Import from: `uni2ts`; use the official `MoiraiModule` / `MoiraiForecast` API.
+  - Benchmark exact length: `512` samples, matching `max_seq_len`.
+
+- `Moirai-1.1-R-Small`
+  - Source code: `https://github.com/SalesforceAIResearch/uni2ts`
+  - Official checkpoint: `https://huggingface.co/Salesforce/moirai-1.1-R-small`
+  - Import from: `uni2ts`; use the official `MoiraiModule` / `MoiraiForecast` API.
+  - Benchmark exact length: `512` samples, matching `max_seq_len`.
+
+- `Moirai-1.1-R-Base`
+  - Source code: `https://github.com/SalesforceAIResearch/uni2ts`
+  - Official checkpoint: `https://huggingface.co/Salesforce/moirai-1.1-R-base`
+  - Import from: `uni2ts`; use the official `MoiraiModule` / `MoiraiForecast` API.
+  - Benchmark exact length: `512` samples, matching `max_seq_len`.
+
+- `Moirai-1.1-R-Large`
+  - Source code: `https://github.com/SalesforceAIResearch/uni2ts`
+  - Official checkpoint: `https://huggingface.co/Salesforce/moirai-1.1-R-large`
+  - Import from: `uni2ts`; use the official `MoiraiModule` / `MoiraiForecast` API.
+  - Benchmark exact length: `512` samples, matching `max_seq_len`.
+
+- `Moirai-2.0-R-Small`
+  - Source code: `https://github.com/SalesforceAIResearch/uni2ts`
+  - Official checkpoint: `https://huggingface.co/Salesforce/moirai-2.0-R-small`
+  - Import from: `uni2ts`; use the official `Moirai2Module` / `Moirai2Forecast` API.
+  - Benchmark exact length: `512` samples, matching `max_seq_len`.
+
+- `Moirai-MoE-1.0-R-Small`
+  - Source code: `https://github.com/SalesforceAIResearch/uni2ts`
+  - Official checkpoint: `https://huggingface.co/Salesforce/moirai-moe-1.0-R-small`
+  - Import from: `uni2ts`; use the official `MoiraiMoEModule` / `MoiraiMoEForecast` API.
+  - Benchmark exact length: `512` samples, matching `max_seq_len`.
+
+- `Moirai-MoE-1.0-R-Base`
+  - Source code: `https://github.com/SalesforceAIResearch/uni2ts`
+  - Official checkpoint: `https://huggingface.co/Salesforce/moirai-moe-1.0-R-base`
+  - Import from: `uni2ts`; use the official `MoiraiMoEModule` / `MoiraiMoEForecast` API.
+  - Benchmark exact length: `512` samples, matching `max_seq_len`.
+
+- `Kairos-10M`
+  - Source code: `https://github.com/foundation-model-research/Kairos`
+  - Official checkpoint: `https://huggingface.co/mldi-lab/Kairos_10m`
+  - Import from: the official Kairos repo; load `KairosModel.from_pretrained(...)` after registering the upstream config/model classes.
+  - Benchmark exact length: `2048` samples, matching the checkpoint context length.
+
+- `Kairos-23M`
+  - Source code: `https://github.com/foundation-model-research/Kairos`
+  - Official checkpoint: `https://huggingface.co/mldi-lab/Kairos_23m`
+  - Import from: the official Kairos repo; load `KairosModel.from_pretrained(...)` after registering the upstream config/model classes.
+  - Benchmark exact length: `2048` samples, matching the checkpoint context length.
+
+- `Kairos-50M`
+  - Source code: `https://github.com/foundation-model-research/Kairos`
+  - Official checkpoint: `https://huggingface.co/mldi-lab/Kairos_50m`
+  - Import from: the official Kairos repo; load `KairosModel.from_pretrained(...)` after registering the upstream config/model classes.
+  - Benchmark exact length: `2048` samples, matching the checkpoint context length.
+
+- `Reverso-Small-550K`
+  - Source code: `https://github.com/shinfxh/reverso`
+  - Official checkpoint: `https://huggingface.co/shinfxh/reverso`
+  - Import from: the official repo's `reverso_torch` implementation plus the official Hugging Face files under `checkpoints/reverso_small/`.
+  - Benchmark exact length: `2048` samples, matching the published `reverso_small/args.json`.
+  - Note: the official repo also documents `Reverso` and `Reverso-Nano`, but only `Reverso-Small` currently ships a benchmarkable checkpoint.
+
+- `UniShape-ZeroShot`
+  - Source code: `https://github.com/qianlima-lab/UniShape`
+  - Official checkpoint: repo-hosted official checkpoint `pretrained_model_ckpt/unishape_checkpoint_zeroshot.pth`
+  - Import from: the official UniShape repo; the benchmark reuses the published multiscale tokenization and transformer code directly.
+  - Benchmark exact length: `512` samples, matching the repository-published resized series length used by the zero-shot script.
+  - Note: this is the documented repo-hosted exception to the usual Hugging Face checkpoint rule.
+
+- `UniShape-FineTune`
+  - Source code: `https://github.com/qianlima-lab/UniShape`
+  - Official checkpoint: repo-hosted official checkpoint `pretrained_model_ckpt/unishape_checkpoint_finetune.pth`
+  - Import from: the official UniShape repo; the benchmark reuses the published multiscale tokenization and transformer code directly.
+  - Benchmark exact length: `512` samples, matching the repository-published resized series length used by the fine-tune workflow.
+  - Note: this is the documented repo-hosted exception to the usual Hugging Face checkpoint rule.
 
 - `Toto`
   - Source code: `https://github.com/DataDog/toto`
