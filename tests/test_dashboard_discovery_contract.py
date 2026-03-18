@@ -14,12 +14,13 @@ def test_dashboard_tries_list_manifest_before_directory_listing_without_builtin_
     assert 'id="color-legend"' in html
     assert 'id="color-legend-list"' in html
     assert "Palette legend" in html
-    assert '<option value="family">By model family</option>' in html
+    assert '<option value="family" selected>By model family</option>' in html
     assert '<option value="architecture_backbone">By architecture type</option>' in html
     assert '<option value="training">By training paradigm</option>' in html
     assert 'transformer_causal: "Transformer (causal)"' in html
     assert 'transformer_full_attention: "Transformer (full attention)"' in html
     assert 'transformer_moe_causal: "Transformer + MoE (causal)"' in html
+    assert 'task_finetune: "Task fine-tune"' not in html
     assert '<option value="parameters" selected>Model parameters</option>' in html
     assert 'id="bubble-parameter-scope-selector"' in html
     assert '<option value="best_layer">Through plotted best layer</option>' in html

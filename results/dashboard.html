@@ -699,8 +699,8 @@
           <div class="sidebar-section control-block">
             <label class="control-label" for="color-mode-selector">Color palette</label>
             <select id="color-mode-selector">
-              <option value="model" selected>By model checkpoint</option>
-              <option value="family">By model family</option>
+              <option value="model">By model checkpoint</option>
+              <option value="family" selected>By model family</option>
               <option value="architecture_backbone">By architecture type</option>
               <option value="training">By training paradigm</option>
             </select>
@@ -986,10 +986,10 @@
       vision_convnet: "Vision ConvNet",
       causal_cnn: "Causal CNN"
     };
+    // Training groups follow backbone pretraining, not downstream checkpoint packaging.
     const TRAINING_PARADIGM_LABELS = {
       forecasting: "Forecasting",
       representation_ssl: "Representation / SSL",
-      task_finetune: "Task fine-tune",
       cross_modal_transfer: "Cross-modal transfer",
       tabular_supervised: "Tabular supervised"
     };
