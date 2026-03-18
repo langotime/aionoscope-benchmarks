@@ -117,7 +117,7 @@ stream that the benchmark actually pools.
 
 Current architecture classes:
 
-- `transformer_full_attention`: time-series transformer path with full-context self-attention over the benchmark context. Padding or group masks are allowed, but there is no causal time mask on the pooled token stream. This includes encoder-style paths such as `Chronos-2`, `Kairos-*`, `MOMENT-1-Large`, `Moirai-1.x-*`, `NuTime-Bias9`, `Toto-Open-Base-1.0`, `MantisV2`, `Mantis-UTICA-8M`, and `UniShape-*`.
+- `transformer_full_attention`: time-series transformer path with full-context self-attention over the benchmark context. Padding or group masks are allowed, but there is no causal time mask on the pooled token stream. This includes encoder-style paths such as `Chronos-2`, `Kairos-*`, `MOMENT-1-Large`, `Moirai-1.x-*`, `NuTime-Bias9`, `Toto-Open-Base-1.0`, `Mantis-8M`, `MantisPlus`, `MantisV2`, `Mantis-UTICA-8M`, and `UniShape-*`.
 - `transformer_causal`: time-series transformer path with causal masking or decoder-only token states. This includes `LeNEPA-*`, `Timer-Base-84M`, `Sundial-Base-128M`, `TimesFM-2.5-200M`, and `Moirai-2.0-R-Small`.
 - `transformer_moe_causal`: causal transformer path with sparse mixture-of-experts routing. This includes `Time-MoE-*` and `Moirai-MoE-*`.
 - `tabular_transformer`: transformer-style tabular classifier operating on flattened benchmark features.
@@ -177,7 +177,8 @@ The foundational model stack spans incompatible dependency sets. The repo theref
 `aionoscope_benchmarks/model_registry.py` maps canonical model names to source metadata, environment names, and adapter classes. Adapters implement the stable representation-extraction interface.
 Canonical model names are versioned and size-qualified whenever the upstream family
 publishes multiple official checkpoints. The registry therefore prefers entries such as
-`TimesFM-2.5-200M`, `Moirai-1.1-R-Small`, `Toto-Open-Base-1.0`, or `Mantis-UTICA-8M`
+`TimesFM-2.5-200M`, `Moirai-1.1-R-Small`, `Toto-Open-Base-1.0`, `Mantis-8M`,
+`MantisPlus`, or `Mantis-UTICA-8M`
 over ambiguous family-only labels. When an upstream repo-hosted singleton checkpoint is
 identified by a published variant token instead of a size marker, that token is part of
 the canonical name as well, for example `NuTime-Bias9` or `T-Loss-CricketX`.

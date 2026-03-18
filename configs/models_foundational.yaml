@@ -1,4 +1,6 @@
 models:
+  - Mantis-8M
+  - MantisPlus
   - MantisV2
   - Mantis-UTICA-8M
   - TabPFN-v2

@@ -15,6 +15,8 @@ PROBE_CONFIG_PATH = REPO_ROOT / "configs" / "probe.yaml"
 FOUNDATIONAL_MODELS_CONFIG_PATH = REPO_ROOT / "configs" / "models_foundational.yaml"
 
 FOUNDATIONAL_MODELS = (
+    "Mantis-8M",
+    "MantisPlus",
     "MantisV2",
     "Mantis-UTICA-8M",
     "TabPFN-v2",

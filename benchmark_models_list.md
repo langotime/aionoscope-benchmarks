@@ -11,6 +11,20 @@ Naming policy for this file and the code registry:
 
 Under that policy, the benchmark currently does **not** include `Timer-S1`, `Reverso` (2.6M), or `Reverso-Nano`, because an official benchmarkable Hugging Face checkpoint was not identified for those exact variants. For univariate zero-shot forecasting, the official Timer repo uses the published `thuml/timer-base-84m` checkpoint as the `Timer-XL` checkpoint, so the benchmark keeps the exact published checkpoint name `Timer-Base-84M` instead of adding a second `Timer-XL` alias entry. The currently benchmarked official entries are the ones listed below.
 
+- `Mantis-8M`
+  - Source code: `https://github.com/vfeofanov/mantis`
+  - Official checkpoint: `https://huggingface.co/paris-noah/Mantis-8M`
+  - Import from: `mantis-tsfm`; the official README maps the original Mantis checkpoint to `mantis.architecture.MantisV1`, while `Mantis8M` remains as the backward-compatible legacy class name.
+  - Benchmark exact length: `512` samples. The official README says Mantis accepts any sequence length divisible by `32`, and recommends `512` because the pretrained models were trained at that length.
+  - Note: the benchmark uses the exact published checkpoint name `Mantis-8M` instead of the ambiguous family-only label `Mantis`.
+
+- `MantisPlus`
+  - Source code: `https://github.com/vfeofanov/mantis`
+  - Official checkpoint: `https://huggingface.co/paris-noah/MantisPlus`
+  - Import from: `mantis-tsfm`; the official README maps `Mantis+` to the same `mantis.architecture.MantisV1` backbone used for the original model, but with the `paris-noah/MantisPlus` checkpoint.
+  - Benchmark exact length: `512` samples. The official README says Mantis accepts any sequence length divisible by `32`, and recommends `512` because the pretrained models were trained at that length.
+  - Note: the canonical benchmark name keeps the published `MantisPlus` token rather than introducing a punctuation variant.
+
 - `MantisV2`
   - Source code: `https://github.com/vfeofanov/mantis`
   - Official checkpoint: `https://huggingface.co/paris-noah/MantisV2`
@@ -23,7 +37,7 @@ Under that policy, the benchmark currently does **not** include `Timer-S1`, `Rev
   - Official checkpoint: `https://huggingface.co/fegounna/Utica`
   - Import from: `mantis-tsfm`; the official UTICA README reuses `mantis.architecture.Mantis8M`, downloads `pytorch_model.bin` from `fegounna/Utica`, and loads it with `strict=False`.
   - Benchmark exact length: `512` samples, matching the official UTICA README resize target.
-  - Note: this is a different training of the legacy Mantis-8M backbone, not an alias of `MantisV2`.
+  - Note: this is a different training of the legacy Mantis-8M backbone, not an alias of `Mantis-8M`, `MantisPlus`, or `MantisV2`.
   - Taxonomy note: `model.training.paradigm` stays `representation_ssl` because the benchmark classifies by encoder pretraining recipe, not by downstream checkpoint packaging.
 
 - `TabPFN-v2`

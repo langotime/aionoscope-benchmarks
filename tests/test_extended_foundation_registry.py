@@ -13,6 +13,8 @@ from aionoscope_benchmarks.model_registry import (
 def test_registry_contains_explicit_versions_and_sizes_for_extended_families() -> None:
     expected = {
         "Chronos-2": ("amazon/chronos-2", "chronos"),
+        "Mantis-8M": ("paris-noah/Mantis-8M", "mantis"),
+        "MantisPlus": ("paris-noah/MantisPlus", "mantis"),
         "Mantis-UTICA-8M": ("fegounna/Utica", "mantis"),
         "MOMENT-1-Large": ("AutonLab/MOMENT-1-large", "moment"),
         "NuTime-Bias9": ("checkpoint_bias9.pth", "tivit"),
@@ -59,6 +61,10 @@ def test_registry_contains_explicit_versions_and_sizes_for_extended_families() -
 
 def test_legacy_aliases_still_resolve_to_canonical_explicit_names() -> None:
     assert canonical_model_name("Chronos2") == "Chronos-2"
+    assert canonical_model_name("Mantis") == "Mantis-8M"
+    assert canonical_model_name("Mantis+") == "MantisPlus"
+    assert canonical_model_name("Mantis8M") == "Mantis-8M"
+    assert canonical_model_name("MantisV1") == "Mantis-8M"
     assert canonical_model_name("MOMENT") == "MOMENT-1-Large"
     assert canonical_model_name("Moirai") == "Moirai-1.1-R-Small"
     assert canonical_model_name("NuTime") == "NuTime-Bias9"
@@ -79,6 +85,12 @@ def test_legacy_aliases_still_resolve_to_canonical_explicit_names() -> None:
 
 
 def test_model_taxonomy_exposes_family_checkpoint_architecture_and_training_groups() -> None:
+    mantis_plus = model_taxonomy("MantisPlus")
+    assert mantis_plus.family == "Mantis"
+    assert mantis_plus.checkpoint_name == "Plus"
+    assert mantis_plus.architecture_backbone == "transformer_full_attention"
+    assert mantis_plus.training_paradigm == "representation_ssl"
+
     lenepa = model_taxonomy("LeNEPA-Aiono")
     assert lenepa.family == "LeNEPA"
     assert lenepa.checkpoint_name == "Aiono"

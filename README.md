@@ -76,7 +76,7 @@ Current exact lengths:
 - `4096`: `Toto-Open-Base-1.0`, `Time-MoE-50M`, `Time-MoE-200M`
 - `2880`: `Timer-Base-84M`, `Sundial-Base-128M`
 - `2048`: `TiRex`, `Kairos-10M`, `Kairos-23M`, `Kairos-50M`, `Reverso-Small-550K`
-- `512`: `MantisV2`, `Mantis-UTICA-8M`, `MOMENT-1-Large`, `TTM-r2`, `Moirai-1.0-R-Small`, `Moirai-1.0-R-Base`, `Moirai-1.0-R-Large`, `Moirai-1.1-R-Small`, `Moirai-1.1-R-Base`, `Moirai-1.1-R-Large`, `Moirai-2.0-R-Small`, `Moirai-MoE-1.0-R-Small`, `Moirai-MoE-1.0-R-Base`, `UniShape-ZeroShot`, `UniShape-FineTune`
+- `512`: `Mantis-8M`, `MantisPlus`, `MantisV2`, `Mantis-UTICA-8M`, `MOMENT-1-Large`, `TTM-r2`, `Moirai-1.0-R-Small`, `Moirai-1.0-R-Base`, `Moirai-1.0-R-Large`, `Moirai-1.1-R-Small`, `Moirai-1.1-R-Base`, `Moirai-1.1-R-Large`, `Moirai-2.0-R-Small`, `Moirai-MoE-1.0-R-Small`, `Moirai-MoE-1.0-R-Base`, `UniShape-ZeroShot`, `UniShape-FineTune`
 - `176`: `NuTime-Bias9`
 - `128`: `TabPFN-v2`, `TabICL-v1`
 
@@ -206,8 +206,8 @@ foundational stack spans incompatible dependency sets.
 `Time-MoE-50M`, `Time-MoE-200M`, `Timer-Base-84M`, and `Sundial-Base-128M`
 use the dedicated `.venv-timemoe` interpreter because those official remote-code
 checkpoints require the published `transformers==4.40.1` stack.
-The explicit `Moirai-*` family uses `.venv-moirai`, and `MantisV2` plus
-`Mantis-UTICA-8M` use `.venv-mantis2`.
+The explicit `Moirai-*` family uses `.venv-moirai`, and `Mantis-8M`,
+`MantisPlus`, `MantisV2`, plus `Mantis-UTICA-8M` use `.venv-mantis2`.
 
 ## Foundational Benchmark Snapshot (2026-03-13)
 
@@ -236,7 +236,8 @@ indices rather than current ones.
 The foundational registry now also includes `LeNEPA-Aiono`, `LeNEPA-CauKer2M`,
 `LeNEPA-CauKer2M-20k`, `Time-MoE-50M`, `Time-MoE-200M`, `Timer-Base-84M`,
 `Sundial-Base-128M`, `TimesFM-2.5-200M`, the explicit `Moirai-*` / `Moirai-MoE-*`
-variants, `Kairos-*`, `Reverso-Small-550K`, `UniShape-*`, and `Mantis-UTICA-8M`.
+variants, `Kairos-*`, `Reverso-Small-550K`, `UniShape-*`, `Mantis-8M`,
+`MantisPlus`, and `Mantis-UTICA-8M`.
 Those entries now live as separate per-model JSON artifacts under `results/models/`,
 but the table below remains the original `2026-03-13` single-seed snapshot and was not
 regenerated for the expanded registry. For univariate zero-shot forecasting, the

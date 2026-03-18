@@ -180,7 +180,7 @@ square `duty_cycle`.
 Canonical benchmark names must include the exact official version and size whenever a
 family publishes multiple checkpoints. The sweep therefore uses names such as
 `TimesFM-2.5-200M`, `Moirai-1.1-R-Small`, `Moirai-MoE-1.0-R-Base`,
-`Toto-Open-Base-1.0`, and `Mantis-UTICA-8M` instead of ambiguous family-only
+`Toto-Open-Base-1.0`, `Mantis-8M`, `MantisPlus`, and `Mantis-UTICA-8M` instead of ambiguous family-only
 labels. When the only official published artifact is identified by a stable
 variant token rather than a size marker, that token stays in the canonical name,
 for example `NuTime-Bias9` or `T-Loss-CricketX`.
@@ -229,6 +229,11 @@ with the official pure-PyTorch `reverso_torch` implementation from the upstream 
 `UniShape-ZeroShot` and `UniShape-FineTune` use the official repo-hosted checkpoints and
 the official multiscale tokenization code at the repository-published resized length of
 `512`.
+`Mantis-8M` and `MantisPlus` both use the official `mantis-tsfm`
+`mantis.architecture.MantisV1` entry point, keep the official `512`-length resize
+guidance from the upstream README, and expose layer `0` as the tokenizer-plus-CLS
+embedding stream after positional encoding with layers `1..N` mapped to transformer
+blocks.
 `Mantis-UTICA-8M` reuses the official `mantis-tsfm` `Mantis8M` backbone with the
 official `fegounna/Utica` weights and uses the official README resize target of `512`.
 `TabPFN-v2` names the current checked-in official classifier artifact, `TabICL-v1`
@@ -243,6 +248,8 @@ The current exact benchmark lengths are:
 - `LeNEPA-Aiono`: `5000`
 - `LeNEPA-CauKer2M`: `5000`
 - `LeNEPA-CauKer2M-20k`: `5000`
+- `Mantis-8M`: `512`
+- `MantisPlus`: `512`
 - `MantisV2`: `512`
 - `Mantis-UTICA-8M`: `512`
 - `Moirai-1.0-R-Small`: `512`
@@ -320,7 +327,7 @@ actually exposes and pools.
 
 Architecture classes:
 
-- `transformer_full_attention`: time-series transformer path whose pooled states come from full-context self-attention over the benchmark context. Padding or group masks are allowed, but there is no causal time mask on the pooled token stream. Use this for encoder-style paths such as `Chronos-2`, `Kairos-*`, `MOMENT-1-Large`, `Moirai-1.x-*`, `NuTime-Bias9`, `Toto-Open-Base-1.0`, `MantisV2`, `Mantis-UTICA-8M`, and `UniShape-*`.
+- `transformer_full_attention`: time-series transformer path whose pooled states come from full-context self-attention over the benchmark context. Padding or group masks are allowed, but there is no causal time mask on the pooled token stream. Use this for encoder-style paths such as `Chronos-2`, `Kairos-*`, `MOMENT-1-Large`, `Moirai-1.x-*`, `NuTime-Bias9`, `Toto-Open-Base-1.0`, `Mantis-8M`, `MantisPlus`, `MantisV2`, `Mantis-UTICA-8M`, and `UniShape-*`.
 - `transformer_causal`: time-series transformer path whose pooled states come from causal masking or a decoder-only token stream. Use this for `LeNEPA-*`, `Timer-Base-84M`, `Sundial-Base-128M`, `TimesFM-2.5-200M`, and `Moirai-2.0-R-Small`.
 - `transformer_moe_causal`: causal transformer path with sparse mixture-of-experts routing. Use this for `Time-MoE-*` and `Moirai-MoE-*`.
 - `tabular_transformer`: transformer-style tabular classifier operating on flattened benchmark features.

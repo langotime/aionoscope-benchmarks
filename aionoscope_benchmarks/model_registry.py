@@ -100,6 +100,26 @@ class ModelTaxonomy:
 
 
 MODEL_SPECS: dict[str, ModelSpec] = {
+    "Mantis-8M": ModelSpec(
+        name="Mantis-8M",
+        slug="Mantis-8M",
+        source="https://github.com/vfeofanov/mantis",
+        checkpoint="paris-noah/Mantis-8M",
+        import_path="mantis-tsfm",
+        env="mantis",
+        module="aionoscope_benchmarks.adapters.mantis",
+        class_name="Mantis8MAdapter",
+    ),
+    "MantisPlus": ModelSpec(
+        name="MantisPlus",
+        slug="MantisPlus",
+        source="https://github.com/vfeofanov/mantis",
+        checkpoint="paris-noah/MantisPlus",
+        import_path="mantis-tsfm",
+        env="mantis",
+        module="aionoscope_benchmarks.adapters.mantis",
+        class_name="MantisPlusAdapter",
+    ),
     "MantisV2": ModelSpec(
         name="MantisV2",
         slug="MantisV2",
@@ -464,6 +484,10 @@ MODEL_SPECS: dict[str, ModelSpec] = {
 
 MODEL_ALIASES: dict[str, str] = {
     "Chronos2": "Chronos-2",
+    "Mantis": "Mantis-8M",
+    "Mantis+": "MantisPlus",
+    "Mantis8M": "Mantis-8M",
+    "MantisV1": "Mantis-8M",
     "MOMENT": "MOMENT-1-Large",
     "Moirai": "Moirai-1.1-R-Small",
     "NuTime": "NuTime-Bias9",
@@ -482,6 +506,18 @@ MODEL_ALIASES: dict[str, str] = {
 }
 
 MODEL_TAXONOMY: dict[str, ModelTaxonomy] = {
+    "Mantis-8M": ModelTaxonomy(
+        family="Mantis",
+        checkpoint_name="8M",
+        architecture_backbone="transformer_full_attention",
+        training_paradigm="representation_ssl",
+    ),
+    "MantisPlus": ModelTaxonomy(
+        family="Mantis",
+        checkpoint_name="Plus",
+        architecture_backbone="transformer_full_attention",
+        training_paradigm="representation_ssl",
+    ),
     "MantisV2": ModelTaxonomy(
         family="Mantis",
         checkpoint_name="V2",
