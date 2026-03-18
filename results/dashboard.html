@@ -357,6 +357,14 @@
       border-radius: 12px;
       border: 1px solid #e1e8f0;
       background: #fff;
+      transition: border-color 120ms ease, background 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+    }
+
+    .color-legend-item:hover,
+    .color-legend-item.hover-linked {
+      transform: translateY(-1px);
+      border-color: #afbecf;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
     }
 
     .color-legend-swatch {
@@ -425,6 +433,12 @@
     .model-chip:hover {
       transform: translateY(-1px);
       border-color: #afbecf;
+    }
+
+    .model-chip.hover-linked {
+      transform: translateY(-1px);
+      border-color: #afbecf;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
     }
 
     .model-chip.selected {
@@ -1004,8 +1018,12 @@
       allResults: [],
       selectedModels: new Set(),
       charts: {},
+      chartHoverTargets: {},
       discoverySource: "loading",
       discoveryWarning: "",
+      hoveredModelNames: [],
+      hoveredColorGroupValue: null,
+      hoveredColorGroupMode: null,
       sidebarDesktopCollapsed: false,
       sidebarOverlayOpen: false,
       layoutRefreshTimer: null
@@ -1115,6 +1133,130 @@
         color: colorForGroupValue(groupValue, mode),
         count: state.allResults.filter((result) => colorGroupValue(result, mode) === groupValue).length,
       }));
+    }
+
+    function modelNamesForColorGroup(groupValue, mode = getColorMode()) {
+      return state.allResults
+        .filter((result) => colorGroupValue(result, mode) === groupValue)
+        .map((result) => modelName(result));
+    }
+
+    function hoveredModelSet() {
+      return new Set(state.hoveredModelNames);
+    }
+
+    function normalizeHoveredState() {
+      const uniqueNames = Array.from(
+        new Set(
+          state.hoveredModelNames
+            .map((name) => String(name))
+            .filter((name) => resultByModelName(name))
+        )
+      );
+      if (!uniqueNames.length) {
+        state.hoveredModelNames = [];
+        state.hoveredColorGroupValue = null;
+        state.hoveredColorGroupMode = null;
+        return;
+      }
+
+      const mode = getColorMode();
+      const hoveredGroups = Array.from(
+        new Set(
+          uniqueNames
+            .map((name) => {
+              const result = resultByModelName(name);
+              return result ? colorGroupValue(result, mode) : null;
+            })
+            .filter((groupValue) => groupValue !== null)
+        )
+      );
+      state.hoveredModelNames = uniqueNames;
+      state.hoveredColorGroupValue = hoveredGroups.length === 1 ? hoveredGroups[0] : null;
+      state.hoveredColorGroupMode = hoveredGroups.length === 1 ? mode : null;
+    }
+
+    function isHoveredLegendEntry(groupValue, mode = getColorMode()) {
+      return state.hoveredColorGroupMode === mode && state.hoveredColorGroupValue === groupValue;
+    }
+
+    function setHoveredModels(modelNames) {
+      const nextNames = Array.from(new Set((modelNames || []).map((name) => String(name)).filter(Boolean)));
+      const previousSignature = state.hoveredModelNames.join("\u0001");
+      const nextSignature = nextNames.join("\u0001");
+      state.hoveredModelNames = nextNames;
+      normalizeHoveredState();
+      if (previousSignature === nextSignature && state.hoveredColorGroupMode === getColorMode()) {
+        return;
+      }
+      syncHoverDecorations();
+      syncChartHoverState();
+    }
+
+    function clearHoveredModels() {
+      if (!state.hoveredModelNames.length && state.hoveredColorGroupValue === null) {
+        return;
+      }
+      state.hoveredModelNames = [];
+      normalizeHoveredState();
+      syncHoverDecorations();
+      syncChartHoverState();
+    }
+
+    function setChartHoverTarget(chartId, target) {
+      state.chartHoverTargets[chartId] = target;
+    }
+
+    function syncHoverDecorations() {
+      const hoveredModels = hoveredModelSet();
+      document.querySelectorAll("#model-picker .model-chip").forEach((chip) => {
+        chip.classList.toggle("hover-linked", hoveredModels.has(String(chip.dataset.model || "")));
+      });
+      document.querySelectorAll("#color-legend-list .color-legend-item").forEach((item) => {
+        item.classList.toggle(
+          "hover-linked",
+          isHoveredLegendEntry(String(item.dataset.groupValue || ""), String(item.dataset.colorMode || getColorMode()))
+        );
+      });
+    }
+
+    function applyChartHoverTarget(chart, target, modelNames) {
+      if (!chart || !target || !modelNames.length) {
+        return;
+      }
+      if (target.type === "series") {
+        modelNames.forEach((name) => {
+          const seriesIndex = target.seriesIndexByModel.get(name);
+          if (Number.isInteger(seriesIndex)) {
+            chart.dispatchAction({ type: "highlight", seriesIndex });
+          }
+        });
+        return;
+      }
+      if (target.type === "data") {
+        modelNames.forEach((name) => {
+          const dataIndex = target.dataIndexByModel.get(name);
+          if (Number.isInteger(dataIndex)) {
+            chart.dispatchAction({
+              type: "highlight",
+              seriesIndex: target.seriesIndex,
+              dataIndex
+            });
+          }
+        });
+      }
+    }
+
+    function syncChartHoverState() {
+      const modelNames = state.hoveredModelNames;
+      Object.entries(state.charts).forEach(([chartId, chart]) => {
+        if (!chart) {
+          return;
+        }
+        chart.dispatchAction({ type: "downplay" });
+        chart.dispatchAction({ type: "hideTip" });
+        applyChartHoverTarget(chart, state.chartHoverTargets[chartId], modelNames);
+      });
     }
 
     function modelMetadataLines(result) {
@@ -2034,7 +2176,10 @@
 
     function buildRadarOption({ chart, title, results, selectorKey, categories, seriesBuilder, forcedMin = null }) {
       if (!results.length) {
-        return emptyOption(title, "No models selected");
+        return {
+          option: emptyOption(title, "No models selected"),
+          hoverTarget: null
+        };
       }
 
       const dataByModel = {};
@@ -2054,7 +2199,10 @@
       });
 
       if (!Object.keys(dataByModel).length) {
-        return emptyOption(title, "Selected best-layer rule produced no finite layers");
+        return {
+          option: emptyOption(title, "Selected best-layer rule produced no finite layers"),
+          hoverTarget: null
+        };
       }
 
       const range = radarRange(dataByModel, forcedMin);
@@ -2063,90 +2211,120 @@
         min: range.min,
         max: range.max
       }));
+      const radarRows = results
+        .map((result) => {
+          const name = modelName(result);
+          if (!Object.prototype.hasOwnProperty.call(dataByModel, name)) {
+            return null;
+          }
+          return {
+            name,
+            value: dataByModel[name]
+          };
+        })
+        .filter(Boolean);
 
       return {
-        animationDuration: 250,
-        color: results.map((result) => colorForResult(result)),
-        tooltip: {
-          trigger: "item",
-          confine: true,
-          formatter: (param) => {
-            const name = param.name || param.seriesName;
-            const stats = statsByModel[name] || [];
-            const plottedValues = dataByModel[name] || param.value;
-            const layer = layerByModel[name];
-            const result = resultByModelName(name);
-            const rows = categories.map((category, index) => {
-              const raw = statMedian(stats[index]);
-              const rawStd = statStd(stats[index]);
-              const plotted = plottedValues[index];
-              const clipped =
-                Number.isFinite(raw) && Number.isFinite(plotted) && Math.abs(raw - plotted) > 1e-12;
-              return `${category}: ${formatMetricValue(raw)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plotted)})` : ""}`;
-            });
-            return [
-              `<strong>${name}</strong>`,
-              `Color group: ${result ? colorGroupLabel(result) : name}`,
-              `Selected layer: ${layer}`,
-              rows.join("<br>")
-            ].join("<br>");
-          }
-        },
-        toolbox: {
-          right: 14,
-          feature: {
-            saveAsImage: {
-              pixelRatio: 2
-            }
-          }
-        },
-        radar: {
-          center: [`${RADAR_CENTER_X * 100}%`, `${RADAR_CENTER_Y * 100}%`],
-          radius: `${RADAR_RADIUS_RATIO * 100}%`,
-          splitNumber: RADAR_SPLIT_NUMBER,
-          shape: "polygon",
-          axisName: {
-            color: "#324055",
-            fontSize: 12
-          },
-          axisLine: {
-            lineStyle: {
-              color: "#ccd7e3"
+        option: {
+          animationDuration: 250,
+          color: results.map((result) => colorForResult(result)),
+          tooltip: {
+            trigger: "item",
+            confine: true,
+            formatter: (param) => {
+              const name = param.name || param.seriesName;
+              const stats = statsByModel[name] || [];
+              const plottedValues = dataByModel[name] || param.value;
+              const layer = layerByModel[name];
+              const result = resultByModelName(name);
+              const rows = categories.map((category, index) => {
+                const raw = statMedian(stats[index]);
+                const rawStd = statStd(stats[index]);
+                const plotted = plottedValues[index];
+                const clipped =
+                  Number.isFinite(raw) && Number.isFinite(plotted) && Math.abs(raw - plotted) > 1e-12;
+                return `${category}: ${formatMetricValue(raw)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plotted)})` : ""}`;
+              });
+              return [
+                `<strong>${name}</strong>`,
+                `Color group: ${result ? colorGroupLabel(result) : name}`,
+                `Selected layer: ${layer}`,
+                rows.join("<br>")
+              ].join("<br>");
             }
           },
-          splitLine: {
-            lineStyle: {
-              color: "#d7e1eb"
+          toolbox: {
+            right: 14,
+            feature: {
+              saveAsImage: {
+                pixelRatio: 2
+              }
             }
           },
-          splitArea: {
-            areaStyle: {
-              color: ["rgba(241, 245, 249, 0.45)", "rgba(255, 255, 255, 0.70)"]
-            }
-          },
-          indicator
-        },
-        graphic: radarGridLabelGraphics(chart, range, RADAR_SPLIT_NUMBER),
-        series: [
-          {
-            type: "radar",
-            symbol: "circle",
-            symbolSize: 6,
-            lineStyle: {
-              width: 2.2
+          radar: {
+            center: [`${RADAR_CENTER_X * 100}%`, `${RADAR_CENTER_Y * 100}%`],
+            radius: `${RADAR_RADIUS_RATIO * 100}%`,
+            splitNumber: RADAR_SPLIT_NUMBER,
+            shape: "polygon",
+            axisName: {
+              color: "#324055",
+              fontSize: 12
             },
-            areaStyle: {
-              opacity: 0.08
+            axisLine: {
+              lineStyle: {
+                color: "#ccd7e3"
+              }
             },
-            data: results.map((result) => {
-              const name = modelName(result);
-              return {
-                name,
-                value: dataByModel[name]
-              };
-            })
-          }
-        ]
+            splitLine: {
+              lineStyle: {
+                color: "#d7e1eb"
+              }
+            },
+            splitArea: {
+              areaStyle: {
+                color: ["rgba(241, 245, 249, 0.45)", "rgba(255, 255, 255, 0.70)"]
+              }
+            },
+            indicator
+          },
+          graphic: radarGridLabelGraphics(chart, range, RADAR_SPLIT_NUMBER),
+          series: [
+            {
+              type: "radar",
+              symbol: "circle",
+              symbolSize: 6,
+              lineStyle: {
+                width: 2.2
+              },
+              areaStyle: {
+                opacity: 0.08
+              },
+              emphasis: {
+                focus: "self",
+                lineStyle: {
+                  width: 3.2
+                },
+                areaStyle: {
+                  opacity: 0.16
+                }
+              },
+              blur: {
+                lineStyle: {
+                  opacity: 0.18
+                },
+                areaStyle: {
+                  opacity: 0.03
+                }
+              },
+              data: radarRows
+            }
+          ]
+        },
+        hoverTarget: {
+          type: "data",
+          seriesIndex: 0,
+          dataIndexByModel: new Map(radarRows.map((row, index) => [row.name, index]))
+        }
       };
     }
 
@@ -2285,6 +2463,14 @@
           emphasis: {
             focus: "series"
           },
+          blur: {
+            lineStyle: {
+              opacity: 0.18
+            },
+            itemStyle: {
+              opacity: 0.18
+            }
+          },
           lineStyle: {
             width: 2.2,
             color
@@ -2317,86 +2503,102 @@
 
     function buildLineOption({ title, yName, results, selectorKey, metricKey, yMin, yMax, clippedNote = false }) {
       if (!results.length) {
-        return emptyOption(title, "No models selected");
+        return {
+          option: emptyOption(title, "No models selected"),
+          hoverTarget: null
+        };
       }
       const layerCategories = lineLayerCategories(results, metricKey);
+      const series = [];
+      const seriesIndexByModel = new Map();
+      results.forEach((result) => {
+        const groupSeries = lineSeriesGroup(result, metricKey, selectorKey, layerCategories);
+        series.push(...groupSeries);
+        seriesIndexByModel.set(modelName(result), series.length - 1);
+      });
 
       return {
-        animationDuration: 250,
-        color: results.map((result) => colorForResult(result)),
-        grid: {
-          top: 42,
-          left: 54,
-          right: 24,
-          bottom: 42
-        },
-        tooltip: {
-          trigger: "axis",
-          confine: true,
-          formatter: (params) => {
-            const axisValue = params.length ? params[0].axisValue : "?";
-            const rows = params
-              .filter((param) => param.data && param.data.rawStat)
-              .slice()
-              .sort((left, right) => {
-                const a = statMedian(left.data.rawStat);
-                const b = statMedian(right.data.rawStat);
-                return b - a;
-              })
-              .map((param) => {
-                const rawValue = Number(param.data.rawValue);
-                const rawStd = Number(param.data.rawStd || 0);
-                const plottedValue = Number(param.data.value);
-                const clipped = Math.abs(rawValue - plottedValue) > 1e-12;
-                const selectedSuffix =
-                  Number(param.data.selectedLayer) === Number(axisValue) ? " [selected layer]" : "";
-                const result = resultByModelName(param.seriesName);
-                const colorGroupSuffix =
-                  result && getColorMode() !== "model" ? ` [${colorGroupLabel(result)}]` : "";
-                return `${param.marker}${param.seriesName}${colorGroupSuffix}: ${formatMetricValue(rawValue)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plottedValue)})` : ""}${selectedSuffix}`;
-              });
-            return [`<strong>Layer ${axisValue}</strong>`, ...rows].join("<br>");
-          }
-        },
-        toolbox: {
-          right: 14,
-          feature: {
-            saveAsImage: {
-              pixelRatio: 2
-            }
-          }
-        },
-        xAxis: {
-          type: "category",
-          boundaryGap: false,
-          data: layerCategories,
-          name: "Layer",
-          nameLocation: "middle",
-          nameGap: 28,
-          axisLabel: {
-            color: "#4f5d74"
+        option: {
+          animationDuration: 250,
+          color: results.map((result) => colorForResult(result)),
+          grid: {
+            top: 42,
+            left: 54,
+            right: 24,
+            bottom: 42
           },
-          splitLine: {
-            lineStyle: {
-              color: "#edf2f7"
+          tooltip: {
+            trigger: "axis",
+            confine: true,
+            formatter: (params) => {
+              const axisValue = params.length ? params[0].axisValue : "?";
+              const rows = params
+                .filter((param) => param.data && param.data.rawStat)
+                .slice()
+                .sort((left, right) => {
+                  const a = statMedian(left.data.rawStat);
+                  const b = statMedian(right.data.rawStat);
+                  return b - a;
+                })
+                .map((param) => {
+                  const rawValue = Number(param.data.rawValue);
+                  const rawStd = Number(param.data.rawStd || 0);
+                  const plottedValue = Number(param.data.value);
+                  const clipped = Math.abs(rawValue - plottedValue) > 1e-12;
+                  const selectedSuffix =
+                    Number(param.data.selectedLayer) === Number(axisValue) ? " [selected layer]" : "";
+                  const result = resultByModelName(param.seriesName);
+                  const colorGroupSuffix =
+                    result && getColorMode() !== "model" ? ` [${colorGroupLabel(result)}]` : "";
+                  return `${param.marker}${param.seriesName}${colorGroupSuffix}: ${formatMetricValue(rawValue)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plottedValue)})` : ""}${selectedSuffix}`;
+                });
+              return [`<strong>Layer ${axisValue}</strong>`, ...rows].join("<br>");
             }
-          }
-        },
-        yAxis: {
-          type: "value",
-          name: clippedNote ? `${yName} (visual clip)` : yName,
-          min: yMin,
-          max: yMax,
-          axisLabel: {
-            color: "#4f5d74"
           },
-          splitLine: {
-            lineStyle: {
-              color: "#dfe7f0"
+          toolbox: {
+            right: 14,
+            feature: {
+              saveAsImage: {
+                pixelRatio: 2
+              }
             }
-          }
+          },
+          xAxis: {
+            type: "category",
+            boundaryGap: false,
+            data: layerCategories,
+            name: "Layer",
+            nameLocation: "middle",
+            nameGap: 28,
+            axisLabel: {
+              color: "#4f5d74"
+            },
+            splitLine: {
+              lineStyle: {
+                color: "#edf2f7"
+              }
+            }
+          },
+          yAxis: {
+            type: "value",
+            name: clippedNote ? `${yName} (visual clip)` : yName,
+            min: yMin,
+            max: yMax,
+            axisLabel: {
+              color: "#4f5d74"
+            },
+            splitLine: {
+              lineStyle: {
+                color: "#dfe7f0"
+              }
+            }
+          },
+          series
         },
-        series: results.flatMap((result) => lineSeriesGroup(result, metricKey, selectorKey, layerCategories))
+        hoverTarget: {
+          type: "series",
+          seriesIndexByModel
+        }
       };
     }
 
@@ -2453,6 +2655,7 @@
       const sizeMetric = bubbleMetricConfig(selection.sizeKey, selection);
       updateBubbleChartNote(xMetric, yMetric, sizeMetric, selection);
       if (!results.length) {
+        setChartHoverTarget(CHART_IDS.bubbleOverview, null);
         bubbleChart.setOption(
           emptyOption(
             state.allResults.length ? "No models selected" : "No data",
@@ -2515,6 +2718,7 @@
         const missingMessage = detailsText
           ? `Selected models are missing required fields: ${detailsText}.`
           : `Selected models are missing one or more of: ${missingHints.join(", ")}.`;
+        setChartHoverTarget(CHART_IDS.bubbleOverview, null);
         bubbleChart.setOption(
           emptyOption(
             "No comparable models",
@@ -2621,8 +2825,19 @@
               emphasis: {
                 focus: "self",
                 scale: 1.08,
+                itemStyle: {
+                  borderWidth: 2.2
+                },
                 label: {
                   show: true
+                }
+              },
+              blur: {
+                itemStyle: {
+                  opacity: 0.18
+                },
+                label: {
+                  opacity: 0.18
                 }
               },
               label: {
@@ -2642,6 +2857,11 @@
         },
         true
       );
+      setChartHoverTarget(CHART_IDS.bubbleOverview, {
+        type: "data",
+        seriesIndex: 0,
+        dataIndexByModel: new Map(bubbleRows.map((row, index) => [row.name, index]))
+      });
       return {
         warning:
           skippedCount > 0
@@ -2661,7 +2881,10 @@
       if (!reference) {
         Object.values(CHART_IDS)
           .filter((id) => id.startsWith("chart-radar"))
-          .forEach((id) => state.charts[id].setOption(emptyOption("No data", "No JSON results loaded"), true));
+          .forEach((id) => {
+            setChartHoverTarget(id, null);
+            state.charts[id].setOption(emptyOption("No data", "No JSON results loaded"), true);
+          });
         return;
       }
 
@@ -2689,125 +2912,119 @@
       );
 
       const radarAurocChart = state.charts[CHART_IDS.radarAuroc];
-      radarAurocChart.setOption(
-        buildRadarOption({
-          chart: radarAurocChart,
-          title: "Categorical Signal AUROC",
-          results,
-          selectorKey,
-          categories: categoricalSignals,
-          forcedMin: Math.min(
-            0.75,
-            ...results.flatMap((result) => {
-              const layer = selectedLayerForResult(result, selectorKey);
-              return selectedCategoricalRows(result, layer).map((row) => statMedian(row.auroc));
-            })
-          ),
-          seriesBuilder: (result, layer, categories) => {
-            const bySignal = Object.fromEntries(
-              selectedCategoricalRows(result, layer).map((row) => [row.signal, row])
-            );
-            const stats = categories.map((category) => bySignal[category].auroc);
-            const plottedValues = stats.map((value) => statMedian(value));
-            return { stats, plottedValues };
-          }
-        }),
-        true
-      );
+      const radarAuroc = buildRadarOption({
+        chart: radarAurocChart,
+        title: "Categorical Signal AUROC",
+        results,
+        selectorKey,
+        categories: categoricalSignals,
+        forcedMin: Math.min(
+          0.75,
+          ...results.flatMap((result) => {
+            const layer = selectedLayerForResult(result, selectorKey);
+            return selectedCategoricalRows(result, layer).map((row) => statMedian(row.auroc));
+          })
+        ),
+        seriesBuilder: (result, layer, categories) => {
+          const bySignal = Object.fromEntries(
+            selectedCategoricalRows(result, layer).map((row) => [row.signal, row])
+          );
+          const stats = categories.map((category) => bySignal[category].auroc);
+          const plottedValues = stats.map((value) => statMedian(value));
+          return { stats, plottedValues };
+        }
+      });
+      radarAurocChart.setOption(radarAuroc.option, true);
+      setChartHoverTarget(CHART_IDS.radarAuroc, radarAuroc.hoverTarget);
 
       const radarAuprcChart = state.charts[CHART_IDS.radarAuprc];
-      radarAuprcChart.setOption(
-        buildRadarOption({
-          chart: radarAuprcChart,
-          title: "Categorical Signal AUPRC",
-          results,
-          selectorKey,
-          categories: categoricalSignals,
-          seriesBuilder: (result, layer, categories) => {
-            const bySignal = Object.fromEntries(
-              selectedCategoricalRows(result, layer).map((row) => [row.signal, row])
-            );
-            const stats = categories.map((category) => bySignal[category].auprc);
-            const plottedValues = stats.map((value) => statMedian(value));
-            return { stats, plottedValues };
-          }
-        }),
-        true
-      );
+      const radarAuprc = buildRadarOption({
+        chart: radarAuprcChart,
+        title: "Categorical Signal AUPRC",
+        results,
+        selectorKey,
+        categories: categoricalSignals,
+        seriesBuilder: (result, layer, categories) => {
+          const bySignal = Object.fromEntries(
+            selectedCategoricalRows(result, layer).map((row) => [row.signal, row])
+          );
+          const stats = categories.map((category) => bySignal[category].auprc);
+          const plottedValues = stats.map((value) => statMedian(value));
+          return { stats, plottedValues };
+        }
+      });
+      radarAuprcChart.setOption(radarAuprc.option, true);
+      setChartHoverTarget(CHART_IDS.radarAuprc, radarAuprc.hoverTarget);
 
       const radarR2SignalChart = state.charts[CHART_IDS.radarR2Signal];
-      radarR2SignalChart.setOption(
-        buildRadarOption({
-          chart: radarR2SignalChart,
-          title: "Regression By Component Type (R2)",
-          results,
-          selectorKey,
-          categories: denseSignalCategories,
-          forcedMin: 0.0,
-          seriesBuilder: (result, layer, categories) => {
-            const rows = denseRowsAtLayer(result, layer);
-            const stats = aggregateDenseStatsByGroup(rows, "r2", "target_signal", categories);
-            const plottedValues = stats.map((value) => clippedValue(statMedian(value), 0.0));
-            return { stats, plottedValues };
-          }
-        }),
-        true
-      );
+      const radarR2Signal = buildRadarOption({
+        chart: radarR2SignalChart,
+        title: "Regression By Component Type (R2)",
+        results,
+        selectorKey,
+        categories: denseSignalCategories,
+        forcedMin: 0.0,
+        seriesBuilder: (result, layer, categories) => {
+          const rows = denseRowsAtLayer(result, layer);
+          const stats = aggregateDenseStatsByGroup(rows, "r2", "target_signal", categories);
+          const plottedValues = stats.map((value) => clippedValue(statMedian(value), 0.0));
+          return { stats, plottedValues };
+        }
+      });
+      radarR2SignalChart.setOption(radarR2Signal.option, true);
+      setChartHoverTarget(CHART_IDS.radarR2Signal, radarR2Signal.hoverTarget);
 
       const radarR2MetricChart = state.charts[CHART_IDS.radarR2Metric];
-      radarR2MetricChart.setOption(
-        buildRadarOption({
-          chart: radarR2MetricChart,
-          title: "Regression By Parameter Type (R2)",
-          results,
-          selectorKey,
-          categories: denseMetricCategories,
-          forcedMin: 0.0,
-          seriesBuilder: (result, layer, categories) => {
-            const rows = denseRowsAtLayer(result, layer);
-            const stats = aggregateDenseStatsByGroup(rows, "r2", "target_metric", categories);
-            const plottedValues = stats.map((value) => clippedValue(statMedian(value), 0.0));
-            return { stats, plottedValues };
-          }
-        }),
-        true
-      );
+      const radarR2Metric = buildRadarOption({
+        chart: radarR2MetricChart,
+        title: "Regression By Parameter Type (R2)",
+        results,
+        selectorKey,
+        categories: denseMetricCategories,
+        forcedMin: 0.0,
+        seriesBuilder: (result, layer, categories) => {
+          const rows = denseRowsAtLayer(result, layer);
+          const stats = aggregateDenseStatsByGroup(rows, "r2", "target_metric", categories);
+          const plottedValues = stats.map((value) => clippedValue(statMedian(value), 0.0));
+          return { stats, plottedValues };
+        }
+      });
+      radarR2MetricChart.setOption(radarR2Metric.option, true);
+      setChartHoverTarget(CHART_IDS.radarR2Metric, radarR2Metric.hoverTarget);
 
       const radarPearsonSignalChart = state.charts[CHART_IDS.radarPearsonSignal];
-      radarPearsonSignalChart.setOption(
-        buildRadarOption({
-          chart: radarPearsonSignalChart,
-          title: "Regression By Component Type (Pearson)",
-          results,
-          selectorKey,
-          categories: denseSignalCategories,
-          seriesBuilder: (result, layer, categories) => {
-            const rows = denseRowsAtLayer(result, layer);
-            const stats = aggregateDenseStatsByGroup(rows, "pearson", "target_signal", categories);
-            const plottedValues = stats.map((value) => statMedian(value));
-            return { stats, plottedValues };
-          }
-        }),
-        true
-      );
+      const radarPearsonSignal = buildRadarOption({
+        chart: radarPearsonSignalChart,
+        title: "Regression By Component Type (Pearson)",
+        results,
+        selectorKey,
+        categories: denseSignalCategories,
+        seriesBuilder: (result, layer, categories) => {
+          const rows = denseRowsAtLayer(result, layer);
+          const stats = aggregateDenseStatsByGroup(rows, "pearson", "target_signal", categories);
+          const plottedValues = stats.map((value) => statMedian(value));
+          return { stats, plottedValues };
+        }
+      });
+      radarPearsonSignalChart.setOption(radarPearsonSignal.option, true);
+      setChartHoverTarget(CHART_IDS.radarPearsonSignal, radarPearsonSignal.hoverTarget);
 
       const radarPearsonMetricChart = state.charts[CHART_IDS.radarPearsonMetric];
-      radarPearsonMetricChart.setOption(
-        buildRadarOption({
-          chart: radarPearsonMetricChart,
-          title: "Regression By Parameter Type (Pearson)",
-          results,
-          selectorKey,
-          categories: denseMetricCategories,
-          seriesBuilder: (result, layer, categories) => {
-            const rows = denseRowsAtLayer(result, layer);
-            const stats = aggregateDenseStatsByGroup(rows, "pearson", "target_metric", categories);
-            const plottedValues = stats.map((value) => statMedian(value));
-            return { stats, plottedValues };
-          }
-        }),
-        true
-      );
+      const radarPearsonMetric = buildRadarOption({
+        chart: radarPearsonMetricChart,
+        title: "Regression By Parameter Type (Pearson)",
+        results,
+        selectorKey,
+        categories: denseMetricCategories,
+        seriesBuilder: (result, layer, categories) => {
+          const rows = denseRowsAtLayer(result, layer);
+          const stats = aggregateDenseStatsByGroup(rows, "pearson", "target_metric", categories);
+          const plottedValues = stats.map((value) => statMedian(value));
+          return { stats, plottedValues };
+        }
+      });
+      radarPearsonMetricChart.setOption(radarPearsonMetric.option, true);
+      setChartHoverTarget(CHART_IDS.radarPearsonMetric, radarPearsonMetric.hoverTarget);
     }
 
     function buildLineCharts(results, selectorKey) {
@@ -2829,55 +3046,54 @@
         })
       );
 
-      state.charts[CHART_IDS.lineAuroc].setOption(
-        buildLineOption({
-          title: "Macro AUROC By Layer",
-          yName: "AUROC",
-          results,
-          selectorKey,
-          metricKey: "auroc",
-          yMin: 0.5,
-          yMax: 1.0
-        }),
-        true
-      );
-      state.charts[CHART_IDS.lineAuprc].setOption(
-        buildLineOption({
-          title: "Macro AUPRC By Layer",
-          yName: "AUPRC",
-          results,
-          selectorKey,
-          metricKey: "auprc",
-          yMin: 0.0,
-          yMax: 1.0
-        }),
-        true
-      );
-      state.charts[CHART_IDS.linePearson].setOption(
-        buildLineOption({
-          title: "Macro Pearson By Layer",
-          yName: "Pearson",
-          results,
-          selectorKey,
-          metricKey: "macro_pearson",
-          yMin: 0.0,
-          yMax: 1.0
-        }),
-        true
-      );
-      state.charts[CHART_IDS.lineR2].setOption(
-        buildLineOption({
-          title: "Macro R2 By Layer",
-          yName: "Macro R2",
-          results,
-          selectorKey,
-          metricKey: "macro_r2",
-          yMin: 0.0,
-          yMax: r2Max,
-          clippedNote: true
-        }),
-        true
-      );
+      const lineAuroc = buildLineOption({
+        title: "Macro AUROC By Layer",
+        yName: "AUROC",
+        results,
+        selectorKey,
+        metricKey: "auroc",
+        yMin: 0.5,
+        yMax: 1.0
+      });
+      state.charts[CHART_IDS.lineAuroc].setOption(lineAuroc.option, true);
+      setChartHoverTarget(CHART_IDS.lineAuroc, lineAuroc.hoverTarget);
+
+      const lineAuprc = buildLineOption({
+        title: "Macro AUPRC By Layer",
+        yName: "AUPRC",
+        results,
+        selectorKey,
+        metricKey: "auprc",
+        yMin: 0.0,
+        yMax: 1.0
+      });
+      state.charts[CHART_IDS.lineAuprc].setOption(lineAuprc.option, true);
+      setChartHoverTarget(CHART_IDS.lineAuprc, lineAuprc.hoverTarget);
+
+      const linePearson = buildLineOption({
+        title: "Macro Pearson By Layer",
+        yName: "Pearson",
+        results,
+        selectorKey,
+        metricKey: "macro_pearson",
+        yMin: 0.0,
+        yMax: 1.0
+      });
+      state.charts[CHART_IDS.linePearson].setOption(linePearson.option, true);
+      setChartHoverTarget(CHART_IDS.linePearson, linePearson.hoverTarget);
+
+      const lineR2 = buildLineOption({
+        title: "Macro R2 By Layer",
+        yName: "Macro R2",
+        results,
+        selectorKey,
+        metricKey: "macro_r2",
+        yMin: 0.0,
+        yMax: r2Max,
+        clippedNote: true
+      });
+      state.charts[CHART_IDS.lineR2].setOption(lineR2.option, true);
+      setChartHoverTarget(CHART_IDS.lineR2, lineR2.hoverTarget);
     }
 
     function renderModelPicker() {
@@ -2896,6 +3112,20 @@
           `Color group: ${colorGroupLabel(result)}`,
           ...modelMetadataLines(result),
         ].join(" | ");
+        label.addEventListener("pointerenter", () => {
+          setHoveredModels([name]);
+        });
+        label.addEventListener("pointerleave", () => {
+          clearHoveredModels();
+        });
+        label.addEventListener("focusin", () => {
+          setHoveredModels([name]);
+        });
+        label.addEventListener("focusout", (event) => {
+          if (!label.contains(event.relatedTarget)) {
+            clearHoveredModels();
+          }
+        });
 
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
@@ -2922,6 +3152,7 @@
         label.appendChild(text);
         picker.appendChild(label);
       });
+      syncHoverDecorations();
     }
 
     function renderColorLegend() {
@@ -2946,7 +3177,15 @@
       entries.forEach((entry) => {
         const item = document.createElement("div");
         item.className = "color-legend-item";
+        item.dataset.groupValue = entry.groupValue;
+        item.dataset.colorMode = mode;
         item.title = `${entry.label}${mode === "model" ? "" : `: ${entry.count} model${entry.count === 1 ? "" : "s"}`}`;
+        item.addEventListener("pointerenter", () => {
+          setHoveredModels(modelNamesForColorGroup(entry.groupValue, mode));
+        });
+        item.addEventListener("pointerleave", () => {
+          clearHoveredModels();
+        });
 
         const swatch = document.createElement("span");
         swatch.className = "color-legend-swatch";
@@ -2968,17 +3207,21 @@
 
         listNode.appendChild(item);
       });
+      syncHoverDecorations();
     }
 
     function renderAll() {
       const selectorKey = getBestLayerSelector();
       const results = getSelectedResults();
+      normalizeHoveredState();
       renderColorLegend();
       renderModelPicker();
       updateSummaries();
       const bubbleSummary = buildBubbleChart(results);
       buildRadarCharts(results, selectorKey);
       buildLineCharts(results, selectorKey);
+      syncHoverDecorations();
+      syncChartHoverState();
       const warnings = [state.discoveryWarning, bubbleSummary ? bubbleSummary.warning : ""].filter(Boolean);
 
       if (!state.allResults.length) {
