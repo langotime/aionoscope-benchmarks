@@ -1225,25 +1225,25 @@
         return;
       }
       if (target.type === "series") {
-        modelNames.forEach((name) => {
-          const seriesIndex = target.seriesIndexByModel.get(name);
-          if (Number.isInteger(seriesIndex)) {
-            chart.dispatchAction({ type: "highlight", seriesIndex });
-          }
-        });
+        const seriesIndices = modelNames
+          .map((name) => target.seriesIndexByModel.get(name))
+          .filter((seriesIndex) => Number.isInteger(seriesIndex));
+        if (seriesIndices.length) {
+          chart.dispatchAction({ type: "highlight", seriesIndex: seriesIndices });
+        }
         return;
       }
       if (target.type === "data") {
-        modelNames.forEach((name) => {
-          const dataIndex = target.dataIndexByModel.get(name);
-          if (Number.isInteger(dataIndex)) {
-            chart.dispatchAction({
-              type: "highlight",
-              seriesIndex: target.seriesIndex,
-              dataIndex
-            });
-          }
-        });
+        const dataIndices = modelNames
+          .map((name) => target.dataIndexByModel.get(name))
+          .filter((dataIndex) => Number.isInteger(dataIndex));
+        if (dataIndices.length) {
+          chart.dispatchAction({
+            type: "highlight",
+            seriesIndex: target.seriesIndex,
+            dataIndex: dataIndices
+          });
+        }
       }
     }
 

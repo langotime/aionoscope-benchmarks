@@ -40,7 +40,8 @@ def test_dashboard_bubble_warning_reports_model_specific_missing_fields() -> Non
     assert "function modelNamesForColorGroup(groupValue, mode = getColorMode())" in html
     assert "function setHoveredModels(modelNames)" in html
     assert "function syncChartHoverState()" in html
-    assert 'chart.dispatchAction({ type: "highlight", seriesIndex });' in html
+    assert 'chart.dispatchAction({ type: "highlight", seriesIndex: seriesIndices });' in html
+    assert "dataIndex: dataIndices" in html
     assert 'label.addEventListener("pointerenter", () => {' in html
     assert 'item.addEventListener("pointerenter", () => {' in html
     assert "function renderColorLegend()" in html
