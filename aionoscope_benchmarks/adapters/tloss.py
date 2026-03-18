@@ -13,8 +13,8 @@ from .base import FrozenTimeSeriesAdapter
 
 
 class TLossAdapter(FrozenTimeSeriesAdapter):
-    model_name = "T-Loss"
-    model_slug = "T-Loss"
+    model_name = "T-Loss-CricketX"
+    model_slug = "T-Loss-CricketX"
     source = "https://github.com/White-Link/UnsupervisedScalableRepresentationLearningTimeSeries"
     checkpoint = "CricketX_CausalCNN_encoder.pth"
     import_path = "TLossRepo"

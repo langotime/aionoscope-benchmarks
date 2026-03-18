@@ -124,16 +124,16 @@ def _install_fake_transformers(monkeypatch: pytest.MonkeyPatch) -> tuple[type, t
 
 
 def test_timemoe_registry_contains_base_and_large() -> None:
-    assert "Time-MoE-Base" in MODEL_SPECS
-    assert "Time-MoE-Large" in MODEL_SPECS
-    assert MODEL_SPECS["Time-MoE-Base"].checkpoint == "Maple728/TimeMoE-50M"
-    assert MODEL_SPECS["Time-MoE-Large"].checkpoint == "Maple728/TimeMoE-200M"
-    assert MODEL_SPECS["Time-MoE-Base"].env == "timemoe"
-    assert MODEL_SPECS["Time-MoE-Large"].env == "timemoe"
-    assert "Time-MoE-Base" in FOUNDATIONAL_MODELS
-    assert "Time-MoE-Large" in FOUNDATIONAL_MODELS
-    assert "Time-MoE-Base" in all_foundational_model_names()
-    assert "Time-MoE-Large" in all_foundational_model_names()
+    assert "Time-MoE-50M" in MODEL_SPECS
+    assert "Time-MoE-200M" in MODEL_SPECS
+    assert MODEL_SPECS["Time-MoE-50M"].checkpoint == "Maple728/TimeMoE-50M"
+    assert MODEL_SPECS["Time-MoE-200M"].checkpoint == "Maple728/TimeMoE-200M"
+    assert MODEL_SPECS["Time-MoE-50M"].env == "timemoe"
+    assert MODEL_SPECS["Time-MoE-200M"].env == "timemoe"
+    assert "Time-MoE-50M" in FOUNDATIONAL_MODELS
+    assert "Time-MoE-200M" in FOUNDATIONAL_MODELS
+    assert "Time-MoE-50M" in all_foundational_model_names()
+    assert "Time-MoE-200M" in all_foundational_model_names()
 
 
 def test_timemoe_adapter_uses_published_context_length_and_remote_code(

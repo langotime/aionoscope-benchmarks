@@ -229,14 +229,14 @@ class _TimeMoeAdapter(FrozenTimeSeriesAdapter):
 
 
 class TimeMoeBaseAdapter(_TimeMoeAdapter):
-    model_name = "Time-MoE-Base"
-    model_slug = "Time-MoE-Base"
+    model_name = "Time-MoE-50M"
+    model_slug = "Time-MoE-50M"
     checkpoint = "Maple728/TimeMoE-50M"
     flash_encode_batch_size = 256
 
 
 class TimeMoeLargeAdapter(_TimeMoeAdapter):
-    model_name = "Time-MoE-Large"
-    model_slug = "Time-MoE-Large"
+    model_name = "Time-MoE-200M"
+    model_slug = "Time-MoE-200M"
     checkpoint = "Maple728/TimeMoE-200M"
     flash_encode_batch_size = 256

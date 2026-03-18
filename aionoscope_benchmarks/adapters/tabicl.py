@@ -8,8 +8,8 @@ from .base import FrozenTimeSeriesAdapter
 
 
 class TabICLAdapter(FrozenTimeSeriesAdapter):
-    model_name = "TabICL"
-    model_slug = "TabICL"
+    model_name = "TabICL-v1"
+    model_slug = "TabICL-v1"
     source = "https://github.com/soda-inria/tabicl"
     checkpoint = "tabicl-classifier-v1-20250208.ckpt"
     import_path = "tabicl"

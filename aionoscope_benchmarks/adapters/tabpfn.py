@@ -8,10 +8,10 @@ from .base import FrozenTimeSeriesAdapter
 
 
 class TabPFNAdapter(FrozenTimeSeriesAdapter):
-    model_name = "TabPFN"
-    model_slug = "TabPFN"
+    model_name = "TabPFN-v2"
+    model_slug = "TabPFN-v2"
     source = "https://github.com/PriorLabs/TabPFN"
-    checkpoint = "Prior-Labs/tabpfn_2_5"
+    checkpoint = "Prior-Labs/TabPFN-v2-clf"
     import_path = "tabpfn"
     env_name = "tabular"
     default_encode_batch_size = 4096
@@ -32,7 +32,7 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
         self._classifiers: list[object] = []
         self.benchmark_sequence_length = int(self.reduced_feature_length)
         self.benchmark_sequence_length_source = "tabular_fallback_feature_length"
-        self.resolved_model_version = "v2.5"
+        self.resolved_model_version = "v2"
         self.probe_train_split: dict[str, torch.Tensor] | None = None
         self.probe_val_split: dict[str, torch.Tensor] | None = None
 
@@ -139,7 +139,6 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
     ) -> None:
         from tabpfn import TabPFNClassifier
         from tabpfn.constants import ModelVersion
-        from tabpfn.errors import TabPFNHuggingFaceGatedRepoError
 
         self._class_names = [str(name) for name in manifest["class_names"]]
         train_x = self._reduce_inputs(train_split["x"])
@@ -153,7 +152,6 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
 
         train_features = np.empty((probe_train_x.shape[0], train_y.shape[1]), dtype=np.float32)
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        resolved_version = self.resolved_model_version
         classifiers: list[object] = []
         total_labels = len(self._class_names)
         log_every = max(1, (total_labels + 3) // 4)
@@ -166,9 +164,7 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
                 "n_preprocessing_jobs": 1,
                 "random_state": self.fit_seed + class_index,
             }
-            if resolved_version == "v2":
-                return TabPFNClassifier.create_default_for_version(ModelVersion.V2, **kwargs)
-            return TabPFNClassifier.create_default_for_version(ModelVersion.V2_5, **kwargs)
+            return TabPFNClassifier.create_default_for_version(ModelVersion.V2, **kwargs)
 
         for class_index, _class_name in enumerate(self._class_names):
             if (
@@ -187,21 +183,10 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
                 seed=self.fit_seed + class_index,
             )
             classifier = _build_classifier(class_index)
-            try:
-                classifier.fit(train_x[fit_indices], y_binary[fit_indices])
-            except (TabPFNHuggingFaceGatedRepoError, RuntimeError) as exc:
-                gated = isinstance(exc, TabPFNHuggingFaceGatedRepoError) or (
-                    "gated" in str(exc).lower() and "tabpfn_2_5" in str(exc)
-                )
-                if (not gated) or resolved_version == "v2":
-                    raise
-                resolved_version = "v2"
-                classifier = _build_classifier(class_index)
-                classifier.fit(train_x[fit_indices], y_binary[fit_indices])
+            classifier.fit(train_x[fit_indices], y_binary[fit_indices])
             train_features[:, class_index] = self._positive_proba(classifier, probe_train_x)
             classifiers.append(classifier)
 
-        self.resolved_model_version = resolved_version
         self._classifiers = classifiers
         self._split_feature_cache = {
             "train": {0: torch.from_numpy(train_features)},

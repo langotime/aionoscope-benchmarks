@@ -6,8 +6,8 @@ from .base import FrozenTimeSeriesAdapter
 
 
 class MomentAdapter(FrozenTimeSeriesAdapter):
-    model_name = "MOMENT"
-    model_slug = "MOMENT"
+    model_name = "MOMENT-1-Large"
+    model_slug = "MOMENT-1-Large"
     source = "https://github.com/moment-timeseries-foundation-model/moment"
     checkpoint = "AutonLab/MOMENT-1-large"
     import_path = "momentfm"

@@ -12,9 +12,11 @@ Current scope:
 - interactive browser dashboard from those JSON results
 
 Canonical benchmark model names now include explicit version and size whenever an
-upstream family publishes multiple official checkpoints. The registry and model docs
-also point to the official upstream repo and, when available, the official Hugging
-Face checkpoint rather than an unofficial mirror or alias.
+upstream family publishes multiple official checkpoints, and they keep published
+variant tokens when that is the only stable official identifier for a repo-hosted or
+model-card artifact. The registry and model docs also point to the official upstream
+repo and, when available, the official Hugging Face checkpoint rather than an
+unofficial mirror or alias.
 
 Additional docs:
 
@@ -69,14 +71,14 @@ padding, or waveform-resampling the benchmark data.
 Current exact lengths:
 
 - `16384`: `TimesFM-2.5-200M`
-- `8192`: `Chronos2`
-- `5000`: `LeNEPA-Aiono`, `LeNEPA-CauKer2M`, `LeNEPA-CauKer2M-20k`, `TiViT-H`, `TiConvNext`, `T-Loss`
-- `4096`: `Toto`, `Time-MoE-Base`, `Time-MoE-Large`
+- `8192`: `Chronos-2`
+- `5000`: `LeNEPA-Aiono`, `LeNEPA-CauKer2M`, `LeNEPA-CauKer2M-20k`, `TiViT-H-14-B79K`, `TiConvNext-XXLarge-AugReg`, `T-Loss-CricketX`
+- `4096`: `Toto-Open-Base-1.0`, `Time-MoE-50M`, `Time-MoE-200M`
 - `2880`: `Timer-Base-84M`, `Sundial-Base-128M`
 - `2048`: `TiRex`, `Kairos-10M`, `Kairos-23M`, `Kairos-50M`, `Reverso-Small-550K`
-- `512`: `MantisV2`, `Mantis-UTICA-8M`, `MOMENT`, `TTM`, `Moirai-1.0-R-Small`, `Moirai-1.0-R-Base`, `Moirai-1.0-R-Large`, `Moirai-1.1-R-Small`, `Moirai-1.1-R-Base`, `Moirai-1.1-R-Large`, `Moirai-2.0-R-Small`, `Moirai-MoE-1.0-R-Small`, `Moirai-MoE-1.0-R-Base`, `UniShape-ZeroShot`, `UniShape-FineTune`
-- `176`: `NuTime`
-- `128`: `TabPFN`, `TabICL`
+- `512`: `MantisV2`, `Mantis-UTICA-8M`, `MOMENT-1-Large`, `TTM-r2`, `Moirai-1.0-R-Small`, `Moirai-1.0-R-Base`, `Moirai-1.0-R-Large`, `Moirai-1.1-R-Small`, `Moirai-1.1-R-Base`, `Moirai-1.1-R-Large`, `Moirai-2.0-R-Small`, `Moirai-MoE-1.0-R-Small`, `Moirai-MoE-1.0-R-Base`, `UniShape-ZeroShot`, `UniShape-FineTune`
+- `176`: `NuTime-Bias9`
+- `128`: `TabPFN-v2`, `TabICL-v1`
 
 That means signal duration is now model-dependent. At `500 Hz`, durations range from
 `0.256` seconds for the tabular fallbacks up to `32.766` seconds for `TimesFM-2.5-200M`.
@@ -192,7 +194,7 @@ For the full foundational sweep used in the current results, use
 `scripts/run_foundational_sequential.py`. It dispatches each model into the
 environment pinned for that model family, which is necessary because the
 foundational stack spans incompatible dependency sets.
-`Time-MoE-Base`, `Time-MoE-Large`, `Timer-Base-84M`, and `Sundial-Base-128M`
+`Time-MoE-50M`, `Time-MoE-200M`, `Timer-Base-84M`, and `Sundial-Base-128M`
 use the dedicated `.venv-timemoe` interpreter because those official remote-code
 checkpoints require the published `transformers==4.40.1` stack.
 The explicit `Moirai-*` family uses `.venv-moirai`, and `MantisV2` plus
@@ -223,7 +225,7 @@ reserve layer `0` for the embedding stream, so the checked-in best-layer ids are
 indices rather than current ones.
 
 The foundational registry now also includes `LeNEPA-Aiono`, `LeNEPA-CauKer2M`,
-`LeNEPA-CauKer2M-20k`, `Time-MoE-Base`, `Time-MoE-Large`, `Timer-Base-84M`,
+`LeNEPA-CauKer2M-20k`, `Time-MoE-50M`, `Time-MoE-200M`, `Timer-Base-84M`,
 `Sundial-Base-128M`, `TimesFM-2.5-200M`, the explicit `Moirai-*` / `Moirai-MoE-*`
 variants, `Kairos-*`, `Reverso-Small-550K`, `UniShape-*`, and `Mantis-UTICA-8M`.
 Those entries now live as separate per-model JSON artifacts under `results/models/`,
@@ -241,19 +243,19 @@ LeNEPA adapters, benchmark layers run from `0..8`: layer `0` is the tokenizer
 
 | Model | Layers tested | Best AUROC layer | Macro AUROC | Best AUPRC layer | Macro AUPRC | Best R2 layer | Macro R2 | Best Pearson layer | Macro Pearson |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `Chronos2` | 12 | 9 | 0.9845 | 9 | 0.9420 | 11 | 0.3064 | 5 | 0.5239 |
-| `MOMENT` | 24 | 23 | 0.9016 | 23 | 0.7473 | 22 | 0.2932 | 10 | 0.4511 |
+| `Chronos-2` | 12 | 9 | 0.9845 | 9 | 0.9420 | 11 | 0.3064 | 5 | 0.5239 |
+| `MOMENT-1-Large` | 24 | 23 | 0.9016 | 23 | 0.7473 | 22 | 0.2932 | 10 | 0.4511 |
 | `MantisV2` | 6 | 2 | 0.9699 | 2 | 0.9005 | 1 | 0.5170 | 2 | 0.7084 |
 | `Moirai` | 6 | 5 | 0.8454 | 5 | 0.6142 | 0 | 0.0711 | 5 | 0.2717 |
-| `NuTime` | 6 | 5 | 0.8908 | 5 | 0.6843 | 1 | 0.3871 | 2 | 0.6026 |
-| `T-Loss` | 12 | 10 | 0.8943 | 10 | 0.7158 | 10 | 0.4912 | 10 | 0.6864 |
-| `TTM` | 15 | 13 | 0.8224 | 12 | 0.5349 | 3 | 0.1176 | 14 | 0.2371 |
-| `TabICL` | 1 | 0 | 0.8199 | 0 | 0.5513 | 0 | 0.0801 | 0 | 0.2305 |
-| `TabPFN` | 1 | 0 | 0.8693 | 0 | 0.6354 | 0 | 0.0772 | 0 | 0.2332 |
-| `TiConvNext` | 40 | 38 | 0.9908 | 25 | 0.9598 | 34 | 0.4580 | 33 | 0.5901 |
+| `NuTime-Bias9` | 6 | 5 | 0.8908 | 5 | 0.6843 | 1 | 0.3871 | 2 | 0.6026 |
+| `T-Loss-CricketX` | 12 | 10 | 0.8943 | 10 | 0.7158 | 10 | 0.4912 | 10 | 0.6864 |
+| `TTM-r2` | 15 | 13 | 0.8224 | 12 | 0.5349 | 3 | 0.1176 | 14 | 0.2371 |
+| `TabICL-v1` | 1 | 0 | 0.8199 | 0 | 0.5513 | 0 | 0.0801 | 0 | 0.2305 |
+| `TabPFN-v2` | 1 | 0 | 0.8693 | 0 | 0.6354 | 0 | 0.0772 | 0 | 0.2332 |
+| `TiConvNext-XXLarge-AugReg` | 40 | 38 | 0.9908 | 25 | 0.9598 | 34 | 0.4580 | 33 | 0.5901 |
 | `TiRex` | 12 | 5 | 0.9675 | 5 | 0.8890 | 11 | 0.3614 | 3 | 0.5778 |
-| `TiViT-H` | 32 | 16 | 0.9898 | 26 | 0.9570 | 31 | 0.0880 | 31 | 0.5094 |
-| `Toto` | 12 | 8 | 0.9774 | 8 | 0.9178 | 7 | 0.5985 | 7 | 0.7383 |
+| `TiViT-H-14-B79K` | 32 | 16 | 0.9898 | 26 | 0.9570 | 31 | 0.0880 | 31 | 0.5094 |
+| `Toto-Open-Base-1.0` | 12 | 8 | 0.9774 | 8 | 0.9178 | 7 | 0.5985 | 7 | 0.7383 |
 
 Benchmark gotchas:
 
@@ -266,11 +268,11 @@ Benchmark gotchas:
 *   The dashboard lets you choose the layer selector per model: `best_auc.layer`, `best_auprc.layer`, best macro `R2`, or best macro `Pearson`. Those best-layer choices are taken from the metric medians across validation runs. Do not confuse those selector views with the oracle-over-layer summaries stored in the JSON payloads.
 *   The selection-aware bubble chart only shows currently enabled models. Any supported bubble metric can drive the `x` axis, `y` axis, or bubble size: macro `AUROC`, macro `AUPRC`, macro `R2`, macro `Pearson`, explicit encoder forward time, or stored model parameter count. Parameter-count axes switch to log scale automatically so large and small models remain comparable on the same chart.
 *   New benchmark JSONs store encoder forward timing explicitly in `runtime.encoder_forward_total_s` and related train/validation breakdown fields. The dashboard falls back to `results.shared.timings.collect_*.*forward_s` only for older JSONs that predate the explicit runtime fields.
-*   New benchmark JSONs store parameter counts in `model.adapter.parameter_count` and `model.adapter.trainable_parameter_count`. For `TabPFN` and `TabICL`, those counts now come from the single official backbone model exposed by the fitted public classifier API, and are not multiplied by one-vs-rest labels or estimator replicas.
+*   New benchmark JSONs store parameter counts in `model.adapter.parameter_count` and `model.adapter.trainable_parameter_count`. For `TabPFN-v2` and `TabICL-v1`, those counts now come from the single official backbone model exposed by the fitted public classifier API, and are not multiplied by one-vs-rest labels or estimator replicas.
 *   The dense regression panels are labeled `Regression By Component Type` and `Regression By Parameter Type`, and they use absolute `R2` and Pearson, not `MSE`. `MSE` varied too much across target types to be useful on a shared dashboard scale.
 *   Negative `R2` values are clipped to `0` in the dashboard charts only so the useful range stays readable. Tooltips still expose the raw `R2` median and its standard deviation, and the JSON files keep the raw values.
-*   `TabPFN` and `TabICL` are not natural frozen layerwise encoders. In this benchmark they use fallback adapters that expose a synthetic single `layer 0`, run on exact `128`-sample waveforms as tabular features, train one-vs-rest classifiers, and cap both probe train and probe val subsets at `2048` samples.
-*   `TabPFN` now points at the official `Prior-Labs/tabpfn_2_5` checkpoint; benchmark older than that switch should be treated as legacy.
-*   Model-native exact lengths can materially increase RAM usage because the benchmark still materializes finite train/validation tensors in memory. `Chronos2` is the most extreme case because its exact context length is `8192`.
-*   `TTM` peaks at different layers for different selectors, notably AUROC vs AUPRC (`13` vs `12`).
-*   The TiViT image-backbone wrappers are the slowest and heaviest foundational runs on the full balanced online-generated split, especially `TiConvNext`.
+*   `TabPFN-v2` and `TabICL-v1` are not natural frozen layerwise encoders. In this benchmark they use fallback adapters that expose a synthetic single `layer 0`, run on exact `128`-sample waveforms as tabular features, train one-vs-rest classifiers, and cap both probe train and probe val subsets at `2048` samples.
+*   `TabPFN-v2` names the actual checked-in classifier artifact and points at the official `Prior-Labs/TabPFN-v2-clf` checkpoint. The official `tabpfn_2_5` family exists separately, but switching the canonical benchmark entry would require a fresh rerun.
+*   Model-native exact lengths can materially increase RAM usage because the benchmark still materializes finite train/validation tensors in memory. `Chronos-2` is the most extreme case because its exact context length is `8192`.
+*   `TTM-r2` peaks at different layers for different selectors, notably AUROC vs AUPRC (`13` vs `12`).
+*   The TiViT image-backbone wrappers are the slowest and heaviest foundational runs on the full balanced online-generated split, especially `TiConvNext-XXLarge-AugReg`.

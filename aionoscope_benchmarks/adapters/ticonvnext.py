@@ -8,8 +8,8 @@ from .tivit_common import sqrt_patch_size_for_length, timeseries_to_clip_images
 
 
 class TiConvNextAdapter(FrozenTimeSeriesAdapter):
-    model_name = "TiConvNext"
-    model_slug = "TiConvNext"
+    model_name = "TiConvNext-XXLarge-AugReg"
+    model_slug = "TiConvNext-XXLarge-AugReg"
     source = "https://github.com/ExplainableML/TiViT"
     checkpoint = "laion/CLIP-convnext_xxlarge-laion2B-s34B-b82K-augreg"
     import_path = "open_clip_torch"

@@ -6,8 +6,8 @@ from .base import FrozenTimeSeriesAdapter
 
 
 class TTMAdapter(FrozenTimeSeriesAdapter):
-    model_name = "TTM"
-    model_slug = "TTM"
+    model_name = "TTM-r2"
+    model_slug = "TTM-r2"
     source = "https://github.com/ibm-granite/granite-tsfm"
     checkpoint = "ibm-granite/granite-timeseries-ttm-r2"
     import_path = "tsfm_public"

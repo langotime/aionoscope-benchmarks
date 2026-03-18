@@ -8,8 +8,8 @@ from .tivit_common import sqrt_patch_size_for_length, timeseries_to_clip_images
 
 
 class TiViTHAdapter(FrozenTimeSeriesAdapter):
-    model_name = "TiViT-H"
-    model_slug = "TiViT-H"
+    model_name = "TiViT-H-14-B79K"
+    model_slug = "TiViT-H-14-B79K"
     source = "https://github.com/ExplainableML/TiViT"
     checkpoint = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
     import_path = "transformers"

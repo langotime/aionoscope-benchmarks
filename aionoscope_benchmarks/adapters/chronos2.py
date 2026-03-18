@@ -6,8 +6,8 @@ from .base import FrozenTimeSeriesAdapter
 
 
 class Chronos2Adapter(FrozenTimeSeriesAdapter):
-    model_name = "Chronos2"
-    model_slug = "Chronos2"
+    model_name = "Chronos-2"
+    model_slug = "Chronos-2"
     source = "https://github.com/amazon-science/chronos-forecasting"
     checkpoint = "amazon/chronos-2"
     import_path = "chronos-forecasting"

@@ -11,8 +11,8 @@ from .base import FrozenTimeSeriesAdapter
 
 
 class NuTimeAdapter(FrozenTimeSeriesAdapter):
-    model_name = "NuTime"
-    model_slug = "NuTime"
+    model_name = "NuTime-Bias9"
+    model_slug = "NuTime-Bias9"
     source = "https://github.com/chenguolin/NuTime"
     checkpoint = "checkpoint_bias9.pth"
     import_path = "NuTime repo"

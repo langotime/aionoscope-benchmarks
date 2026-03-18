@@ -6,8 +6,8 @@ from .base import FrozenTimeSeriesAdapter
 
 
 class TotoAdapter(FrozenTimeSeriesAdapter):
-    model_name = "Toto"
-    model_slug = "Toto"
+    model_name = "Toto-Open-Base-1.0"
+    model_slug = "Toto-Open-Base-1.0"
     source = "https://github.com/DataDog/toto"
     checkpoint = "Datadog/Toto-Open-Base-1.0"
     import_path = "toto-ts"

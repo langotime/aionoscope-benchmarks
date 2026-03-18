@@ -39,19 +39,19 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         module="aionoscope_benchmarks.adapters.utica",
         class_name="MantisUTICA8MAdapter",
     ),
-    "TabPFN": ModelSpec(
-        name="TabPFN",
-        slug="TabPFN",
+    "TabPFN-v2": ModelSpec(
+        name="TabPFN-v2",
+        slug="TabPFN-v2",
         source="https://github.com/PriorLabs/TabPFN",
-        checkpoint="Prior-Labs/tabpfn_2_5",
+        checkpoint="Prior-Labs/TabPFN-v2-clf",
         import_path="tabpfn",
         env="tabular",
         module="aionoscope_benchmarks.adapters.tabpfn",
         class_name="TabPFNAdapter",
     ),
-    "TabICL": ModelSpec(
-        name="TabICL",
-        slug="TabICL",
+    "TabICL-v1": ModelSpec(
+        name="TabICL-v1",
+        slug="TabICL-v1",
         source="https://github.com/soda-inria/tabicl",
         checkpoint="tabicl-classifier-v1-20250208.ckpt",
         import_path="tabicl",
@@ -59,9 +59,9 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         module="aionoscope_benchmarks.adapters.tabicl",
         class_name="TabICLAdapter",
     ),
-    "MOMENT": ModelSpec(
-        name="MOMENT",
-        slug="MOMENT",
+    "MOMENT-1-Large": ModelSpec(
+        name="MOMENT-1-Large",
+        slug="MOMENT-1-Large",
         source="https://github.com/moment-timeseries-foundation-model/moment",
         checkpoint="AutonLab/MOMENT-1-large",
         import_path="momentfm",
@@ -79,9 +79,9 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         module="aionoscope_benchmarks.adapters.tirex",
         class_name="TiRexAdapter",
     ),
-    "Chronos2": ModelSpec(
-        name="Chronos2",
-        slug="Chronos2",
+    "Chronos-2": ModelSpec(
+        name="Chronos-2",
+        slug="Chronos-2",
         source="https://github.com/amazon-science/chronos-forecasting",
         checkpoint="amazon/chronos-2",
         import_path="chronos-forecasting",
@@ -119,9 +119,9 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         module="aionoscope_benchmarks.adapters.lenepa",
         class_name="LeNEPACauKer2M20KAdapter",
     ),
-    "TTM": ModelSpec(
-        name="TTM",
-        slug="TTM",
+    "TTM-r2": ModelSpec(
+        name="TTM-r2",
+        slug="TTM-r2",
         source="https://github.com/ibm-granite/granite-tsfm",
         checkpoint="ibm-granite/granite-timeseries-ttm-r2",
         import_path="tsfm_public",
@@ -129,9 +129,9 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         module="aionoscope_benchmarks.adapters.ttm",
         class_name="TTMAdapter",
     ),
-    "Time-MoE-Base": ModelSpec(
-        name="Time-MoE-Base",
-        slug="Time-MoE-Base",
+    "Time-MoE-50M": ModelSpec(
+        name="Time-MoE-50M",
+        slug="Time-MoE-50M",
         source="https://github.com/Time-MoE/Time-MoE",
         checkpoint="Maple728/TimeMoE-50M",
         import_path="transformers",
@@ -139,9 +139,9 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         module="aionoscope_benchmarks.adapters.timemoe",
         class_name="TimeMoeBaseAdapter",
     ),
-    "Time-MoE-Large": ModelSpec(
-        name="Time-MoE-Large",
-        slug="Time-MoE-Large",
+    "Time-MoE-200M": ModelSpec(
+        name="Time-MoE-200M",
+        slug="Time-MoE-200M",
         source="https://github.com/Time-MoE/Time-MoE",
         checkpoint="Maple728/TimeMoE-200M",
         import_path="transformers",
@@ -329,9 +329,9 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         module="aionoscope_benchmarks.adapters.unishape",
         class_name="UniShapeFineTuneAdapter",
     ),
-    "Toto": ModelSpec(
-        name="Toto",
-        slug="Toto",
+    "Toto-Open-Base-1.0": ModelSpec(
+        name="Toto-Open-Base-1.0",
+        slug="Toto-Open-Base-1.0",
         source="https://github.com/DataDog/toto",
         checkpoint="Datadog/Toto-Open-Base-1.0",
         import_path="toto-ts",
@@ -339,9 +339,9 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         module="aionoscope_benchmarks.adapters.toto",
         class_name="TotoAdapter",
     ),
-    "TiViT-H": ModelSpec(
-        name="TiViT-H",
-        slug="TiViT-H",
+    "TiViT-H-14-B79K": ModelSpec(
+        name="TiViT-H-14-B79K",
+        slug="TiViT-H-14-B79K",
         source="https://github.com/ExplainableML/TiViT",
         checkpoint="laion/CLIP-ViT-H-14-laion2B-s32B-b79K",
         import_path="ExplainableML/TiViT",
@@ -349,9 +349,9 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         module="aionoscope_benchmarks.adapters.tivit_h",
         class_name="TiViTHAdapter",
     ),
-    "TiConvNext": ModelSpec(
-        name="TiConvNext",
-        slug="TiConvNext",
+    "TiConvNext-XXLarge-AugReg": ModelSpec(
+        name="TiConvNext-XXLarge-AugReg",
+        slug="TiConvNext-XXLarge-AugReg",
         source="https://github.com/ExplainableML/TiViT",
         checkpoint="laion/CLIP-convnext_xxlarge-laion2B-s34B-b82K-augreg",
         import_path="ExplainableML/TiViT",
@@ -359,9 +359,9 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         module="aionoscope_benchmarks.adapters.ticonvnext",
         class_name="TiConvNextAdapter",
     ),
-    "NuTime": ModelSpec(
-        name="NuTime",
-        slug="NuTime",
+    "NuTime-Bias9": ModelSpec(
+        name="NuTime-Bias9",
+        slug="NuTime-Bias9",
         source="https://github.com/chenguolin/NuTime",
         checkpoint="checkpoint_bias9.pth",
         import_path="NuTime repo",
@@ -369,11 +369,11 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         module="aionoscope_benchmarks.adapters.nutime",
         class_name="NuTimeAdapter",
     ),
-    "T-Loss": ModelSpec(
-        name="T-Loss",
-        slug="T-Loss",
+    "T-Loss-CricketX": ModelSpec(
+        name="T-Loss-CricketX",
+        slug="T-Loss-CricketX",
         source="https://github.com/White-Link/UnsupervisedScalableRepresentationLearningTimeSeries",
-        checkpoint="https://data.lip6.fr/usrlts/",
+        checkpoint="CricketX_CausalCNN_encoder.pth",
         import_path="USRLTS repo",
         env="core",
         module="aionoscope_benchmarks.adapters.tloss",
@@ -382,7 +382,21 @@ MODEL_SPECS: dict[str, ModelSpec] = {
 }
 
 MODEL_ALIASES: dict[str, str] = {
+    "Chronos2": "Chronos-2",
+    "MOMENT": "MOMENT-1-Large",
     "Moirai": "Moirai-1.1-R-Small",
+    "NuTime": "NuTime-Bias9",
+    "T-Loss": "T-Loss-CricketX",
+    "TTM": "TTM-r2",
+    "TabICL": "TabICL-v1",
+    "TabPFN": "TabPFN-v2",
+    "TiConvNext": "TiConvNext-XXLarge-AugReg",
+    "TiConvNext-XXLarge-laion2B-s34B-b82K-augreg": "TiConvNext-XXLarge-AugReg",
+    "TiViT-H": "TiViT-H-14-B79K",
+    "TiViT-ViT-H-14-laion2B-s32B-b79K": "TiViT-H-14-B79K",
+    "Time-MoE-Base": "Time-MoE-50M",
+    "Time-MoE-Large": "Time-MoE-200M",
+    "Toto": "Toto-Open-Base-1.0",
     "UTICA": "Mantis-UTICA-8M",
 }
 

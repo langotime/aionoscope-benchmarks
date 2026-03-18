@@ -66,7 +66,7 @@ uv run python -m aionoscope_benchmarks.run_model --model TiRex
 Run a few models in the current environment:
 
 ```bash
-uv run python -m aionoscope_benchmarks.run_many --model TiRex --model Chronos2
+uv run python -m aionoscope_benchmarks.run_many --model TiRex --model Chronos-2
 ```
 
 Run all foundational models with the per-model pinned interpreters:
@@ -77,7 +77,7 @@ uv run python scripts/run_foundational_sequential.py
 
 Be aware that exact model-native sequence lengths can materially increase RAM use because
 the benchmark still materializes finite train and validation tensors in memory before
-feature collection. `Chronos2` is the heaviest case because it now runs at exact length
+feature collection. `Chronos-2` is the heaviest case because it now runs at exact length
 `8192`.
 
 Serve the static dashboard:
@@ -179,8 +179,11 @@ square `duty_cycle`.
 `configs/models_foundational.yaml` is the human-facing sweep list. The code-level source of truth for metadata and adapters is `aionoscope_benchmarks/model_registry.py`.
 Canonical benchmark names must include the exact official version and size whenever a
 family publishes multiple checkpoints. The sweep therefore uses names such as
-`TimesFM-2.5-200M`, `Moirai-1.1-R-Small`, `Moirai-MoE-1.0-R-Base`, and
-`Mantis-UTICA-8M` instead of ambiguous family-only labels.
+`TimesFM-2.5-200M`, `Moirai-1.1-R-Small`, `Moirai-MoE-1.0-R-Base`,
+`Toto-Open-Base-1.0`, and `Mantis-UTICA-8M` instead of ambiguous family-only
+labels. When the only official published artifact is identified by a stable
+variant token rather than a size marker, that token stays in the canonical name,
+for example `NuTime-Bias9` or `T-Loss-CricketX`.
 Registry entries are expected to point at the official upstream repo and, when one
 exists, the official Hugging Face checkpoint. `UniShape` is the current explicit
 documented exception: the official repo ships the published checkpoints directly under
@@ -196,7 +199,7 @@ layer `8` is the post-final-layer-norm encoder output, matching the published ex
 contract before mean pooling.
 More generally, adapters that expose a distinct embedding stream use layer `0` for that
 embedding and number transformer-style encoder blocks from `1`.
-`Time-MoE-Base` and `Time-MoE-Large` also reserve layer `0` for their input
+`Time-MoE-50M` and `Time-MoE-200M` also reserve layer `0` for their input
 embedding stream. They load the official `Maple728/TimeMoE-50M` and
 `Maple728/TimeMoE-200M` checkpoints through `transformers` remote code, pin the
 exact benchmark length to the checkpoint `max_position_embeddings=4096`, apply the
@@ -228,11 +231,15 @@ the official multiscale tokenization code at the repository-published resized le
 `512`.
 `Mantis-UTICA-8M` reuses the official `mantis-tsfm` `Mantis8M` backbone with the
 official `fegounna/Utica` weights and uses the official README resize target of `512`.
+`TabPFN-v2` names the current checked-in official classifier artifact, `TabICL-v1`
+names the original ICML paper checkpoint, and the repo-hosted singleton checkpoints
+keep their published variant tokens in the canonical benchmark names, such as
+`NuTime-Bias9` and `T-Loss-CricketX`.
 
 The current exact benchmark lengths are:
 
 - `TimesFM-2.5-200M`: `16384`
-- `Chronos2`: `8192`
+- `Chronos-2`: `8192`
 - `LeNEPA-Aiono`: `5000`
 - `LeNEPA-CauKer2M`: `5000`
 - `LeNEPA-CauKer2M-20k`: `5000`
@@ -247,26 +254,26 @@ The current exact benchmark lengths are:
 - `Moirai-2.0-R-Small`: `512`
 - `Moirai-MoE-1.0-R-Small`: `512`
 - `Moirai-MoE-1.0-R-Base`: `512`
-- `MOMENT`: `512`
-- `NuTime`: `176`
-- `T-Loss`: `5000`
+- `MOMENT-1-Large`: `512`
+- `NuTime-Bias9`: `176`
+- `T-Loss-CricketX`: `5000`
 - `Timer-Base-84M`: `2880`
 - `Sundial-Base-128M`: `2880`
-- `Time-MoE-Base`: `4096`
-- `Time-MoE-Large`: `4096`
-- `TTM`: `512`
+- `Time-MoE-50M`: `4096`
+- `Time-MoE-200M`: `4096`
+- `TTM-r2`: `512`
 - `Kairos-10M`: `2048`
 - `Kairos-23M`: `2048`
 - `Kairos-50M`: `2048`
 - `Reverso-Small-550K`: `2048`
 - `UniShape-ZeroShot`: `512`
 - `UniShape-FineTune`: `512`
-- `TabICL`: `128`
-- `TabPFN`: `128`
-- `TiConvNext`: `5000`
+- `TabICL-v1`: `128`
+- `TabPFN-v2`: `128`
+- `TiConvNext-XXLarge-AugReg`: `5000`
 - `TiRex`: `2048`
-- `TiViT-H`: `5000`
-- `Toto`: `4096`
+- `TiViT-H-14-B79K`: `5000`
+- `Toto-Open-Base-1.0`: `4096`
 
 ## Validation Seed Semantics
 
@@ -337,7 +344,7 @@ mismatch is considered a benchmark bug, not a valid alternate evaluation.
 - file discovery now tries root-relative `/models/list.txt` first, then relative `models/` directory listing; if neither works, the UI reports the discovery failure and loads no model files;
 - layer ids are serialized as JSON object keys;
 - summary fields such as `best_auc`, `best_auprc`, macro best `r2`, and macro best `pearson` are read by the UI;
-- the selection-aware bubble chart only plots currently enabled models and allows any supported bubble metric on the `x` axis, `y` axis, or bubble size; inference uses `runtime.encoder_forward_total_s`, parameter count uses `model.adapter.parameter_count`, parameter-count axes render on a log scale, and older JSONs may still fall back to `results.shared.timings.collect_*.*forward_s` for inference mode; `TabPFN` and `TabICL` store the parameter count of a single official backbone checkpoint rather than multiplying by one-vs-rest classifier replicas;
+- the selection-aware bubble chart only plots currently enabled models and allows any supported bubble metric on the `x` axis, `y` axis, or bubble size; inference uses `runtime.encoder_forward_total_s`, parameter count uses `model.adapter.parameter_count`, parameter-count axes render on a log scale, and older JSONs may still fall back to `results.shared.timings.collect_*.*forward_s` for inference mode; `TabPFN-v2` and `TabICL-v1` store the parameter count of a single official backbone checkpoint rather than multiplying by one-vs-rest classifier replicas;
 - adapters that do not expose a registered PyTorch encoder may leave `model.adapter.parameter_count` as `null`; the dashboard must treat that as unavailable metadata rather than inventing a count;
 - grouped dense metrics depend on the target signal and target metric labels stored in the JSON;
 - browser charts may clip values for display, but raw metrics must remain preserved in the JSON.

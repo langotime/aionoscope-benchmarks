@@ -5,6 +5,7 @@
 Naming policy for this file and the code registry:
 
 - when a family has multiple official releases, benchmark entries use the exact official version and size in the canonical name, such as `TimesFM-2.5-200M` or `Moirai-1.1-R-Small`;
+- when the only official published artifact is a repo-hosted or model-card variant identified by a stable published token rather than a size marker, keep that token in the canonical name, such as `NuTime-Bias9` or `T-Loss-CricketX`;
 - prefer the official upstream repo plus the official Hugging Face checkpoint when one exists;
 - if the only official published checkpoint is shipped directly in the repo, document that explicitly as a repo-hosted exception instead of treating it as an implicit fallback.
 
@@ -24,21 +25,22 @@ Under that policy, the benchmark currently does **not** include `Timer-S1`, `Rev
   - Benchmark exact length: `512` samples, matching the official UTICA README resize target.
   - Note: this is a different training of the legacy Mantis-8M backbone, not an alias of `MantisV2`.
 
-- `TabPFN`
+- `TabPFN-v2`
   - Source code: `https://github.com/PriorLabs/TabPFN`
-  - Official checkpoint: current official weights are hosted in `https://huggingface.co/Prior-Labs/tabpfn_2_5`. The current docs name the default classifier checkpoint `tabpfn-v2.5-classifier-v2.5_default.ckpt`.
+  - Official checkpoint: `https://huggingface.co/Prior-Labs/TabPFN-v2-clf`
   - Import from: `tabpfn`; use `from tabpfn import TabPFNClassifier`.
   - Benchmark exact length: `128` samples. The benchmark generates exact-length tabular fallback waveforms instead of downsampling longer waveforms inside the adapter.
+  - Note: the checked-in benchmark artifact uses the official v2 classifier checkpoint. The newer official `tabpfn_2_5` family exists separately, but moving the canonical benchmark entry would require a fresh rerun.
   - Paper note: the MantisV2 paper pins `tabpfn==2.2.1`, so if exact paper reproduction matters you should pin that package version explicitly. For the `>10` class workaround, the paper points to `https://github.com/PriorLabs/tabpfn-extensions` rather than a core `tabpfn` API.
 
-- `TabICL`
+- `TabICL-v1`
   - Source code: `https://github.com/soda-inria/tabicl`
   - Official checkpoint: the package auto-downloads official checkpoints from the project releases. The repository documents `tabicl-classifier-v1-20250208.ckpt` as the original ICML 2025 paper checkpoint, and also lists newer `v1.1` and `v2` checkpoints.
   - Import from: `tabicl`; use `from tabicl import TabICLClassifier`.
   - Benchmark exact length: `128` samples. The benchmark generates exact-length tabular fallback waveforms instead of downsampling longer waveforms inside the adapter.
   - Paper note: the MantisV2 paper pins `tabicl==0.1.3` and says it uses default parameters. If exact reproduction matters, pin both the package version and checkpoint explicitly because the project default checkpoint has changed across releases.
 
-- `MOMENT`
+- `MOMENT-1-Large`
   - Source code: `https://github.com/moment-timeseries-foundation-model/moment`
   - Official checkpoint: `https://huggingface.co/AutonLab/MOMENT-1-large`
   - Import from: `momentfm`; the official README uses `from momentfm import MOMENTPipeline`.
@@ -52,7 +54,7 @@ Under that policy, the benchmark currently does **not** include `Timer-S1`, `Rev
   - Benchmark exact length: `2048` samples, matching the model's training context length.
   - Paper note: the paper pins `tirex-ts==1.1.1` and then reads the 5th layer for its own zero-shot comparison.
 
-- `Chronos2`
+- `Chronos-2`
   - Source code: `https://github.com/amazon-science/chronos-forecasting`
   - Official checkpoint: `https://huggingface.co/amazon/chronos-2`
   - Import from: `chronos-forecasting`; the official docs use `from chronos import Chronos2Pipeline`.
@@ -77,21 +79,21 @@ Under that policy, the benchmark currently does **not** include `Timer-S1`, `Rev
   - Import from: the published Hugging Face `inference.py` bundle; the benchmark loads that self-contained file via `huggingface_hub` and calls `load_lenepa_encoder(...)`.
   - Note: this is the non-steps-suffixed CauKer encoder export with per-patch normalization inside the tokenizer, a fixed `[B, 1, 5000]` input contract, `patch_size=8`, and `8` transformer blocks. In the benchmark, layer `0` is the tokenizer output and layer `8` is the post-final-layer-norm output.
 
-- `TTM (TinyTimeMixers, latest r2.1 release)`
+- `TTM-r2`
   - Source code: `https://github.com/ibm-granite/granite-tsfm`
   - Official checkpoint: `https://huggingface.co/ibm-granite/granite-timeseries-ttm-r2`
   - Import from: `granite-tsfm` / `tsfm_public`; use the IBM TTM classes from `tsfm_public` such as `TinyTimeMixerForPrediction`. Do not plan around `transformers` import for this model.
   - Benchmark exact length: `512` samples, matching the backbone patching sequence length.
-  - Note: the current latest public TTM release is `r2.1` within the `granite-timeseries-ttm-r2` model card, not the older `r1` / `v1` release.
+  - Note: the benchmark names the exact published `r2` model-card entry and uses its default `main`-branch `512`-context configuration. Newer `r2.1` branch variants exist in the same official model card.
 
-- `Time-MoE-Base`
+- `Time-MoE-50M`
   - Source code: `https://github.com/Time-MoE/Time-MoE`
   - Official checkpoint: `https://huggingface.co/Maple728/TimeMoE-50M`
   - Import from: `transformers`; use `AutoModelForCausalLM.from_pretrained(..., trust_remote_code=True)`. The upstream repo explicitly pins `transformers==4.40.1`.
   - Benchmark exact length: `4096` samples, matching the checkpoint `max_position_embeddings`.
   - Note: this is the official `50M` checkpoint. The benchmark applies the upstream per-series z-score normalization, then mean-pools the decoder token stream. Layer `0` is the input embedding stream and layer `12` is the post-final-norm decoder output.
 
-- `Time-MoE-Large`
+- `Time-MoE-200M`
   - Source code: `https://github.com/Time-MoE/Time-MoE`
   - Official checkpoint: `https://huggingface.co/Maple728/TimeMoE-200M`
   - Import from: `transformers`; use `AutoModelForCausalLM.from_pretrained(..., trust_remote_code=True)`. The upstream repo explicitly pins `transformers==4.40.1`.
@@ -212,39 +214,40 @@ Under that policy, the benchmark currently does **not** include `Timer-S1`, `Rev
   - Benchmark exact length: `512` samples, matching the repository-published resized series length used by the fine-tune workflow.
   - Note: this is the documented repo-hosted exception to the usual Hugging Face checkpoint rule.
 
-- `Toto`
+- `Toto-Open-Base-1.0`
   - Source code: `https://github.com/DataDog/toto`
   - Official checkpoint: `https://huggingface.co/Datadog/Toto-Open-Base-1.0`
   - Import from: `toto-ts`; the official quick-start example uses `from toto.inference.forecaster import TotoForecaster` and `from toto.data.util.dataset import MaskedTimeseries`.
   - Benchmark exact length: `4096` samples, matching the official Toto Open Base quick-start context length and remaining divisible by the model patch size `64`.
   - Note: this is Datadog's observability-focused open-weights time-series foundation model.
 
-- `TiViT-H`
+- `TiViT-H-14-B79K`
   - Source code: `https://github.com/ExplainableML/TiViT`
   - Official checkpoint: `https://huggingface.co/laion/CLIP-ViT-H-14-laion2B-s32B-b79K`
   - Import from: clone the `ExplainableML/TiViT` repo; the paper does not point to a separate pip package for TiViT itself.
   - Benchmark exact length: `5000` samples. The wrapper is length-agnostic in the time domain, so the benchmark keeps the default exact length with no adapter-side padding or cropping.
   - Paper note: this is the TiViT wrapper around a CLIP ViT-H backbone, and the paper reads the 14th layer for its own zero-shot comparison.
 
-- `TiConvNext`
+- `TiConvNext-XXLarge-AugReg`
   - Source code: `https://github.com/ExplainableML/TiViT`
   - Official checkpoint: `https://huggingface.co/laion/CLIP-convnext_xxlarge-laion2B-s34B-b82K-augreg`
   - Import from: clone the `ExplainableML/TiViT` repo; the paper does not point to a separate pip package for TiConvNext itself.
   - Benchmark exact length: `5000` samples. The wrapper is length-agnostic in the time domain, so the benchmark keeps the default exact length with no adapter-side padding or cropping.
   - Paper note: this is the TiViT pipeline with a CLIP ConvNext backbone, and the paper reads the 15th layer for its own zero-shot comparison.
 
-- `NuTime`
+- `NuTime-Bias9`
   - Source code: `https://github.com/chenguolin/NuTime`
   - Official checkpoint: `https://github.com/chenguolin/NuTime/blob/main/ckpt/checkpoint_bias9.pth`
   - Import from: clone the `NuTime` repo; the paper does not cite a separate pip package. The paper also points to `configs/demo_ft_epilepsy.json` for the architecture config it uses.
   - Benchmark exact length: `176` samples, matching `transform_size`.
   - Paper note: the paper does not use NuTime's adapter, because that would require fine-tuning and would break the frozen-encoder setup.
 
-- `T-Loss`
+- `T-Loss-CricketX`
   - Source code: `https://github.com/White-Link/UnsupervisedScalableRepresentationLearningTimeSeries`
-  - Official checkpoint: the official repo states that pretrained models are downloadable from `https://data.lip6.fr/usrlts/`.
+  - Official checkpoint: repo-hosted published checkpoint `models/CricketX_CausalCNN_encoder.pth`
   - Import from: clone the repo; there is no published pip package. The repo exposes code through its repository modules and scripts rather than a documented package import.
   - Benchmark exact length: `5000` samples. The encoder itself is length-agnostic, so the benchmark keeps the default exact length with no adapter-side padding or cropping.
+  - Note: the official repo only ships a CricketX pretrained model in-repo, so the canonical benchmark name carries that checkpoint token explicitly.
   - Paper note: in the MantisV2 bibliography this baseline corresponds to Franceschi et al. 2019, titled *Unsupervised scalable representation learning for multivariate time series*.
 
 ## Non-Foundational Methods Without Official Pretrained Weights

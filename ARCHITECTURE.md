@@ -133,8 +133,10 @@ The foundational model stack spans incompatible dependency sets. The repo theref
 `aionoscope_benchmarks/model_registry.py` maps canonical model names to source metadata, environment names, and adapter classes. Adapters implement the stable representation-extraction interface.
 Canonical model names are versioned and size-qualified whenever the upstream family
 publishes multiple official checkpoints. The registry therefore prefers entries such as
-`TimesFM-2.5-200M`, `Moirai-1.1-R-Small`, or `Mantis-UTICA-8M` over ambiguous family-only
-labels.
+`TimesFM-2.5-200M`, `Moirai-1.1-R-Small`, `Toto-Open-Base-1.0`, or `Mantis-UTICA-8M`
+over ambiguous family-only labels. When an upstream repo-hosted singleton checkpoint is
+identified by a published variant token instead of a size marker, that token is part of
+the canonical name as well, for example `NuTime-Bias9` or `T-Loss-CricketX`.
 Registry entries are expected to point at the official upstream repository and, when one
 exists, the official Hugging Face checkpoint. If the only official published checkpoint
 is shipped directly inside the upstream repo, that exception must be documented
