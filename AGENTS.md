@@ -100,6 +100,7 @@ Do not treat this repo as the source tree of the generator library itself.
 - Avoid recomputing representations when staged collected features can be reused.
 - Be deliberate about memory use when materializing full train and validation feature tensors.
 - Avoid Python loops over the entire dataset when vectorized or batched code is available and clearer.
+- When adding a new model, choose `default_encode_batch_size` and any runtime-specific batch-size overrides for the actual benchmark GPU we run on, currently NVIDIA H200, with minimum end-to-end wall time as the target. Do not ship obviously conservative tiny defaults such as `1` or `2` unless the model, attention implementation, or memory footprint truly requires it. Push batch size up until throughput stops improving or stability/memory becomes unsafe, and document intentionally small settings in code or adapter metadata.
 
 ### Testability
 
