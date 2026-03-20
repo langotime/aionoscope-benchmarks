@@ -908,6 +908,21 @@
             </div>
           </details>
 
+          <details class="sidebar-disclosure">
+            <summary class="sidebar-disclosure-summary">
+              <span class="sidebar-disclosure-title">Enabled components</span>
+              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
+            </summary>
+            <div class="sidebar-disclosure-body">
+              <div class="sidebar-section control-block">
+                <span class="control-label">Visible runs</span>
+                <div id="num-enabled-filter-list" class="selection-group-list">
+                  <div class="color-legend-empty">Loading enabled-component filters…</div>
+                </div>
+              </div>
+            </div>
+          </details>
+
           <details class="sidebar-disclosure" open>
             <summary class="sidebar-disclosure-summary">
               <span class="sidebar-disclosure-title">Model selector</span>
@@ -923,7 +938,7 @@
                 <input
                   id="model-search"
                   type="search"
-                  placeholder="Search by model name"
+                  placeholder="Search by model or run label"
                   aria-label="Search models by name"
                 >
               </div>
@@ -967,11 +982,11 @@
           <div class="panel hero-card">
             <div class="summary-grid">
               <div class="summary-card">
-                <span class="summary-label">Loaded JSON files</span>
+                <span class="summary-label">Visible runs</span>
                 <span class="summary-value" id="summary-loaded">Loading...</span>
               </div>
               <div class="summary-card">
-                <span class="summary-label">Selected models</span>
+                <span class="summary-label">Selected runs</span>
                 <span class="summary-value" id="summary-selected">0</span>
               </div>
             </div>
@@ -1154,6 +1169,7 @@
       transformer_moe: "Transformer + MoE (legacy / unspecified attention)",
       tabular_transformer: "Tabular transformer",
       slstm: "sLSTM",
+      linear_rnn: "Linear RNN",
       mlp_mixer: "MLP-Mixer",
       hybrid_sequence_model: "Hybrid sequence model",
       vision_transformer: "Vision Transformer",
@@ -1182,6 +1198,11 @@
       lineR2: "chart-line-r2"
     };
     const SIDEBAR_OVERLAY_MEDIA = window.matchMedia("(max-width: 960px)");
+    const DEFAULT_NUM_ENABLED_FILTER_VALUE = 2;
+    const RESULT_FETCH_TIMEOUT_MS = 30000;
+    const RESULT_FETCH_CONCURRENCY = 2;
+    const RESULT_FETCH_MAX_ATTEMPTS = 3;
+    const RESULT_FETCH_RETRY_DELAY_MS = 500;
     const RADAR_CENTER_X = 0.50;
     const RADAR_CENTER_Y = 0.56;
     const RADAR_RADIUS_RATIO = 0.66;
@@ -1190,12 +1211,18 @@
 
     const state = {
       allResults: [],
-      selectedModels: new Set(),
+      selectedRunKeys: new Set(),
+      numEnabledFilterValues: new Set(),
+      numEnabledFilterInitialized: false,
       charts: {},
       chartHoverTargets: {},
       discoverySource: "loading",
       discoveryWarning: "",
-      hoveredModelNames: [],
+      isLoadingResults: false,
+      loadingTotalFiles: 0,
+      loadingCompletedFiles: 0,
+      loadingLoadedFiles: 0,
+      hoveredRunKeys: [],
       sidebarDesktopCollapsed: false,
       sidebarOverlayOpen: false,
       layoutRefreshTimer: null
@@ -1209,12 +1236,94 @@
       return basename(path).replace(/\.json$/i, "");
     }
 
-    function modelName(result) {
+    function canonicalModelName(result) {
       return String(result.model.name);
     }
 
+    function modelName(result) {
+      return runLabel(result);
+    }
+
     function resultByModelName(name) {
-      return state.allResults.find((result) => modelName(result) === String(name)) || null;
+      return visibleResults().find((result) => modelName(result) === String(name)) || null;
+    }
+
+    function resultBenchmarkFamily(result) {
+      const dataset = result && result.dataset ? result.dataset : null;
+      return dataset && typeof dataset.benchmark_family === "string" && dataset.benchmark_family
+        ? dataset.benchmark_family
+        : "unknown_benchmark_family";
+    }
+
+    function resultBenchmarkVersion(result) {
+      const dataset = result && result.dataset ? result.dataset : null;
+      return dataset && typeof dataset.benchmark_version === "string" && dataset.benchmark_version
+        ? dataset.benchmark_version
+        : "unknown_benchmark_version";
+    }
+
+    function resultNumEnabled(result) {
+      const dataset = result && result.dataset ? result.dataset : null;
+      const numeric = dataset ? Number(dataset.num_enabled) : NaN;
+      return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+    }
+
+    function runKey(result) {
+      return [
+        result && result.model ? String(result.model.slug || canonicalModelName(result)) : "unknown_model",
+        resultBenchmarkFamily(result),
+        resultBenchmarkVersion(result),
+        `num_enabled_${resultNumEnabled(result) === null ? "unknown" : resultNumEnabled(result)}`
+      ].join("::");
+    }
+
+    function runLabel(result) {
+      const numEnabled = resultNumEnabled(result);
+      return `${canonicalModelName(result)} · num_enabled=${numEnabled === null ? "?" : numEnabled}`;
+    }
+
+    function visibleResults() {
+      return state.allResults.filter((result) => resultMatchesNumEnabledFilter(result));
+    }
+
+    function resultByRunKey(runKeyValue) {
+      return visibleResults().find((result) => runKey(result) === String(runKeyValue)) || null;
+    }
+
+    function availableNumEnabledValues() {
+      return Array.from(
+        new Set(
+          state.allResults
+            .map((result) => resultNumEnabled(result))
+            .filter((value) => Number.isInteger(value))
+        )
+      ).sort((left, right) => Number(left) - Number(right));
+    }
+
+    function normalizeNumEnabledFilterState() {
+      const availableValues = new Set(availableNumEnabledValues());
+      if (!availableValues.size) {
+        state.numEnabledFilterValues = new Set();
+        state.numEnabledFilterInitialized = false;
+        return;
+      }
+      if (!state.numEnabledFilterInitialized) {
+        state.numEnabledFilterValues = availableValues.has(DEFAULT_NUM_ENABLED_FILTER_VALUE)
+          ? new Set([DEFAULT_NUM_ENABLED_FILTER_VALUE])
+          : new Set();
+        state.numEnabledFilterInitialized = true;
+        return;
+      }
+      const retainedValues = Array.from(state.numEnabledFilterValues).filter((value) => availableValues.has(value));
+      state.numEnabledFilterValues = new Set(retainedValues);
+    }
+
+    function resultMatchesNumEnabledFilter(result) {
+      const numEnabled = resultNumEnabled(result);
+      if (numEnabled === null) {
+        return false;
+      }
+      return state.numEnabledFilterValues.has(numEnabled);
     }
 
     function modelFamily(result) {
@@ -1224,7 +1333,7 @@
 
     function modelCheckpointName(result) {
       const checkpointName = result && result.model ? result.model.checkpoint_name : null;
-      return typeof checkpointName === "string" && checkpointName ? checkpointName : modelName(result);
+      return typeof checkpointName === "string" && checkpointName ? checkpointName : canonicalModelName(result);
     }
 
     function modelArchitectureBackbone(result) {
@@ -1271,7 +1380,7 @@
       if (mode === "training") {
         return modelTrainingParadigm(result);
       }
-      return modelName(result);
+      return canonicalModelName(result);
     }
 
     function groupLabelForResult(result, mode = getColorMode()) {
@@ -1279,7 +1388,7 @@
     }
 
     function orderedGroupValues(mode = getColorMode()) {
-      return Array.from(new Set(state.allResults.map((result) => groupValueForResult(result, mode))));
+      return Array.from(new Set(visibleResults().map((result) => groupValueForResult(result, mode))));
     }
 
     function colorForGroupValue(groupValue, mode = getColorMode()) {
@@ -1303,39 +1412,39 @@
         groupValue,
         label: groupValueLabel(groupValue, mode),
         color: colorForGroupValue(groupValue, mode),
-        count: state.allResults.filter((result) => groupValueForResult(result, mode) === groupValue).length,
+        count: visibleResults().filter((result) => groupValueForResult(result, mode) === groupValue).length,
       }));
     }
 
-    function modelNamesForGroup(groupValue, mode = getColorMode()) {
-      return state.allResults
+    function runKeysForGroup(groupValue, mode = getColorMode()) {
+      return visibleResults()
         .filter((result) => groupValueForResult(result, mode) === groupValue)
-        .map((result) => modelName(result));
+        .map((result) => runKey(result));
     }
 
     function hoveredModelSet() {
-      return new Set(state.hoveredModelNames);
+      return new Set(state.hoveredRunKeys);
     }
 
     function normalizeHoveredState() {
-      state.hoveredModelNames = Array.from(
+      state.hoveredRunKeys = Array.from(
         new Set(
-          state.hoveredModelNames
-            .map((name) => String(name))
-            .filter((name) => resultByModelName(name))
+          state.hoveredRunKeys
+            .map((runKeyValue) => String(runKeyValue))
+            .filter((runKeyValue) => resultByRunKey(runKeyValue))
         )
       );
     }
 
     function hoveredGroupValue(mode) {
-      if (!state.hoveredModelNames.length) {
+      if (!state.hoveredRunKeys.length) {
         return null;
       }
       const hoveredGroups = Array.from(
         new Set(
-          state.hoveredModelNames
-            .map((name) => {
-              const result = resultByModelName(name);
+          state.hoveredRunKeys
+            .map((runKeyValue) => {
+              const result = resultByRunKey(runKeyValue);
               return result ? groupValueForResult(result, mode) : null;
             })
             .filter((groupValue) => groupValue !== null)
@@ -1349,11 +1458,13 @@
     }
 
     function setHoveredModels(modelNames) {
-      const nextNames = Array.from(new Set((modelNames || []).map((name) => String(name)).filter(Boolean)));
-      const previousSignature = state.hoveredModelNames.join("\u0001");
-      state.hoveredModelNames = nextNames;
+      const nextRunKeys = Array.from(
+        new Set((modelNames || []).map((runKeyValue) => String(runKeyValue)).filter(Boolean))
+      );
+      const previousSignature = state.hoveredRunKeys.join("\u0001");
+      state.hoveredRunKeys = nextRunKeys;
       normalizeHoveredState();
-      const nextSignature = state.hoveredModelNames.join("\u0001");
+      const nextSignature = state.hoveredRunKeys.join("\u0001");
       if (previousSignature === nextSignature) {
         return;
       }
@@ -1362,10 +1473,10 @@
     }
 
     function clearHoveredModels() {
-      if (!state.hoveredModelNames.length) {
+      if (!state.hoveredRunKeys.length) {
         return;
       }
-      state.hoveredModelNames = [];
+      state.hoveredRunKeys = [];
       syncHoverDecorations();
       syncChartHoverState();
     }
@@ -1424,7 +1535,7 @@
     }
 
     function syncChartHoverState() {
-      const modelNames = state.hoveredModelNames;
+      const modelNames = state.hoveredRunKeys;
       Object.entries(state.charts).forEach(([chartId, chart]) => {
         if (!chart) {
           return;
@@ -1437,10 +1548,13 @@
 
     function modelMetadataLines(result) {
       return [
+        `Model: ${canonicalModelName(result)}`,
         `Family: ${modelFamily(result)}`,
         `Checkpoint: ${modelCheckpointName(result)}`,
         `Architecture type: ${architectureBackboneLabel(modelArchitectureBackbone(result))}`,
         `Training: ${trainingParadigmLabel(modelTrainingParadigm(result))}`,
+        `Benchmark: ${resultBenchmarkFamily(result)}/${resultBenchmarkVersion(result)}`,
+        `num_enabled: ${resultNumEnabled(result) === null ? "N/A" : resultNumEnabled(result)}`
       ];
     }
 
@@ -1669,7 +1783,14 @@
 
     function modelMatchesPickerFilters(result) {
       const searchTerm = getSearchTerm();
-      return !searchTerm || modelName(result).toLowerCase().includes(searchTerm);
+      if (!resultMatchesNumEnabledFilter(result)) {
+        return false;
+      }
+      if (!searchTerm) {
+        return true;
+      }
+      return [modelName(result), canonicalModelName(result)]
+        .some((value) => String(value).toLowerCase().includes(searchTerm));
     }
 
     function getBubbleXMetric() {
@@ -1692,6 +1813,32 @@
       const banner = document.getElementById("status-banner");
       banner.textContent = message;
       banner.classList.toggle("warning", level === "warning");
+    }
+
+    function updateLoadingStatus() {
+      if (!state.isLoadingResults || state.loadingTotalFiles <= 0) {
+        return;
+      }
+      document.getElementById("summary-loaded").textContent =
+        `Loading... ${state.loadingLoadedFiles}/${state.loadingTotalFiles}`;
+      const failedFiles = state.loadingCompletedFiles - state.loadingLoadedFiles;
+      const fragments = [`Loading JSON files... ${state.loadingLoadedFiles}/${state.loadingTotalFiles}`];
+      if (failedFiles > 0) {
+        fragments.push(`(${failedFiles} failed so far)`);
+      }
+      fragments.push(`via ${state.discoverySource}.`);
+      setStatus(fragments.join(" "), failedFiles > 0 ? "warning" : "info");
+    }
+
+    function setLoadingProgress({ isLoading, totalFiles = 0, completedFiles = 0, loadedFiles = 0 }) {
+      state.isLoadingResults = Boolean(isLoading);
+      state.loadingTotalFiles = Number(totalFiles);
+      state.loadingCompletedFiles = Number(completedFiles);
+      state.loadingLoadedFiles = Number(loadedFiles);
+      if (!state.isLoadingResults) {
+        return;
+      }
+      updateLoadingStatus();
     }
 
     function isSidebarOverlay() {
@@ -1737,8 +1884,73 @@
       applySidebarState({ refresh });
     }
 
+    function syncSelectedRunsToVisibleResults() {
+      const visibleRunKeys = new Set(visibleResults().map((result) => runKey(result)));
+      state.selectedRunKeys = new Set(
+        Array.from(state.selectedRunKeys).filter((runKeyValue) => visibleRunKeys.has(runKeyValue))
+      );
+      state.hoveredRunKeys = state.hoveredRunKeys.filter((runKeyValue) => visibleRunKeys.has(runKeyValue));
+    }
+
+    function toggleNumEnabledFilterValue(numEnabled) {
+      const numeric = Number(numEnabled);
+      if (!Number.isInteger(numeric) || numeric <= 0) {
+        return;
+      }
+      if (state.numEnabledFilterValues.has(numeric)) {
+        state.numEnabledFilterValues.delete(numeric);
+      } else {
+        state.numEnabledFilterValues.add(numeric);
+      }
+      syncSelectedRunsToVisibleResults();
+      normalizeHoveredState();
+    }
+
+    function renderNumEnabledFilter() {
+      const listNode = document.getElementById("num-enabled-filter-list");
+      const values = availableNumEnabledValues();
+      listNode.innerHTML = "";
+
+      if (!values.length) {
+        const empty = document.createElement("div");
+        empty.className = "color-legend-empty";
+        empty.textContent = "Load benchmark JSON files to populate enabled-component filters.";
+        listNode.appendChild(empty);
+        return;
+      }
+
+      values.forEach((value) => {
+        const numeric = Number(value);
+        const visibleCount = state.allResults.filter((result) => resultNumEnabled(result) === numeric).length;
+        const label = document.createElement("label");
+        label.className = "model-chip";
+        label.title = `Show only runs with num_enabled=${numeric}`;
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = state.numEnabledFilterValues.has(numeric);
+        checkbox.addEventListener("change", () => {
+          toggleNumEnabledFilterValue(numeric);
+          renderAll();
+        });
+
+        const text = document.createElement("span");
+        text.className = "model-name";
+        text.textContent = `num_enabled=${numeric} (${visibleCount})`;
+
+        label.appendChild(checkbox);
+        label.appendChild(text);
+        listNode.appendChild(label);
+      });
+    }
+
     function updateSummaries() {
-      document.getElementById("summary-loaded").textContent = String(state.allResults.length);
+      if (state.isLoadingResults && state.loadingTotalFiles > 0) {
+        document.getElementById("summary-loaded").textContent =
+          `Loading... ${state.loadingLoadedFiles}/${state.loadingTotalFiles}`;
+      } else {
+        document.getElementById("summary-loaded").textContent = String(visibleResults().length);
+      }
       document.getElementById("summary-selected").textContent = String(getSelectedResults().length);
     }
 
@@ -2281,7 +2493,7 @@
     }
 
     function getSelectedResults() {
-      return state.allResults.filter((result) => state.selectedModels.has(modelName(result)));
+      return visibleResults().filter((result) => state.selectedRunKeys.has(runKey(result)));
     }
 
     function emptyOption(title, message) {
@@ -2372,15 +2584,15 @@
       const layerByModel = {};
 
       results.forEach((result) => {
-        const name = modelName(result);
+        const key = runKey(result);
         const layer = selectedLayerForResult(result, selectorKey);
         if (layer === null) {
           return;
         }
         const { plottedValues, stats } = seriesBuilder(result, layer, categories);
-        dataByModel[name] = plottedValues;
-        statsByModel[name] = stats;
-        layerByModel[name] = layer;
+        dataByModel[key] = plottedValues;
+        statsByModel[key] = stats;
+        layerByModel[key] = layer;
       });
 
       if (!Object.keys(dataByModel).length) {
@@ -2398,13 +2610,14 @@
       }));
       const radarRows = results
         .map((result) => {
-          const name = modelName(result);
-          if (!Object.prototype.hasOwnProperty.call(dataByModel, name)) {
+          const key = runKey(result);
+          if (!Object.prototype.hasOwnProperty.call(dataByModel, key)) {
             return null;
           }
           return {
-            name,
-            value: dataByModel[name]
+            name: modelName(result),
+            runKey: key,
+            value: dataByModel[key]
           };
         })
         .filter(Boolean);
@@ -2417,11 +2630,13 @@
             trigger: "item",
             confine: true,
             formatter: (param) => {
-              const name = param.name || param.seriesName;
-              const stats = statsByModel[name] || [];
-              const plottedValues = dataByModel[name] || param.value;
-              const layer = layerByModel[name];
-              const result = resultByModelName(name);
+              const rowRunKey =
+                param && param.data && typeof param.data.runKey === "string" ? param.data.runKey : null;
+              const result = rowRunKey ? resultByRunKey(rowRunKey) : null;
+              const label = result ? modelName(result) : param.name || param.seriesName;
+              const stats = rowRunKey ? statsByModel[rowRunKey] || [] : [];
+              const plottedValues = rowRunKey ? dataByModel[rowRunKey] || param.value : param.value;
+              const layer = rowRunKey ? layerByModel[rowRunKey] : null;
               const rows = categories.map((category, index) => {
                 const raw = statMedian(stats[index]);
                 const rawStd = statStd(stats[index]);
@@ -2431,9 +2646,9 @@
                 return `${category}: ${formatMetricValue(raw)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plotted)})` : ""}`;
               });
               return [
-                `<strong>${name}</strong>`,
-                `Color group: ${result ? groupLabelForResult(result) : name}`,
-                `Selected layer: ${layer}`,
+                `<strong>${label}</strong>`,
+                `Color group: ${result ? groupLabelForResult(result) : label}`,
+                `Selected layer: ${layer === null ? "N/A" : layer}`,
                 rows.join("<br>")
               ].join("<br>");
             }
@@ -2508,7 +2723,7 @@
         hoverTarget: {
           type: "data",
           seriesIndex: 0,
-          dataIndexByModel: new Map(radarRows.map((row, index) => [row.name, index]))
+          dataIndexByModel: new Map(radarRows.map((row, index) => [row.runKey, index]))
         }
       };
     }
@@ -2549,6 +2764,7 @@
     }
 
     function lineSeriesGroup(result, metricKey, selectorKey, layerCategories) {
+      const key = runKey(result);
       const name = modelName(result);
       const color = colorForResult(result);
       const selectedLayer = selectedLayerForResult(result, selectorKey);
@@ -2596,6 +2812,7 @@
       return [
         {
           name: `${name} lower`,
+          id: `${key}::${metricKey}::lower`,
           type: "line",
           stack: stackName,
           stackStrategy: "all",
@@ -2618,6 +2835,7 @@
         },
         {
           name: `${name} std`,
+          id: `${key}::${metricKey}::std`,
           type: "line",
           stack: stackName,
           stackStrategy: "all",
@@ -2640,6 +2858,7 @@
         },
         {
           name,
+          id: `${key}::${metricKey}::line`,
           type: "line",
           smooth: false,
           showSymbol: true,
@@ -2670,6 +2889,7 @@
             }
             return {
               value: payload.plottedValue,
+              runKey: key,
               rawValue: payload.rawValue,
               rawStd: payload.rawStd,
               rawStat: payload.stat,
@@ -2699,7 +2919,7 @@
       results.forEach((result) => {
         const groupSeries = lineSeriesGroup(result, metricKey, selectorKey, layerCategories);
         series.push(...groupSeries);
-        seriesIndexByModel.set(modelName(result), series.length - 1);
+        seriesIndexByModel.set(runKey(result), series.length - 1);
       });
 
       return {
@@ -2732,7 +2952,8 @@
                   const clipped = Math.abs(rawValue - plottedValue) > 1e-12;
                   const selectedSuffix =
                     Number(param.data.selectedLayer) === Number(axisValue) ? " [selected layer]" : "";
-                  const result = resultByModelName(param.seriesName);
+                  const result =
+                    param.data && typeof param.data.runKey === "string" ? resultByRunKey(param.data.runKey) : null;
                   const colorGroupSuffix =
                     result && getColorMode() !== "model" ? ` [${groupLabelForResult(result)}]` : "";
                   return `${param.marker}${param.seriesName}${colorGroupSuffix}: ${formatMetricValue(rawValue)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plottedValue)})` : ""}${selectedSuffix}`;
@@ -2888,6 +3109,7 @@
           }
           return {
             name: modelName(result),
+            runKey: runKey(result),
             xValue,
             yValue,
             sizeValue,
@@ -2939,7 +3161,7 @@
             confine: true,
             formatter: (param) => {
               const row = param.data;
-              const result = resultByModelName(row.name);
+              const result = row && typeof row.runKey === "string" ? resultByRunKey(row.runKey) : null;
               const uniqueDetailLines = Array.from(
                 new Set([...row.xDetailLines, ...row.yDetailLines, ...row.sizeDetailLines])
               );
@@ -3045,7 +3267,7 @@
       setChartHoverTarget(CHART_IDS.bubbleOverview, {
         type: "data",
         seriesIndex: 0,
-        dataIndexByModel: new Map(bubbleRows.map((row, index) => [row.name, index]))
+        dataIndexByModel: new Map(bubbleRows.map((row, index) => [row.runKey, index]))
       });
       return {
         warning:
@@ -3282,24 +3504,24 @@
     }
 
     function groupSelectionStats(groupValue, mode = getModelSelectionMode()) {
-      const names = modelNamesForGroup(groupValue, mode);
-      const selectedCount = names.filter((name) => state.selectedModels.has(name)).length;
+      const runKeys = runKeysForGroup(groupValue, mode);
+      const selectedCount = runKeys.filter((runKeyValue) => state.selectedRunKeys.has(runKeyValue)).length;
       return {
-        names,
+        runKeys,
         selectedCount,
-        totalCount: names.length,
-        isAllSelected: names.length > 0 && selectedCount === names.length,
-        isPartiallySelected: selectedCount > 0 && selectedCount < names.length
+        totalCount: runKeys.length,
+        isAllSelected: runKeys.length > 0 && selectedCount === runKeys.length,
+        isPartiallySelected: selectedCount > 0 && selectedCount < runKeys.length
       };
     }
 
     function toggleModelSelectionGroup(groupValue, mode = getModelSelectionMode()) {
-      const { names, isAllSelected } = groupSelectionStats(groupValue, mode);
-      names.forEach((name) => {
+      const { runKeys, isAllSelected } = groupSelectionStats(groupValue, mode);
+      runKeys.forEach((runKeyValue) => {
         if (isAllSelected) {
-          state.selectedModels.delete(name);
+          state.selectedRunKeys.delete(runKeyValue);
         } else {
-          state.selectedModels.add(name);
+          state.selectedRunKeys.add(runKeyValue);
         }
       });
     }
@@ -3310,9 +3532,10 @@
       const listNode = document.getElementById("model-selection-group-list");
       const entries = groupEntries(mode);
       const selectedCount = getSelectedResults().length;
+      const visibleCount = visibleResults().length;
 
       modeNode.textContent = entries.length
-        ? `${groupModeLabel(mode)} · ${selectedCount}/${state.allResults.length}`
+        ? `${groupModeLabel(mode)} · ${selectedCount}/${visibleCount}`
         : groupModeLabel(mode);
       listNode.innerHTML = "";
 
@@ -3338,13 +3561,13 @@
           renderAll();
         });
         item.addEventListener("pointerenter", () => {
-          setHoveredModels(selection.names);
+          setHoveredModels(selection.runKeys);
         });
         item.addEventListener("pointerleave", () => {
           clearHoveredModels();
         });
         item.addEventListener("focusin", () => {
-          setHoveredModels(selection.names);
+          setHoveredModels(selection.runKeys);
         });
         item.addEventListener("focusout", (event) => {
           if (!item.contains(event.relatedTarget)) {
@@ -3374,16 +3597,17 @@
       let visibleCount = 0;
       picker.innerHTML = "";
 
-      state.allResults.forEach((result) => {
+      visibleResults().forEach((result) => {
+        const key = runKey(result);
         const name = modelName(result);
-        const selected = state.selectedModels.has(name);
+        const selected = state.selectedRunKeys.has(key);
         const visible = modelMatchesPickerFilters(result);
         if (visible) {
           visibleCount += 1;
         }
         const label = document.createElement("label");
         label.className = `model-chip${selected ? " selected" : ""}${visible ? "" : " hidden"}`;
-        label.dataset.model = name;
+        label.dataset.model = key;
         label.title = [
           `Color group (${groupModeLabel(colorMode)}): ${groupLabelForResult(result, colorMode)}`,
           colorMode === selectionMode
@@ -3392,13 +3616,13 @@
           ...modelMetadataLines(result),
         ].filter(Boolean).join(" | ");
         label.addEventListener("pointerenter", () => {
-          setHoveredModels([name]);
+          setHoveredModels([key]);
         });
         label.addEventListener("pointerleave", () => {
           clearHoveredModels();
         });
         label.addEventListener("focusin", () => {
-          setHoveredModels([name]);
+          setHoveredModels([key]);
         });
         label.addEventListener("focusout", (event) => {
           if (!label.contains(event.relatedTarget)) {
@@ -3411,9 +3635,9 @@
         checkbox.checked = selected;
         checkbox.addEventListener("change", () => {
           if (checkbox.checked) {
-            state.selectedModels.add(name);
+            state.selectedRunKeys.add(key);
           } else {
-            state.selectedModels.delete(name);
+            state.selectedRunKeys.delete(key);
           }
           renderAll();
         });
@@ -3434,7 +3658,7 @@
       if (!visibleCount) {
         const empty = document.createElement("div");
         empty.className = "color-legend-empty";
-        empty.textContent = state.allResults.length
+        empty.textContent = visibleResults().length
           ? "No models match the current search."
           : "Load benchmark JSON files to populate the model selector.";
         picker.appendChild(empty);
@@ -3466,9 +3690,9 @@
         item.className = "color-legend-item";
         item.dataset.groupValue = entry.groupValue;
         item.dataset.groupMode = mode;
-        item.title = `${entry.label}${mode === "model" ? "" : `: ${entry.count} model${entry.count === 1 ? "" : "s"}`}`;
+        item.title = `${entry.label}${mode === "model" ? "" : `: ${entry.count} run${entry.count === 1 ? "" : "s"}`}`;
         item.addEventListener("pointerenter", () => {
-          setHoveredModels(modelNamesForGroup(entry.groupValue, mode));
+          setHoveredModels(runKeysForGroup(entry.groupValue, mode));
         });
         item.addEventListener("pointerleave", () => {
           clearHoveredModels();
@@ -3488,7 +3712,7 @@
         if (mode !== "model") {
           const count = document.createElement("span");
           count.className = "color-legend-count";
-          count.textContent = `${entry.count} model${entry.count === 1 ? "" : "s"}`;
+          count.textContent = `${entry.count} run${entry.count === 1 ? "" : "s"}`;
           item.appendChild(count);
         }
 
@@ -3498,9 +3722,17 @@
     }
 
     function renderAll() {
+      if (state.isLoadingResults) {
+        updateSummaries();
+        updateLoadingStatus();
+        return;
+      }
+      normalizeNumEnabledFilterState();
+      syncSelectedRunsToVisibleResults();
       const selectorKey = getBestLayerSelector();
       const results = getSelectedResults();
       normalizeHoveredState();
+      renderNumEnabledFilter();
       renderColorLegend();
       renderModelSelectionGroups();
       renderModelPicker();
@@ -3518,15 +3750,17 @@
             "No JSON result files were loaded. Serve the repo over HTTP and keep benchmark JSONs in results/models/.",
           "warning"
         );
+      } else if (!visibleResults().length) {
+        setStatus("No runs match the current num_enabled filter. Re-enable at least one value.", "warning");
       } else if (!results.length) {
-        setStatus("No models selected. Use the Model selector to choose at least one model.", "warning");
+        setStatus("No runs selected. Use the Model selector to choose at least one benchmark run.", "warning");
       } else if (warnings.length) {
         setStatus(
-          `Loaded ${state.allResults.length} JSON files via ${state.discoverySource}. ${warnings.join(" | ")}`,
+          `Loaded ${state.allResults.length} JSON files; showing ${visibleResults().length} runs via ${state.discoverySource}. ${warnings.join(" | ")}`,
           "warning"
         );
       } else {
-        setStatus(`Loaded ${state.allResults.length} JSON files via ${state.discoverySource}.`);
+        setStatus(`Loaded ${state.allResults.length} JSON files; showing ${visibleResults().length} runs via ${state.discoverySource}.`);
       }
     }
 
@@ -3570,6 +3804,10 @@
 
       const result = payload;
       const model = result.model;
+      if (!result.dataset || typeof result.dataset !== "object" || Array.isArray(result.dataset)) {
+        result.dataset = {};
+      }
+      const dataset = result.dataset;
       if (typeof model.family !== "string" || !model.family) {
         model.family = typeof model.name === "string" && model.name ? model.name : "Unknown family";
       }
@@ -3587,6 +3825,20 @@
       }
       if (typeof model.training.paradigm !== "string" || !model.training.paradigm) {
         model.training.paradigm = "unknown";
+      }
+      if (typeof model.slug !== "string" || !model.slug) {
+        model.slug = typeof model.name === "string" && model.name ? model.name : slugFromPath(result.__resultPath || "");
+      }
+      if (typeof dataset.benchmark_family !== "string" || !dataset.benchmark_family) {
+        dataset.benchmark_family = "unknown_benchmark_family";
+      }
+      if (typeof dataset.benchmark_version !== "string" || !dataset.benchmark_version) {
+        dataset.benchmark_version = "unknown_benchmark_version";
+      }
+      if (!Number.isInteger(Number(dataset.num_enabled)) || Number(dataset.num_enabled) <= 0) {
+        dataset.num_enabled = null;
+      } else {
+        dataset.num_enabled = Number(dataset.num_enabled);
       }
       return result;
     }
@@ -3629,30 +3881,112 @@
       }
     }
 
+    function errorMessage(error) {
+      if (error instanceof Error && error.message) {
+        return error.message;
+      }
+      if (error && typeof error === "object" && "message" in error && error.message) {
+        return String(error.message);
+      }
+      return String(error || "Unknown error");
+    }
+
+    function wait(delayMs) {
+      return new Promise((resolve) => {
+        window.setTimeout(resolve, delayMs);
+      });
+    }
+
+    async function fetchResultFile(path, timeoutMs = RESULT_FETCH_TIMEOUT_MS) {
+      let lastError = null;
+      for (let attempt = 1; attempt <= RESULT_FETCH_MAX_ATTEMPTS; attempt += 1) {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => {
+          controller.abort();
+        }, timeoutMs);
+        try {
+          const response = await fetch(path, { cache: "no-store", signal: controller.signal });
+          if (!response.ok) {
+            const httpError = new Error(`returned HTTP ${response.status}`);
+            httpError.isRetriable = response.status >= 500 || response.status === 429;
+            throw httpError;
+          }
+          const payload = normalizeLoadedResult(await response.json());
+          payload.__resultPath = path;
+          return payload;
+        } catch (error) {
+          let normalizedError;
+          if (error && typeof error === "object" && error.name === "AbortError") {
+            normalizedError = new Error(`timed out after ${Math.round(timeoutMs / 1000)}s`);
+            normalizedError.isRetriable = true;
+          } else if (error instanceof Error) {
+            normalizedError = error;
+          } else {
+            normalizedError = new Error(String(error || "Unknown error"));
+          }
+
+          const isRetriable = normalizedError.isRetriable === true || normalizedError instanceof TypeError;
+          lastError = normalizedError;
+          if (!isRetriable || attempt >= RESULT_FETCH_MAX_ATTEMPTS) {
+            if (isRetriable && attempt > 1) {
+              throw new Error(`${errorMessage(normalizedError)} after ${attempt} attempts`);
+            }
+            throw normalizedError;
+          }
+          await wait(RESULT_FETCH_RETRY_DELAY_MS * attempt);
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
+      }
+      throw lastError || new Error("Result fetch failed");
+    }
+
     async function loadResults(files) {
       if (!files.length) {
         return { loaded: [], errors: [] };
       }
 
       const fileOrder = new Map(files.map((path, index) => [path, index]));
-      const settled = await Promise.allSettled(
-        files.map(async (path) => {
-          const response = await fetch(path, { cache: "no-store" });
-          if (!response.ok) {
-            throw new Error(`${path} returned HTTP ${response.status}`);
+      const settled = new Array(files.length);
+      const workerCount = Math.min(RESULT_FETCH_CONCURRENCY, files.length);
+      let nextIndex = 0;
+      let completedFiles = 0;
+      let loadedFiles = 0;
+
+      setLoadingProgress({ isLoading: true, totalFiles: files.length, completedFiles, loadedFiles });
+
+      async function worker() {
+        while (nextIndex < files.length) {
+          const currentIndex = nextIndex;
+          nextIndex += 1;
+          try {
+            const payload = await fetchResultFile(files[currentIndex]);
+            settled[currentIndex] = { status: "fulfilled", value: payload };
+            loadedFiles += 1;
+          } catch (error) {
+            settled[currentIndex] = { status: "rejected", reason: error };
+          } finally {
+            completedFiles += 1;
+            setLoadingProgress({
+              isLoading: true,
+              totalFiles: files.length,
+              completedFiles,
+              loadedFiles
+            });
           }
-          const payload = normalizeLoadedResult(await response.json());
-          payload.__resultPath = path;
-          return payload;
-        })
-      );
+        }
+      }
+
+      await Promise.all(Array.from({ length: workerCount }, () => worker()));
+      setLoadingProgress({ isLoading: false });
+
       const loaded = [];
       const errors = [];
       settled.forEach((result, index) => {
         if (result.status === "fulfilled") {
           loaded.push(result.value);
         } else {
-          errors.push(`${files[index]}: ${result.reason.message}`);
+          errors.push(`${files[index]}: ${errorMessage(result.reason)}`);
         }
       });
       loaded.sort((left, right) => {
@@ -3708,11 +4042,11 @@
         }
       });
       document.getElementById("select-all").addEventListener("click", () => {
-        state.selectedModels = new Set(state.allResults.map(modelName));
+        state.selectedRunKeys = new Set(visibleResults().map((result) => runKey(result)));
         renderAll();
       });
       document.getElementById("select-none").addEventListener("click", () => {
-        state.selectedModels = new Set();
+        state.selectedRunKeys = new Set();
         renderAll();
       });
     }
@@ -3733,7 +4067,8 @@
 
       const { loaded, errors } = await loadResults(resolved.files);
       state.allResults = loaded;
-      state.selectedModels = new Set(loaded.map(modelName));
+      normalizeNumEnabledFilterState();
+      state.selectedRunKeys = new Set(visibleResults().map((result) => runKey(result)));
       if (errors.length) {
         state.discoveryWarning = [state.discoveryWarning, ...errors].filter(Boolean).join(" | ");
       }

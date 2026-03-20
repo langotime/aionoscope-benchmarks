@@ -18,6 +18,8 @@ def test_registry_contains_explicit_versions_and_sizes_for_extended_families() -
         "Mantis-UTICA-8M": ("fegounna/Utica", "mantis"),
         "MOMENT-1-Large": ("AutonLab/MOMENT-1-large", "moment"),
         "NuTime-Bias9": ("checkpoint_bias9.pth", "tivit"),
+        "TempoPFN-38M": ("AutoML-org/TempoPFN", "tempopfn"),
+        "EIDOS": ("external/EIDOS/eidos 1.pt", "timemoe"),
         "Timer-Base-84M": ("thuml/timer-base-84m", "timemoe"),
         "Sundial-Base-128M": ("thuml/sundial-base-128m", "timemoe"),
         "TTM-r2": ("ibm-granite/granite-timeseries-ttm-r2", "ttm"),
@@ -78,6 +80,8 @@ def test_legacy_aliases_still_resolve_to_canonical_explicit_names() -> None:
     assert canonical_model_name("TiViT-ViT-H-14-laion2B-s32B-b79K") == "TiViT-H-14-B79K"
     assert canonical_model_name("Time-MoE-Base") == "Time-MoE-50M"
     assert canonical_model_name("Time-MoE-Large") == "Time-MoE-200M"
+    assert canonical_model_name("TempoPFN") == "TempoPFN-38M"
+    assert canonical_model_name("Eidos") == "EIDOS"
     assert canonical_model_name("Toto") == "Toto-Open-Base-1.0"
     assert canonical_model_name("UTICA") == "Mantis-UTICA-8M"
     assert "Moirai" not in FOUNDATIONAL_MODELS
@@ -102,6 +106,18 @@ def test_model_taxonomy_exposes_family_checkpoint_architecture_and_training_grou
     assert time_moe.checkpoint_name == "200M"
     assert time_moe.architecture_backbone == "transformer_moe_causal"
     assert time_moe.training_paradigm == "forecasting"
+
+    tempopfn = model_taxonomy("TempoPFN-38M")
+    assert tempopfn.family == "TempoPFN"
+    assert tempopfn.checkpoint_name == "38M"
+    assert tempopfn.architecture_backbone == "linear_rnn"
+    assert tempopfn.training_paradigm == "forecasting"
+
+    eidos = model_taxonomy("EIDOS")
+    assert eidos.family == "EIDOS"
+    assert eidos.checkpoint_name == "EIDOS"
+    assert eidos.architecture_backbone == "transformer_causal"
+    assert eidos.training_paradigm == "forecasting"
 
     moirai = model_taxonomy("Moirai-1.1-R-Small")
     assert moirai.architecture_backbone == "transformer_full_attention"

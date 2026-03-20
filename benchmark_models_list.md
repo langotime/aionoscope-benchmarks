@@ -115,6 +115,24 @@ Under that policy, the benchmark currently does **not** include `Timer-S1`, `Rev
   - Benchmark exact length: `4096` samples, matching the checkpoint `max_position_embeddings`.
   - Note: this is the official `200M` checkpoint. The benchmark applies the upstream per-series z-score normalization, then mean-pools the decoder token stream. Layer `0` is the input embedding stream and layer `12` is the post-final-norm decoder output.
 
+- `TempoPFN-38M`
+  - Source code: `https://github.com/automl/TempoPFN`
+  - Official checkpoint: `https://huggingface.co/AutoML-org/TempoPFN`
+  - Import from: the published Hugging Face repo snapshot via `huggingface_hub.snapshot_download`; load `src.models.model.TimeSeriesModel` from `configs/example.yaml` with `models/checkpoint_38M.pth`.
+  - Benchmark exact length: `3072` samples, matching the official GIFT-Eval runner `max_context_length`.
+  - Note: the benchmark keeps the full exact waveform as TempoPFN history context and appends a deterministic one-step query row internally so the adapter does not burn one real benchmark timestep for forecast setup.
+  - Adapter note: because the benchmark contract has no native calendar metadata, the adapter runs the official time-feature path on a fixed daily grid with a deterministic start timestamp.
+  - Runtime note: the official model card documents CUDA inference, so the benchmark routes this model through a dedicated CUDA environment.
+
+- `EIDOS`
+  - Source paper: `https://arxiv.org/abs/2602.14024`
+  - Official code: local checked-in official code drop under `external/EIDOS/`; the public upstream repo is not available yet.
+  - Official checkpoint: repo-hosted local checkpoint `external/EIDOS/eidos 1.pt`.
+  - Import from: the local `external/EIDOS` runtime; instantiate `EidosForPrediction` from `modeling_eidos.py`, clean the published checkpoint keys, and load the repo-hosted weights directly.
+  - Benchmark exact length: `512` samples, matching the local official README / demo history length.
+  - Note: the benchmark z-score normalizes each exact-length waveform with the published demo epsilon `1e-5`, then mean-pools the causal token stream across the SIREN embedding path plus each decoder block.
+  - Runtime note: this local code drop reuses the same `transformers==4.40.1` + `einops` stack as the Time-MoE / THUML models, so the benchmark runs it in `.venv-timemoe`.
+
 - `Timer-Base-84M`
   - Source code: `https://github.com/thuml/Timer`
   - Official checkpoint: `https://huggingface.co/thuml/timer-base-84m`

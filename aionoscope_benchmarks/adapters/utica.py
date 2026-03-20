@@ -20,7 +20,10 @@ class MantisUTICA8MAdapter(FrozenTimeSeriesAdapter):
         super().__init__()
         from mantis.architecture import Mantis8M
 
-        init_device = "cuda" if torch.cuda.is_available() else "cpu"
+        # Load on CPU first so adapter construction stays device-agnostic; the
+        # benchmark runner moves the full adapter onto the requested runtime
+        # device immediately after instantiation.
+        init_device = "cpu"
         self.model = Mantis8M(device=init_device)
         checkpoint_path = hf_hub_download(repo_id=self.checkpoint, filename="pytorch_model.bin")
         state_dict = torch.load(checkpoint_path, map_location=init_device)

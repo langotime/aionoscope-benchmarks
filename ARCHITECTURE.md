@@ -16,7 +16,7 @@ The benchmark code lives outside the upstream `aionoscope` library and depends o
 
 ### Versioned benchmark semantics
 
-The benchmark contract is versioned. The current family is `aiono_basic_components/v1`.
+The benchmark contract is versioned. The current family is `aiono_basic_components/v2`.
 
 Changing any of the following requires a benchmark-version change rather than a silent
 config tweak:
@@ -27,6 +27,22 @@ config tweak:
 - dense-target definitions
 
 Results are only comparable within the same benchmark family/version.
+
+### Explicit interference regimes
+
+`aiono_basic_components/v2` is intentionally a multi-run benchmark contract. Each
+model is evaluated under three explicit enabled-component counts:
+
+- `num_enabled=1`
+- `num_enabled=2`
+- `num_enabled=3`
+
+The dataset config stores that run set as `num_enabled_values=[1, 2, 3]`, while each
+concrete JSON artifact stores one active `num_enabled` plus the full configured set.
+We do not average those regimes together into one result file. `v2` inherits the
+periodic waveform semantics from the upstream `aiono_basic_components/v1` resolver, and
+the manifest records that inheritance explicitly via
+`periodic_contract_benchmark_version="v1"`.
 
 ### Shared periodic resolver in `aiono`
 
@@ -84,7 +100,12 @@ crop, pad, or waveform-resample the generated Aiono sequence to fit the model.
 
 ### Result JSON is the canonical artifact
 
-One JSON file in `results/models/` is the canonical output for one model run. The JSON stores:
+One JSON file in `results/models/` is the canonical output for one benchmark run. For
+`v2`, the filename pattern is `results/models/<model-slug>__num_enabled_<k>.json`. The
+default `results/models/` discovery path must contain one coherent benchmark version;
+historical `v1` artifacts belong only in git history, not beside active `v2` runs.
+
+The JSON stores:
 
 - model identity and adapter metadata;
 - model taxonomy for dashboard grouping: family/checkpoint split plus architecture and training labels;
@@ -96,8 +117,9 @@ One JSON file in `results/models/` is the canonical output for one model run. Th
 - explicit adapter metadata for both total model parameter count and cumulative representation-path parameter counts by layer.
 
 The dataset manifest is intentionally rich enough to diagnose semantic drift. It now
-includes benchmark family/version markers plus the resolved periodic-frequency contract
-for the exact sequence length used in that run.
+includes benchmark family/version markers, the active `num_enabled`, the configured
+`num_enabled_values`, and the resolved periodic-frequency contract for the exact
+sequence length used in that run.
 
 The browser dashboard is a consumer of this JSON schema, not an independent source of truth.
 
@@ -118,12 +140,13 @@ stream that the benchmark actually pools.
 Current architecture classes:
 
 - `transformer_full_attention`: time-series transformer path with full-context self-attention over the benchmark context. Padding or group masks are allowed, but there is no causal time mask on the pooled token stream. This includes encoder-style paths such as `Chronos-2`, `Kairos-*`, `MOMENT-1-Large`, `Moirai-1.x-*`, `NuTime-Bias9`, `Toto-Open-Base-1.0`, `Mantis-8M`, `MantisPlus`, `MantisV2`, `Mantis-UTICA-8M`, and `UniShape-*`.
-- `transformer_causal`: time-series transformer path with causal masking or decoder-only token states. This includes `LeNEPA-*`, `Timer-Base-84M`, `Sundial-Base-128M`, `TimesFM-2.5-200M`, and `Moirai-2.0-R-Small`.
+- `transformer_causal`: time-series transformer path with causal masking or decoder-only token states. This includes `LeNEPA-*`, `EIDOS`, `Timer-Base-84M`, `Sundial-Base-128M`, `TimesFM-2.5-200M`, and `Moirai-2.0-R-Small`.
 - `transformer_moe_causal`: causal transformer path with sparse mixture-of-experts routing. This includes `Time-MoE-*` and `Moirai-MoE-*`.
 - `tabular_transformer`: transformer-style tabular classifier operating on flattened benchmark features.
 - `vision_transformer`: image-first ViT-style backbone reused as a frozen benchmark encoder.
 - `vision_convnet`: image-first convolutional backbone reused as a frozen benchmark encoder.
 - `slstm`: structured/stateful LSTM backbone.
+- `linear_rnn`: linear recurrent sequence backbone. This includes `TempoPFN-38M`.
 - `mlp_mixer`: token/channel mixing MLP backbone.
 - `hybrid_sequence_model`: mixed sequence backbone that combines multiple modeling primitives and does not fit a narrower class cleanly.
 - `causal_cnn`: purely causal convolutional encoder.
@@ -145,7 +168,7 @@ metadata, and model notes instead.
 
 ### Multi-environment execution is intentional
 
-The foundational model stack spans incompatible dependency sets. The repo therefore supports multiple pinned virtual environments such as `.venv`, `.venv-tabular`, `.venv-timemoe`, `.venv-moirai`, `.venv-mantis2`, and `.venv-tivit`. `scripts/run_foundational_sequential.py` dispatches each model into the interpreter mapped from its registry entry. This is part of the architecture, not a temporary workaround.
+The foundational model stack spans incompatible dependency sets. The repo therefore supports multiple pinned virtual environments such as `.venv`, `.venv-tabular`, `.venv-timemoe`, `.venv-tempopfn`, `.venv-moirai`, `.venv-mantis2`, and `.venv-tivit`. `scripts/run_foundational_sequential.py` dispatches each model into the interpreter mapped from its registry entry. This is part of the architecture, not a temporary workaround.
 
 ## Execution Model
 
@@ -158,7 +181,7 @@ The foundational model stack spans incompatible dependency sets. The repo theref
 7. Collect frozen features for all requested layers on each validation split.
 8. Train and evaluate linear probes on the collected features.
 9. Aggregate metrics across validation seeds into the JSON result schema.
-10. Persist one model JSON artifact for later comparison and dashboard visualization.
+10. Persist one JSON artifact per `(model, num_enabled)` benchmark run for later comparison and dashboard visualization.
 
 ## Main Components
 
@@ -197,13 +220,13 @@ explicitly in the top-level docs instead of being treated as an implicit fallbac
 
 ### Entry points
 
-- `aionoscope_benchmarks/run_model.py`: run one model and write one JSON file.
-- `aionoscope_benchmarks/run_many.py`: run a list of models in the current environment.
+- `aionoscope_benchmarks/run_model.py`: run one model across all requested `num_enabled` values and write one JSON file per run.
+- `aionoscope_benchmarks/run_many.py`: run a list of models in the current environment, treating each `(model, num_enabled)` pair as a separate run.
 - `scripts/run_foundational_sequential.py`: sweep the full foundational set across multiple pinned environments.
 
 ### Visualization
 
-`results/dashboard.html` is a static browser dashboard that reads `results/models/*.json` and visualizes the stored metrics. It must stay compatible with the JSON schema produced by `results.py`, including the explicit runtime encoder-forward totals, the total adapter parameter counts, the cumulative through-layer parameter metadata used by the bubble chart controls, and the canonical model taxonomy fields used both by the shared color-palette selector and by the independent model-selection grouping controls.
+`results/dashboard.html` is a static browser dashboard that reads `results/models/*.json` and visualizes the stored metrics. It must stay compatible with the JSON schema produced by `results.py`, including the explicit runtime encoder-forward totals, the total adapter parameter counts, the cumulative through-layer parameter metadata used by the bubble chart controls, and the canonical model taxonomy fields used both by the shared color-palette selector and by the independent model-selection grouping controls. Dashboard selection and hover state must key off a composite benchmark-run identity, not raw `model.name`, because `v2` intentionally produces multiple runs per canonical model.
 
 ## Architectural Invariants
 
@@ -214,3 +237,4 @@ explicitly in the top-level docs instead of being treated as an implicit fallbac
 - Adapters may customize preprocessing, but they must still expose a stable layerwise representation interface, emit truthful adapter metadata, and reject benchmark inputs with the wrong sequence length.
 - Result schema changes must be reflected in `README.md`, `DOCUMENTATION.md`, and `results/dashboard.html` in the same task.
 - The dashboard must remain a pure reader of result artifacts; benchmark computations belong in Python, not in browser-only logic.
+- `results/models/` must not silently mix incompatible benchmark versions.

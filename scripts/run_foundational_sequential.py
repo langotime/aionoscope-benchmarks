@@ -7,8 +7,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from aionoscope_benchmarks.constants import LIBRARY_ROOT, MODEL_RESULTS_ROOT, REPO_ROOT
+from aionoscope_benchmarks.constants import DATASET_CONFIG_PATH, LIBRARY_ROOT, MODEL_RESULTS_ROOT, REPO_ROOT
 from aionoscope_benchmarks.model_registry import MODEL_SPECS, all_foundational_model_names
+from aionoscope_benchmarks.run_model import result_output_path
+from aionoscope_benchmarks.runtime_dataset import resolve_requested_num_enabled_values
 
 
 ENV_TO_PYTHON = {
@@ -19,6 +21,7 @@ ENV_TO_PYTHON = {
     "chronos": REPO_ROOT / ".venv-chronos" / "bin" / "python",
     "ttm": REPO_ROOT / ".venv-ttm" / "bin" / "python",
     "timemoe": REPO_ROOT / ".venv-timemoe" / "bin" / "python",
+    "tempopfn": REPO_ROOT / ".venv-tempopfn" / "bin" / "python",
     "tirex": REPO_ROOT / ".venv-tirex" / "bin" / "python",
     "moirai": REPO_ROOT / ".venv-moirai" / "bin" / "python",
     "toto": REPO_ROOT / ".venv-toto" / "bin" / "python",
@@ -48,6 +51,20 @@ def _parse_args() -> argparse.Namespace:
         help="Execution device passed through to run_model",
     )
     parser.add_argument(
+        "--dataset-config",
+        type=Path,
+        default=DATASET_CONFIG_PATH,
+        help="Dataset config YAML passed through to run_model",
+    )
+    parser.add_argument(
+        "--num-enabled",
+        action="append",
+        dest="num_enabled_values",
+        type=int,
+        default=None,
+        help="Optional active num_enabled value override; can be repeated",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="Re-run models even if their JSON already exists",
@@ -72,12 +89,36 @@ def main() -> None:
     models = _resolve_models(args)
     if not models:
         raise SystemExit("No models selected")
+    requested_num_enabled_values = resolve_requested_num_enabled_values(
+        config_path=args.dataset_config,
+        requested_num_enabled_values=args.num_enabled_values,
+    )
 
     for index, model in enumerate(models, start=1):
         spec = MODEL_SPECS[model]
-        result_path = MODEL_RESULTS_ROOT / f"{spec.slug}.json"
-        if result_path.is_file() and not args.force:
-            print(f"[skip {index}/{len(models)}] {model}: {result_path}")
+        pending_num_enabled_values = [
+            int(num_enabled)
+            for num_enabled in requested_num_enabled_values
+            if args.force
+            or not result_output_path(
+                out_dir=MODEL_RESULTS_ROOT,
+                model_slug=spec.slug,
+                num_enabled=int(num_enabled),
+            ).is_file()
+        ]
+        if not pending_num_enabled_values:
+            existing_paths = [
+                result_output_path(
+                    out_dir=MODEL_RESULTS_ROOT,
+                    model_slug=spec.slug,
+                    num_enabled=int(num_enabled),
+                )
+                for num_enabled in requested_num_enabled_values
+            ]
+            print(
+                f"[skip {index}/{len(models)}] {model}: "
+                + ", ".join(str(path) for path in existing_paths)
+            )
             continue
 
         python_path = ENV_TO_PYTHON.get(spec.env)
@@ -92,9 +133,13 @@ def main() -> None:
             "aionoscope_benchmarks.run_model",
             "--model",
             model,
+            "--dataset-config",
+            str(args.dataset_config),
             "--device",
             str(args.device),
         ]
+        for num_enabled in pending_num_enabled_values:
+            cmd.extend(["--num-enabled", str(int(num_enabled))])
         env = os.environ.copy()
         library_pythonpath = str(LIBRARY_ROOT)
         existing_pythonpath = env.get("PYTHONPATH")

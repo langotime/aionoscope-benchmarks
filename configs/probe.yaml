@@ -1,10 +1,10 @@
-steps: 5000
-batch_size: 256
+steps: 1250
+batch_size: 1024
+runtime_dataset_batch_size: 256
 learning_rate: 1.0e-2
 final_learning_rate: 1.0e-2
 learning_rate_warmup_steps: 0
 weight_decay: 0.0
 opt_betas: [0.9, 0.999]
 gradient_clip: 1.0
-checkpoint_interval: 200
-
+checkpoint_interval: 50

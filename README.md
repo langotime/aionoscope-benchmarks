@@ -8,7 +8,7 @@ Current scope:
 
 - foundational models only
 - balanced Aiono basic-components offline probes
-- one JSON result per model
+- one JSON result per benchmark run
 - interactive browser dashboard from those JSON results
 
 Canonical benchmark model names now include explicit version and size whenever an
@@ -25,7 +25,7 @@ Additional docs:
 
 ## Benchmark Identity
 
-The current checked-in benchmark contract is the versioned family `aiono_basic_components/v1`.
+The current checked-in benchmark contract is the versioned family `aiono_basic_components/v2`.
 
 Stable semantics for this family:
 
@@ -74,9 +74,10 @@ Current exact lengths:
 - `8192`: `Chronos-2`
 - `5000`: `LeNEPA-Aiono`, `LeNEPA-CauKer2M`, `LeNEPA-CauKer2M-20k`, `TiViT-H-14-B79K`, `TiConvNext-XXLarge-AugReg`, `T-Loss-CricketX`
 - `4096`: `Toto-Open-Base-1.0`, `Time-MoE-50M`, `Time-MoE-200M`
+- `3072`: `TempoPFN-38M`
 - `2880`: `Timer-Base-84M`, `Sundial-Base-128M`
 - `2048`: `TiRex`, `Kairos-10M`, `Kairos-23M`, `Kairos-50M`, `Reverso-Small-550K`
-- `512`: `Mantis-8M`, `MantisPlus`, `MantisV2`, `Mantis-UTICA-8M`, `MOMENT-1-Large`, `TTM-r2`, `Moirai-1.0-R-Small`, `Moirai-1.0-R-Base`, `Moirai-1.0-R-Large`, `Moirai-1.1-R-Small`, `Moirai-1.1-R-Base`, `Moirai-1.1-R-Large`, `Moirai-2.0-R-Small`, `Moirai-MoE-1.0-R-Small`, `Moirai-MoE-1.0-R-Base`, `UniShape-ZeroShot`, `UniShape-FineTune`
+- `512`: `EIDOS`, `Mantis-8M`, `MantisPlus`, `MantisV2`, `Mantis-UTICA-8M`, `MOMENT-1-Large`, `TTM-r2`, `Moirai-1.0-R-Small`, `Moirai-1.0-R-Base`, `Moirai-1.0-R-Large`, `Moirai-1.1-R-Small`, `Moirai-1.1-R-Base`, `Moirai-1.1-R-Large`, `Moirai-2.0-R-Small`, `Moirai-MoE-1.0-R-Small`, `Moirai-MoE-1.0-R-Base`, `UniShape-ZeroShot`, `UniShape-FineTune`
 - `176`: `NuTime-Bias9`
 - `128`: `TabPFN-v2`, `TabICL-v1`
 
@@ -85,8 +86,12 @@ That means signal duration is now model-dependent. At `500 Hz`, durations range 
 
 ### What gets mixed into each signal
 
-Every sample enables exactly `2` components (`num_enabled=2`) chosen from this library
-of primitive building blocks:
+The current `v2` benchmark evaluates three explicit interference regimes per model:
+`num_enabled=1`, `2`, and `3`. Each JSON artifact corresponds to one active
+`num_enabled` value, and the dataset manifest also records the full configured
+`num_enabled_values=[1, 2, 3]` contract.
+
+Enabled components are chosen from this library of primitive building blocks:
 
 - Baseline: `constant`, which acts like a flat offset or baseline level
 - Noise: `gaussian_noise`, `uniform_noise`, `random_walk_noise`
@@ -102,8 +107,9 @@ That means a signal can look like, for example:
 - a level change plus random-walk noise
 
 Because `constant` is one of the selectable components, some samples are effectively
-"one structured pattern + baseline offset", while others are mixtures of two
-non-constant patterns.
+"one structured pattern + baseline offset", while others are mixtures of multiple
+non-constant patterns. The `1/2/3`-component sweep is meant to expose how each model
+behaves as interference increases.
 
 ### Why the dataset is called "balanced"
 
@@ -163,6 +169,17 @@ uv sync
 uv run python -m aionoscope_benchmarks.run_many --model all
 ```
 
+By default, `run_model` and `run_many` fan out across all configured
+`num_enabled_values`, so one model produces three JSON files:
+`results/models/<slug>__num_enabled_1.json`,
+`results/models/<slug>__num_enabled_2.json`, and
+`results/models/<slug>__num_enabled_3.json`.
+Use `--num-enabled` to run only a subset, for example:
+
+```bash
+uv run python -m aionoscope_benchmarks.run_model --model TiRex --num-enabled 2
+```
+
 `run_model` and `run_many` build the balanced Aiono split at runtime via
 `aiono.datasets.SynthBatchIterableDataset`. `run_model` loads the adapter first,
 resolves that model's exact benchmark sequence length, then keeps the finite train/val tensors
@@ -177,7 +194,7 @@ python -m http.server 8000
 Then open `http://localhost:8000/results/dashboard.html`. The page loads
 `results/models/*.json`, computes one selection-aware bubble chart plus the same
 6 radar panels and 4 layer curves in browser-side JavaScript with Apache
-ECharts, and lets you filter models, switch the best-layer selector between
+ECharts, and lets you filter benchmark runs, switch the best-layer selector between
 `AUROC`, `AUPRC`, `R2`, and `Pearson`, and choose any supported bubble metric
 for the chart `x` axis, `y` axis, or bubble size, including macro `AUROC`,
 macro `AUPRC`, macro `R2`, macro `Pearson`, encoder forward time, and stored
@@ -187,25 +204,35 @@ architecture type, or coarse training paradigm. When
 either bubble-chart axis is set to model parameter count, the dashboard uses a
 log scale for that axis automatically. The left sidebar groups controls into
 independent collapsible panels; only `Model selector` is expanded by default,
-and you can keep any number of sections open at once. The `Model selector`
-panel now combines checkpoint-name search with independent class-selection
-toggles. Those toggles directly change which models are selected for display,
-and they can group by model family, architecture type, or training paradigm
-independently of the shared color palette.
+and you can keep any number of sections open at once. The `Enabled components`
+panel filters the visible `num_enabled` runs before they reach the selector or
+plots. The `Model selector` panel now combines checkpoint-name search with
+independent class-selection toggles over the remaining benchmark runs. Those
+toggles directly change which runs are selected for display, and they can group
+by model family, architecture type, or training paradigm independently of the
+shared color palette.
 When the JSON contains repeated validation runs, the dashboard plots the
 per-layer / per-category median and shows sample standard deviation (`ddof=1`)
 in tooltips, with shaded `± std` bands on the layer curves.
 When published with `results/` as the site root, the dashboard first tries
 `/models/list.txt`, then falls back to `models/` directory listing. If neither
 works, it now reports a discovery error instead of using a hard-coded manifest.
+While loading many result artifacts, the dashboard fetches JSONs with bounded
+concurrency, retries transient per-file failures, and enforces a per-file
+timeout. The `Visible runs` summary shows live progress as
+`Loading... loaded/total` until loading completes.
 
 For the full foundational sweep used in the current results, use
 `scripts/run_foundational_sequential.py`. It dispatches each model into the
 environment pinned for that model family, which is necessary because the
 foundational stack spans incompatible dependency sets.
-`Time-MoE-50M`, `Time-MoE-200M`, `Timer-Base-84M`, and `Sundial-Base-128M`
+`Time-MoE-50M`, `Time-MoE-200M`, `EIDOS`, `Timer-Base-84M`, and `Sundial-Base-128M`
 use the dedicated `.venv-timemoe` interpreter because those official remote-code
-checkpoints require the published `transformers==4.40.1` stack.
+checkpoints and local EIDOS runtime require the published `transformers==4.40.1`
+stack (plus `einops` for EIDOS).
+`TempoPFN-38M` uses `.venv-tempopfn` because the published TempoPFN stack adds
+`triton==3.2.0`, `flash-linear-attention`, and the self-contained Hugging Face
+repo snapshot code path on top of the base benchmark dependencies.
 The explicit `Moirai-*` family uses `.venv-moirai`, and `Mantis-8M`,
 `MantisPlus`, `MantisV2`, plus `Mantis-UTICA-8M` use `.venv-mantis2`.
 
@@ -217,7 +244,8 @@ models, and was executed sequentially.
 
 Artifacts:
 
-*   Per-model JSON results: `results/models/*.json`
+*   Active `v2` output directory: `results/models/<slug>__num_enabled_<k>.json`
+*   Historical `v1` reference: git history only
 *   Interactive dashboard: `results/dashboard.html`
 *   Sequential runner: `scripts/run_foundational_sequential.py`
 
@@ -232,20 +260,25 @@ snapshot used one shared `5000`-sample dataset for every model.
 They also predate the current embedding-aware layer numbering, where some adapters now
 reserve layer `0` for the embedding stream, so the checked-in best-layer ids are legacy
 indices rather than current ones.
+Those historical JSONs now live only in git history; the default `results/models/`
+discovery path is reserved for one coherent `v2` corpus with explicit `num_enabled`
+run suffixes.
 
 The foundational registry now also includes `LeNEPA-Aiono`, `LeNEPA-CauKer2M`,
-`LeNEPA-CauKer2M-20k`, `Time-MoE-50M`, `Time-MoE-200M`, `Timer-Base-84M`,
-`Sundial-Base-128M`, `TimesFM-2.5-200M`, the explicit `Moirai-*` / `Moirai-MoE-*`
-variants, `Kairos-*`, `Reverso-Small-550K`, `UniShape-*`, `Mantis-8M`,
+`LeNEPA-CauKer2M-20k`, `Time-MoE-50M`, `Time-MoE-200M`, `TempoPFN-38M`,
+`EIDOS`, `Timer-Base-84M`, `Sundial-Base-128M`, `TimesFM-2.5-200M`, the explicit
+`Moirai-*` / `Moirai-MoE-*` variants, `Kairos-*`, `Reverso-Small-550K`, `UniShape-*`, `Mantis-8M`,
 `MantisPlus`, and `Mantis-UTICA-8M`.
-Those entries now live as separate per-model JSON artifacts under `results/models/`,
+Current reruns for those entries will live as separate per-run JSON artifacts under
+`results/models/<slug>__num_enabled_<k>.json`,
 but the table below remains the original `2026-03-13` single-seed snapshot and was not
 regenerated for the expanded registry. For univariate zero-shot forecasting, the
 official Timer workflow uses `thuml/timer-base-84m` as the published `Timer-XL`
 checkpoint, so the benchmark keeps the exact published checkpoint name
 `Timer-Base-84M`. The old standalone `results/models/Moirai.json` artifact has been
-retired; current Moirai results live only under the explicit versioned `Moirai-*` and
-`Moirai-MoE-*` names.
+retired; historical Moirai outputs now live only in git history, and current Moirai
+reruns will use the explicit versioned `Moirai-*` and
+`Moirai-MoE-*` names plus the `num_enabled` suffix.
 Embedding-aware adapters now reserve layer `0` for the embedding stream. For both
 LeNEPA adapters, benchmark layers run from `0..8`: layer `0` is the tokenizer
 / embedding output, layers `1..7` are intermediate transformer-block outputs, and layer
@@ -271,12 +304,13 @@ Benchmark gotchas:
 
 *   The interactive charts use absolute values, not step deltas.
 *   The benchmark code now generates Aiono data online at runtime. It does not depend on a checked-in `results/datasets/*` snapshot; each run rebuilds the same deterministic finite split in memory from the YAML config and seeds.
-*   The current benchmark contract is versioned as `aiono_basic_components/v1`. Compare absolute metrics only against runs with the same family/version and inspect the manifest for resolved periodic bounds before interpreting dense periodic deltas.
+*   The current benchmark contract is versioned as `aiono_basic_components/v2`. Compare absolute metrics only against runs with the same family/version and inspect the manifest for resolved periodic bounds before interpreting dense periodic deltas.
 *   The validation protocol now evaluates the same fixed train split against validation seed values `0..9`, mapped to generator seeds `100..109` so train and validation seeds do not overlap.
 *   Probe training randomness is held fixed with `probe_seed=0` across those validation runs, so the reported spread reflects the validation-seed sweep rather than probe reinitialization noise.
-*   Every metric value in the new JSON schema stores the full validation-seed array plus `median/std`, and the dashboard visualizes those aggregated values. The historical checked-in snapshot predates this schema and also predates the versioned periodic contract, so it behaves like `n=1` legacy data rather than a current `v1` reference.
-*   The dashboard lets you choose the layer selector per model: `best_auc.layer`, `best_auprc.layer`, best macro `R2`, or best macro `Pearson`. Those best-layer choices are taken from the metric medians across validation runs. Do not confuse those selector views with the oracle-over-layer summaries stored in the JSON payloads.
-*   The selection-aware bubble chart only shows currently enabled models. Any supported bubble metric can drive the `x` axis, `y` axis, or bubble size: macro `AUROC`, macro `AUPRC`, macro `R2`, macro `Pearson`, explicit encoder forward time, or stored model parameter count. Parameter-count axes switch to log scale automatically so large and small models remain comparable on the same chart. When a bubble axis or size uses model parameters, the UI now exposes a parameter-scope selector: either total registered model parameters or cumulative parameters through the furthest plotted best layer across the currently selected layer-aware bubble metrics.
+*   Every metric value in the new JSON schema stores the full validation-seed array plus `median/std`, and the dashboard visualizes those aggregated values. The historical checked-in snapshot predates this schema and also predates the versioned periodic contract, so it behaves like `n=1` legacy data rather than a current `v2` reference.
+*   The dashboard lets you choose the layer selector per run: `best_auc.layer`, `best_auprc.layer`, best macro `R2`, or best macro `Pearson`. Those best-layer choices are taken from the metric medians across validation runs. Do not confuse those selector views with the oracle-over-layer summaries stored in the JSON payloads.
+*   The dashboard now includes a dedicated `Enabled components` filter. Unchecked `num_enabled` values disappear from the run selector, legends, and plots, and any hidden runs are removed from the active selection state instead of being restored later.
+*   The selection-aware bubble chart only shows currently enabled runs. Any supported bubble metric can drive the `x` axis, `y` axis, or bubble size: macro `AUROC`, macro `AUPRC`, macro `R2`, macro `Pearson`, explicit encoder forward time, or stored model parameter count. Parameter-count axes switch to log scale automatically so large and small models remain comparable on the same chart. When a bubble axis or size uses model parameters, the UI now exposes a parameter-scope selector: either total registered model parameters or cumulative parameters through the furthest plotted best layer across the currently selected layer-aware bubble metrics.
 *   Current benchmark JSONs also store explicit dashboard taxonomy under `model.family`, `model.checkpoint_name`, `model.architecture.backbone`, and `model.training.paradigm`. For time-series transformers, the architecture class is benchmark-path based: `transformer_causal` means the pooled token stream is causal / decoder-style, `transformer_full_attention` means the pooled token stream can attend across the full context, and `transformer_moe_causal` is the same causal definition with sparse MoE routing. `model.training.paradigm` is intentionally pretraining-based: classify the benchmarked encoder path by its dominant upstream pretraining recipe, not by whether the published checkpoint was later fine-tuned for a downstream task. The shared color-mode selector uses those stored fields instead of inferring family or architecture groups from filenames in browser-only code.
 *   New benchmark JSONs store encoder forward timing explicitly in `runtime.encoder_forward_total_s` and related train/validation breakdown fields. The dashboard falls back to `results.shared.timings.collect_*.*forward_s` only for older JSONs that predate the explicit runtime fields.
 *   New benchmark JSONs store total parameter counts in `model.adapter.parameter_count` plus the explicit alias `model.adapter.parameter_count_total`, and also store cumulative representation-path counts in `model.adapter.parameter_count_prefix_by_layer`. The dashboard uses those prefix counts for the new through-best-layer parameter scope. For `TabPFN-v2` and `TabICL-v1`, the total count still comes from the single official backbone model exposed by the fitted public classifier API, and is not multiplied by one-vs-rest labels or estimator replicas.

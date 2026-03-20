@@ -30,6 +30,8 @@ FOUNDATIONAL_MODELS = (
     "TTM-r2",
     "Time-MoE-50M",
     "Time-MoE-200M",
+    "TempoPFN-38M",
+    "EIDOS",
     "Timer-Base-84M",
     "Sundial-Base-128M",
     "TimesFM-2.5-200M",

@@ -24,6 +24,7 @@ ARCHITECTURE_BACKBONE_DEFINITIONS: dict[str, str] = {
         "native sequential token stream."
     ),
     "slstm": "Structured/stateful LSTM backbone.",
+    "linear_rnn": "Linear recurrent sequence backbone.",
     "mlp_mixer": "Token/channel mixing MLP backbone.",
     "hybrid_sequence_model": (
         "Mixed sequence backbone that combines multiple modeling primitives and does not fit a "
@@ -249,6 +250,26 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         env="timemoe",
         module="aionoscope_benchmarks.adapters.timemoe",
         class_name="TimeMoeLargeAdapter",
+    ),
+    "TempoPFN-38M": ModelSpec(
+        name="TempoPFN-38M",
+        slug="TempoPFN-38M",
+        source="https://github.com/automl/TempoPFN",
+        checkpoint="AutoML-org/TempoPFN",
+        import_path="published Hugging Face repo snapshot via huggingface_hub",
+        env="tempopfn",
+        module="aionoscope_benchmarks.adapters.tempopfn",
+        class_name="TempoPFN38MAdapter",
+    ),
+    "EIDOS": ModelSpec(
+        name="EIDOS",
+        slug="EIDOS",
+        source="https://arxiv.org/abs/2602.14024",
+        checkpoint="external/EIDOS/eidos 1.pt",
+        import_path="local external/EIDOS runtime",
+        env="timemoe",
+        module="aionoscope_benchmarks.adapters.eidos",
+        class_name="EIDOSAdapter",
     ),
     "Timer-Base-84M": ModelSpec(
         name="Timer-Base-84M",
@@ -501,6 +522,8 @@ MODEL_ALIASES: dict[str, str] = {
     "TiViT-ViT-H-14-laion2B-s32B-b79K": "TiViT-H-14-B79K",
     "Time-MoE-Base": "Time-MoE-50M",
     "Time-MoE-Large": "Time-MoE-200M",
+    "TempoPFN": "TempoPFN-38M",
+    "Eidos": "EIDOS",
     "Toto": "Toto-Open-Base-1.0",
     "UTICA": "Mantis-UTICA-8M",
 }
@@ -594,6 +617,18 @@ MODEL_TAXONOMY: dict[str, ModelTaxonomy] = {
         family="Time-MoE",
         checkpoint_name="200M",
         architecture_backbone="transformer_moe_causal",
+        training_paradigm="forecasting",
+    ),
+    "TempoPFN-38M": ModelTaxonomy(
+        family="TempoPFN",
+        checkpoint_name="38M",
+        architecture_backbone="linear_rnn",
+        training_paradigm="forecasting",
+    ),
+    "EIDOS": ModelTaxonomy(
+        family="EIDOS",
+        checkpoint_name="EIDOS",
+        architecture_backbone="transformer_causal",
         training_paradigm="forecasting",
     ),
     "Timer-Base-84M": ModelTaxonomy(

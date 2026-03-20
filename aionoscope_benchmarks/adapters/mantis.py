@@ -17,10 +17,13 @@ class _BaseMantisV1Adapter(FrozenTimeSeriesAdapter):
         super().__init__()
         from mantis.architecture import MantisV1
 
+        # Load on CPU first so adapter construction stays device-agnostic; the
+        # benchmark runner moves the full adapter onto the requested runtime
+        # device immediately after instantiation.
         self.model = MantisV1(
             return_transf_layer=-1,
             output_token="combined",
-            device="cuda" if torch.cuda.is_available() else "cpu",
+            device="cpu",
         ).from_pretrained(self.checkpoint)
         self.model.eval()
         self.num_layers = int(len(self.model.transf_unit.transformer.layers)) + 1

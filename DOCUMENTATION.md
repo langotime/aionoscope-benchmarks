@@ -8,7 +8,7 @@ This repo benchmarks frozen foundational time-series models on the balanced Aion
 - resolves the model's exact benchmark sequence length before dataset generation;
 - extracts frozen representations from one or more model layers;
 - trains linear probes for component classification and dense parameter regression;
-- writes one JSON artifact per model into `results/models/`;
+- writes one JSON artifact per benchmark run into `results/models/`;
 - optionally visualizes those artifacts in `results/dashboard.html`.
 
 ## Environment Layout
@@ -43,17 +43,25 @@ official model code:
 uv pip install --python .venv/bin/python 'transformers>=4.56,<4.57' 'jaxtyping>=0.3,<0.4' 'fastai<3'
 ```
 
-Time-MoE, Timer, and Sundial use the official remote-code checkpoints and the
+Time-MoE, EIDOS, Timer, and Sundial use the official remote-code checkpoints or
+local runtime plus the
 upstream THUML / Time-MoE published `transformers` pin. Install that in the
 dedicated `.venv-timemoe` env:
 
 ```bash
-uv pip install --python .venv-timemoe/bin/python 'transformers==4.40.1'
+uv pip install --python .venv-timemoe/bin/python 'transformers==4.40.1' 'einops>=0.8,<0.9'
 ```
 
 When `flash-attn` is available in `.venv-timemoe`, the adapter prefers
 `flash_attention_2` on CUDA. Otherwise it falls back to eager attention and keeps
-the default encode batch size at `1`.
+the published eager path. The local EIDOS drop also lives in `.venv-timemoe`
+because it reuses the same `transformers==4.40.1` stack.
+
+TempoPFN uses a separate `.venv-tempopfn` env because the published stack adds
+`triton==3.2.0`, `flash-linear-attention`, and the self-contained Hugging Face
+repo snapshot code on top of the benchmark base. Follow the upstream TempoPFN
+README for the CUDA-matched PyTorch wheel, then install the published extras in
+that env before running the benchmark there.
 
 ## Common Commands
 
@@ -61,6 +69,12 @@ Run one model in the current environment:
 
 ```bash
 uv run python -m aionoscope_benchmarks.run_model --model TiRex
+```
+
+Run one model for a specific interference regime only:
+
+```bash
+uv run python -m aionoscope_benchmarks.run_model --model TiRex --num-enabled 2
 ```
 
 Run a few models in the current environment:
@@ -96,7 +110,7 @@ Then open `http://localhost:8000/results/dashboard.html`.
 
 - sampling frequency and the default reference sequence length;
 - the sequence-length policy (`model_native_exact` in the current benchmark);
-- component library and `num_enabled`;
+- component library and configured `num_enabled_values`;
 - training seed;
 - ordered validation seed values and validation seed offset;
 - train and validation batch counts;
@@ -118,14 +132,14 @@ length into the runtime split builder. The manifest written to each JSON artifac
 The dataset config is now explicitly versioned:
 
 - `benchmark_family: aiono_basic_components`
-- `benchmark_version: v1`
+- `benchmark_version: v2`
 
-`v1` semantics are resolved in the shared `aiono` library, not reimplemented in each
-consumer. The benchmark repo calls
+`v2` keeps the `v1` periodic waveform semantics from the shared `aiono` library rather
+than reimplementing them locally. The benchmark repo calls
 `resolve_aiono_basic_components_periodic_contract(...)` and writes the resolved result
-into the runtime manifest.
+into the runtime manifest while keeping the top-level benchmark contract at `v2`.
 
-The baseline invariants for `v1` are:
+The baseline invariants for `v2` are:
 
 - `sampling_frequency = 500 Hz` everywhere
 - `frequency_hz = auto` by default
@@ -144,6 +158,23 @@ For a resolved sequence length `L`, the shared resolver computes:
 That means the lower bound rises on short exact-length adapters because the signal still
 needs at least one full period to make `frequency_hz` recoverable. The benchmark no
 longer uses one hidden hard-coded `0.2..6.0 Hz` range for every exact sequence length.
+
+### Enabled-component regimes
+
+The current dataset config stores `aiono.basic_components.num_enabled_values: [1, 2, 3]`.
+That is the configured run set for the benchmark contract, not a request to merge three
+interference regimes into one dataset build.
+
+Each concrete benchmark run must resolve exactly one active `num_enabled` value from
+that configured set. The runtime split builder therefore requires an explicit
+`num_enabled` override whenever the config exposes multiple values. `run_model.py`,
+`run_many.py`, and `scripts/run_foundational_sequential.py` handle that fan-out for you
+by default and emit one JSON file per active enabled-component count.
+
+The manifest exposes that periodic inheritance explicitly through
+`periodic_contract_benchmark_version`. For the current contract, it is `v1` even when
+the top-level benchmark version is `v2`, because only the interference-regime contract
+changed.
 
 The manifest exposes the resolved periodic task through fields such as:
 
@@ -212,6 +243,19 @@ layer-0-plus-block-output convention. For univariate zero-shot forecasting, the
 official Timer repo uses `thuml/timer-base-84m` as the published `Timer-XL`
 checkpoint, so the benchmark keeps the exact published checkpoint name
 `Timer-Base-84M` rather than introducing a second alias entry.
+`TempoPFN-38M` loads the published Hugging Face repo snapshot directly through
+`huggingface_hub`, pins exact benchmark history length to the official GIFT-Eval
+runner `max_context_length=3072`, keeps the full exact waveform as context, and
+adds a deterministic one-step zero-valued future query row internally so the
+adapter does not burn one real benchmark timestep for forecasting setup. Because
+the benchmark waveform contract has no calendar metadata, this adapter runs the
+official time-feature path on a fixed daily grid starting at `2000-01-01`.
+`EIDOS` uses the local checked-in code under `external/EIDOS`, loads the repo-hosted
+checkpoint file `external/EIDOS/eidos 1.pt`, pins exact benchmark length to the
+local README / demo history length `512`, applies the published per-series
+z-score normalization with epsilon `1e-5`, and mean-pools the causal token stream
+across the SIREN embedding path plus each decoder block. The final benchmark
+layer is the post-final-layer-norm decoder output.
 `TimesFM-2.5-200M` uses the official Google PyTorch checkpoint, keeps the exact context
 length at `16384`, applies the upstream running-stat ReVIN prefill normalization used by
 TimesFM decode, and mean-pools patch tokens across the tokenizer stream plus each
@@ -263,6 +307,8 @@ The current exact benchmark lengths are:
 - `Moirai-MoE-1.0-R-Base`: `512`
 - `MOMENT-1-Large`: `512`
 - `NuTime-Bias9`: `176`
+- `TempoPFN-38M`: `3072`
+- `EIDOS`: `512`
 - `T-Loss-CricketX`: `5000`
 - `Timer-Base-84M`: `2880`
 - `Sundial-Base-128M`: `2880`
@@ -293,12 +339,15 @@ The train seed must not overlap with any validation generator seed. The manifest
 
 ## Result Artifacts
 
-Each model run writes `results/models/<slug>.json`.
+Each benchmark run writes `results/models/<slug>__num_enabled_<k>.json`.
+`results/models/` is the active `v2` discovery path and must contain one coherent
+benchmark version only. Historical `v1` artifacts are kept in git history rather than
+in a checked-in archive directory.
 
 High-level structure:
 
 - `model`: model identity, source, checkpoint, layers evaluated, adapter metadata, plus explicit dashboard taxonomy fields under `family`, `checkpoint_name`, `architecture.backbone`, and `training.paradigm`;
-- `dataset`: the benchmark manifest used to build the train and validation splits, including the config default length and the exact resolved length used for the run;
+- `dataset`: the benchmark manifest used to build the train and validation splits, including the config default length, the exact resolved length used for the run, the active `num_enabled`, the configured `num_enabled_values`, and `periodic_contract_benchmark_version`;
 - `probe_config`: probe hyperparameters plus the fixed `probe_seed`;
 - `runtime`: wall-clock and device metadata plus explicit encoder forward train/validation/total timings;
 - `results.categorical`: per-layer multi-label classification outputs;
@@ -328,12 +377,13 @@ actually exposes and pools.
 Architecture classes:
 
 - `transformer_full_attention`: time-series transformer path whose pooled states come from full-context self-attention over the benchmark context. Padding or group masks are allowed, but there is no causal time mask on the pooled token stream. Use this for encoder-style paths such as `Chronos-2`, `Kairos-*`, `MOMENT-1-Large`, `Moirai-1.x-*`, `NuTime-Bias9`, `Toto-Open-Base-1.0`, `Mantis-8M`, `MantisPlus`, `MantisV2`, `Mantis-UTICA-8M`, and `UniShape-*`.
-- `transformer_causal`: time-series transformer path whose pooled states come from causal masking or a decoder-only token stream. Use this for `LeNEPA-*`, `Timer-Base-84M`, `Sundial-Base-128M`, `TimesFM-2.5-200M`, and `Moirai-2.0-R-Small`.
+- `transformer_causal`: time-series transformer path whose pooled states come from causal masking or a decoder-only token stream. Use this for `LeNEPA-*`, `EIDOS`, `Timer-Base-84M`, `Sundial-Base-128M`, `TimesFM-2.5-200M`, and `Moirai-2.0-R-Small`.
 - `transformer_moe_causal`: causal transformer path with sparse mixture-of-experts routing. Use this for `Time-MoE-*` and `Moirai-MoE-*`.
 - `tabular_transformer`: transformer-style tabular classifier operating on flattened benchmark features.
 - `vision_transformer`: image-first ViT-style backbone reused as a frozen benchmark encoder.
 - `vision_convnet`: image-first convolutional backbone reused as a frozen benchmark encoder.
 - `slstm`: structured/stateful LSTM backbone.
+- `linear_rnn`: linear recurrent sequence backbone. Use this for `TempoPFN-38M`.
 - `mlp_mixer`: token/channel mixing MLP backbone.
 - `hybrid_sequence_model`: mixed sequence backbone that combines multiple modeling primitives and does not fit a narrower class cleanly.
 - `causal_cnn`: purely causal convolutional encoder.
@@ -382,7 +432,7 @@ The most common failure mode is semantic drift rather than checkpoint drift:
 - different `frequency_hz` resolution mode
 - different square `duty_cycle` range
 
-For the current `aiono_basic_components/v1` contract, a hidden `sampling_frequency`
+For the current `aiono_basic_components/v2` contract, a hidden `sampling_frequency`
 mismatch is considered a benchmark bug, not a valid alternate evaluation.
 
 ## Dashboard Contract
@@ -390,12 +440,15 @@ mismatch is considered a benchmark bug, not a valid alternate evaluation.
 `results/dashboard.html` reads the checked-in or newly generated JSON files directly in the browser. Keep these constraints in mind when changing result payloads:
 
 - file discovery now tries root-relative `/models/list.txt` first, then relative `models/` directory listing; if neither works, the UI reports the discovery failure and loads no model files;
+- result-file fetches use bounded browser concurrency, retry transient per-file failures, and apply a per-file timeout; while those fetches are still in flight, the `Visible runs` summary shows `Loading... loaded/total` and the status banner reports progress;
 - layer ids are serialized as JSON object keys;
 - summary fields such as `best_auc`, `best_auprc`, macro best `r2`, and macro best `pearson` are read by the UI;
 - sidebar controls are grouped into independent HTML disclosure sections; only the `Model selector` section starts expanded by default, and multiple sections may remain open simultaneously;
-- the `Model selector` panel owns checkpoint-name search plus class-selection toggles; search only narrows the checkbox list, while class toggles directly add or remove models from the current selection; those class toggles can group by family, architecture type, or training paradigm independently of the shared color selector;
+- the dashboard uses a composite benchmark-run identity derived from `model.slug`, `dataset.benchmark_family`, `dataset.benchmark_version`, and `dataset.num_enabled`; do not key browser state off raw `model.name`;
+- the `Enabled components` panel filters visible runs by `dataset.num_enabled` before they reach the model selector, legends, hover state, or plots;
+- the `Model selector` panel owns checkpoint-name search plus class-selection toggles over the remaining visible benchmark runs; search only narrows the checkbox list, while class toggles directly add or remove runs from the current selection; those class toggles can group by family, architecture type, or training paradigm independently of the shared color selector;
 - the shared color selector reads canonical JSON metadata rather than inferring groups from filenames: `model.family`, `model.checkpoint_name`, `model.architecture.backbone`, and `model.training.paradigm`;
-- the selection-aware bubble chart only plots currently enabled models and allows any supported bubble metric on the `x` axis, `y` axis, or bubble size; inference uses `runtime.encoder_forward_total_s`; parameter axes can now switch between total registered model parameters and cumulative parameters through the furthest plotted best layer from the active layer-aware bubble metrics; parameter-count axes render on a log scale; and older JSONs may still fall back to `results.shared.timings.collect_*.*forward_s` for inference mode;
+- the selection-aware bubble chart only plots currently enabled runs and allows any supported bubble metric on the `x` axis, `y` axis, or bubble size; inference uses `runtime.encoder_forward_total_s`; parameter axes can now switch between total registered model parameters and cumulative parameters through the furthest plotted best layer from the active layer-aware bubble metrics; parameter-count axes render on a log scale; and older JSONs may still fall back to `results.shared.timings.collect_*.*forward_s` for inference mode;
 - adapters that do not expose a registered PyTorch encoder may leave `model.adapter.parameter_count` as `null`; the dashboard must treat that as unavailable metadata rather than inventing a count;
 - total parameter metadata lives in `model.adapter.parameter_count` and the explicit alias `model.adapter.parameter_count_total`; cumulative representation-path counts live in `model.adapter.parameter_count_prefix_by_layer`; `TabPFN-v2` and `TabICL-v1` still report the single official backbone count rather than multiplying by one-vs-rest classifier replicas;
 - grouped dense metrics depend on the target signal and target metric labels stored in the JSON;

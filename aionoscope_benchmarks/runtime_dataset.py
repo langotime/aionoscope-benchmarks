@@ -67,6 +67,7 @@ class DatasetManifest:
     dataset_name: str
     benchmark_family: str
     benchmark_version: str
+    periodic_contract_benchmark_version: str
     view_name: str
     baseline_sampling_frequency_hz: int
     sampling_frequency: int
@@ -85,6 +86,7 @@ class DatasetManifest:
     train_batches: int
     val_batches: int
     num_enabled: int
+    num_enabled_values: list[int]
     component_keys: list[str]
     class_names: list[str]
     group_to_classes: dict[str, list[str]]
@@ -168,6 +170,24 @@ def _normalize_int_values(values: list[int] | tuple[int, ...], *, name: str) -> 
     return out
 
 
+def _validate_num_enabled_values(
+    *,
+    values: list[int] | tuple[int, ...],
+    component_keys: list[str],
+    name: str,
+) -> list[int]:
+    normalized = _normalize_int_values(values, name=name)
+    max_components = int(len(component_keys))
+    for value in normalized:
+        if int(value) <= 0:
+            raise ValueError(f"{name} must contain only positive ints, got {normalized}")
+        if int(value) > max_components:
+            raise ValueError(
+                f"{name} must not exceed the configured component count {max_components}, got {normalized}"
+            )
+    return normalized
+
+
 def _resolve_validation_seed_config(
     *,
     aiono: dict[str, Any],
@@ -222,6 +242,51 @@ def _parse_manifest_components(cfg: dict[str, Any]) -> tuple[dict[str, Any], lis
     return aiono, [str(value) for value in component_keys], dense_targets_cfg
 
 
+def _resolve_configured_num_enabled_values(*, basic: dict[str, Any], component_keys: list[str]) -> list[int]:
+    raw_values = basic.get("num_enabled_values")
+    if not isinstance(raw_values, list) or not raw_values:
+        raise ValueError(
+            "aiono.basic_components.num_enabled_values must be a non-empty list of positive ints"
+        )
+    if not all(isinstance(value, int) for value in raw_values):
+        raise ValueError(
+            "aiono.basic_components.num_enabled_values must contain only positive ints"
+        )
+    return _validate_num_enabled_values(
+        values=[int(value) for value in raw_values],
+        component_keys=component_keys,
+        name="aiono.basic_components.num_enabled_values",
+    )
+
+
+def resolve_requested_num_enabled_values(
+    *,
+    config_path: Path = DATASET_CONFIG_PATH,
+    requested_num_enabled_values: list[int] | None = None,
+) -> list[int]:
+    cfg = _load_dataset_config(config_path)
+    _, component_keys, _ = _parse_manifest_components(cfg)
+    basic = _require_dict(_require_dict(cfg, "aiono"), "basic_components")
+    configured_values = _resolve_configured_num_enabled_values(
+        basic=basic,
+        component_keys=component_keys,
+    )
+    if requested_num_enabled_values is None:
+        return list(configured_values)
+    requested_values = _validate_num_enabled_values(
+        values=requested_num_enabled_values,
+        component_keys=component_keys,
+        name="requested_num_enabled_values",
+    )
+    invalid_values = [value for value in requested_values if value not in configured_values]
+    if invalid_values:
+        raise ValueError(
+            "requested_num_enabled_values must be a subset of "
+            f"{configured_values}, got invalid values {invalid_values}"
+        )
+    return requested_values
+
+
 def _build_group_to_classes(component_keys: list[str]) -> dict[str, list[str]]:
     group_specs = {
         "noise": {"gaussian_noise", "uniform_noise", "random_walk_noise"},
@@ -242,6 +307,31 @@ def _build_group_to_classes(component_keys: list[str]) -> dict[str, list[str]]:
             group_to_classes[group_name] = group_classes
     group_to_classes["all"] = list(component_keys)
     return group_to_classes
+
+
+def _resolve_periodic_contract_for_benchmark(
+    *,
+    seq_len: int,
+    sampling_frequency: int,
+    periodic_cfg: dict[str, Any],
+    benchmark_family: str,
+    benchmark_version: str,
+) -> tuple[ResolvedAionoBasicComponentsPeriodicContract, str]:
+    if benchmark_version in {"v1", "v2"}:
+        periodic_contract_benchmark_version = "v1"
+    else:
+        raise ValueError(
+            "Unsupported benchmark_version for aiono basic-components runtime dataset: "
+            f"{benchmark_version!r}"
+        )
+    periodic_contract = resolve_aiono_basic_components_periodic_contract(
+        seq_len=int(seq_len),
+        sampling_frequency_hz=int(sampling_frequency),
+        config=AionoBasicComponentsPeriodicConfig.from_mapping(periodic_cfg),
+        benchmark_family=benchmark_family,
+        benchmark_version=periodic_contract_benchmark_version,
+    )
+    return periodic_contract, periodic_contract_benchmark_version
 
 
 def _build_dense_target_specs(targets_cfg: list[dict[str, Any]]) -> list[DenseTargetSpec]:
@@ -552,6 +642,7 @@ def build_runtime_splits_by_validation_seed(
     channel_size_source_override: str | None = None,
     train_batches: int | None = None,
     val_batches: int | None = None,
+    num_enabled: int | None = None,
     validation_seed_values: list[int] | None = None,
     validation_seed_offset: int | None = None,
     show_progress_bar: bool = False,
@@ -643,25 +734,50 @@ def build_runtime_splits_by_validation_seed(
         raise ValueError(
             "train_batches and val_batches must be > 0, "
             f"got train_batches={resolved_train_batches} val_batches={resolved_val_batches}"
-        )
+    )
     view_name = _require_str(aiono, "view_name")
     basic = _require_dict(aiono, "basic_components")
-    num_enabled = _require_int(basic, "num_enabled")
+    configured_num_enabled_values = _resolve_configured_num_enabled_values(
+        basic=basic,
+        component_keys=component_keys,
+    )
+    if num_enabled is None:
+        if len(configured_num_enabled_values) != 1:
+            raise ValueError(
+                "build_runtime_splits_by_validation_seed requires an explicit num_enabled override "
+                f"when the dataset config exposes multiple values {configured_num_enabled_values}"
+            )
+        resolved_num_enabled = int(configured_num_enabled_values[0])
+    else:
+        requested_num_enabled = _validate_num_enabled_values(
+            values=[int(num_enabled)],
+            component_keys=component_keys,
+            name="num_enabled",
+        )[0]
+        if requested_num_enabled not in configured_num_enabled_values:
+            raise ValueError(
+                f"num_enabled must be one of {configured_num_enabled_values}, got {requested_num_enabled}"
+            )
+        resolved_num_enabled = int(requested_num_enabled)
     periodic_cfg = _require_dict(basic, "periodic")
-    periodic_contract = resolve_aiono_basic_components_periodic_contract(
+    periodic_contract, periodic_contract_benchmark_version = _resolve_periodic_contract_for_benchmark(
         seq_len=int(resolved_channel_size),
-        sampling_frequency_hz=int(sampling_frequency),
-        config=AionoBasicComponentsPeriodicConfig.from_mapping(periodic_cfg),
+        sampling_frequency=int(sampling_frequency),
+        periodic_cfg=periodic_cfg,
         benchmark_family=benchmark_family,
         benchmark_version=benchmark_version,
     )
+    periodic_manifest_fields = dict(periodic_contract.manifest_fields())
+    periodic_manifest_fields["benchmark_family"] = benchmark_family
+    periodic_manifest_fields["benchmark_version"] = benchmark_version
     config_sha256 = hashlib.sha256(cfg_text.encode("utf-8")).hexdigest()
     group_to_classes = _build_group_to_classes(component_keys)
     actual_device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     manifest = DatasetManifest(
         dataset_name="aiono_basic_components_balanced",
-        **periodic_contract.manifest_fields(),
+        **periodic_manifest_fields,
+        periodic_contract_benchmark_version=periodic_contract_benchmark_version,
         view_name=view_name,
         sampling_frequency=int(sampling_frequency),
         channels=[str(channel) for channel in channels],
@@ -678,7 +794,8 @@ def build_runtime_splits_by_validation_seed(
         batch_size=int(batch_size),
         train_batches=int(resolved_train_batches),
         val_batches=int(resolved_val_batches),
-        num_enabled=int(num_enabled),
+        num_enabled=int(resolved_num_enabled),
+        num_enabled_values=list(configured_num_enabled_values),
         component_keys=list(component_keys),
         class_names=list(component_keys),
         group_to_classes=group_to_classes,
@@ -695,7 +812,7 @@ def build_runtime_splits_by_validation_seed(
         sample_rate_hz=float(sampling_frequency),
         view_name=view_name,
         component_keys=component_keys,
-        num_enabled=int(num_enabled),
+        num_enabled=int(resolved_num_enabled),
         periodic_contract=periodic_contract,
         device=actual_device,
     )
@@ -748,6 +865,7 @@ def build_runtime_splits(
     channel_size_source_override: str | None = None,
     train_batches: int | None = None,
     val_batches: int | None = None,
+    num_enabled: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, torch.Tensor], dict[str, torch.Tensor]]:
     manifest, train, val_splits = build_runtime_splits_by_validation_seed(
         config_path=config_path,
@@ -758,6 +876,7 @@ def build_runtime_splits(
         channel_size_source_override=channel_size_source_override,
         train_batches=train_batches,
         val_batches=val_batches,
+        num_enabled=num_enabled,
         show_progress_bar=False,
     )
     first_seed_value = int(manifest["validation_seed_values"][0])
@@ -816,6 +935,12 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Optional validation generator-seed offset override",
     )
+    parser.add_argument(
+        "--num-enabled",
+        type=int,
+        default=None,
+        help="Explicit active num_enabled value for one concrete runtime split",
+    )
     return parser.parse_args()
 
 
@@ -830,6 +955,7 @@ def main() -> None:
         channel_size_source_override=("runtime_dataset_cli" if args.channel_size is not None else None),
         train_batches=args.train_batches,
         val_batches=args.val_batches,
+        num_enabled=args.num_enabled,
         validation_seed_values=args.validation_seed_values,
         validation_seed_offset=args.validation_seed_offset,
         show_progress_bar=True,

@@ -10,7 +10,10 @@ from aionoscope_benchmarks.adapters.base import FrozenTimeSeriesAdapter
 from aionoscope_benchmarks.adapters.mantisv2 import MantisV2Adapter
 from aionoscope_benchmarks.adapters.toto import TotoAdapter
 from aionoscope_benchmarks.constants import DATASET_CONFIG_PATH
-from aionoscope_benchmarks.runtime_dataset import build_runtime_splits_by_validation_seed
+from aionoscope_benchmarks.runtime_dataset import (
+    build_runtime_splits_by_validation_seed,
+    resolve_requested_num_enabled_values,
+)
 
 
 class _DummyAdapter(FrozenTimeSeriesAdapter):
@@ -161,6 +164,7 @@ def test_runtime_split_builder_respects_exact_channel_size_override() -> None:
         channel_size_source_override="unit_test",
         train_batches=1,
         val_batches=1,
+        num_enabled=2,
         validation_seed_values=[0],
         show_progress_bar=False,
     )
@@ -170,9 +174,12 @@ def test_runtime_split_builder_respects_exact_channel_size_override() -> None:
     assert manifest["channel_size_policy"] == "test_exact"
     assert manifest["channel_size_source"] == "unit_test"
     assert manifest["benchmark_family"] == "aiono_basic_components"
-    assert manifest["benchmark_version"] == "v1"
+    assert manifest["benchmark_version"] == "v2"
+    assert manifest["periodic_contract_benchmark_version"] == "v1"
     assert manifest["baseline_sampling_frequency_hz"] == 500
     assert manifest["sampling_frequency"] == 500
+    assert manifest["num_enabled"] == 2
+    assert manifest["num_enabled_values"] == [1, 2, 3]
     assert manifest["periodic_frequency_mode"] == "auto"
     assert manifest["sine_frequency_hz_resolved_low"] == pytest.approx(500.0 / 63.0)
     assert manifest["sine_frequency_hz_resolved_high"] == pytest.approx(225.0)
@@ -187,6 +194,33 @@ def test_runtime_split_builder_respects_exact_channel_size_override() -> None:
     assert periodic_specs["square"]["duty_cycle"]["high"] == pytest.approx(0.9)
     assert tuple(train["x"].shape) == (2, 1, 64)
     assert tuple(val_splits[0]["x"].shape) == (2, 1, 64)
+
+
+def test_runtime_split_builder_requires_explicit_num_enabled_for_multi_value_contract() -> None:
+    with pytest.raises(ValueError, match="requires an explicit num_enabled override"):
+        build_runtime_splits_by_validation_seed(
+            config_path=DATASET_CONFIG_PATH,
+            device=torch.device("cpu"),
+            batch_size=2,
+            train_batches=1,
+            val_batches=1,
+            validation_seed_values=[0],
+            show_progress_bar=False,
+        )
+
+
+def test_resolve_requested_num_enabled_values_validates_requested_subset() -> None:
+    assert resolve_requested_num_enabled_values(config_path=DATASET_CONFIG_PATH) == [1, 2, 3]
+    assert resolve_requested_num_enabled_values(
+        config_path=DATASET_CONFIG_PATH,
+        requested_num_enabled_values=[3, 1],
+    ) == [3, 1]
+
+    with pytest.raises(ValueError, match="subset"):
+        resolve_requested_num_enabled_values(
+            config_path=DATASET_CONFIG_PATH,
+            requested_num_enabled_values=[4],
+        )
 
 
 def test_mantis_v2_uses_official_recommended_pretrained_length(
