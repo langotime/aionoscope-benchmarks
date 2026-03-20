@@ -6,6 +6,17 @@
 
 ## Stable Design Decisions
 
+### Repo-local knowledge base and checks
+
+`AGENTS.md` is intentionally a short table of contents. Durable repository guidance
+lives under `docs/`, with `docs/index.md` as the entry point and
+`docs/planning.md` as the planning source of truth.
+
+The repo also carries mechanical checks for that guidance:
+
+- `aionoscope_benchmarks.repo_checks` validates docs, planning hygiene, result discovery, and structural boundaries.
+- `aionoscope_benchmarks.dashboard_smoke` serves `results/` and verifies dashboard discovery against real JSON artifacts.
+
 ### Separate benchmark repo
 
 The benchmark code lives outside the upstream `aionoscope` library and depends on it as a sibling editable dependency. This keeps benchmark-specific code, heavyweight model integrations, and result artifacts isolated from the core generator library.
@@ -104,6 +115,8 @@ One JSON file in `results/models/` is the canonical output for one benchmark run
 `v2`, the filename pattern is `results/models/<model-slug>__num_enabled_<k>.json`. The
 default `results/models/` discovery path must contain one coherent benchmark version;
 historical `v1` artifacts belong only in git history, not beside active `v2` runs.
+If a static hosting environment needs `results/models/list.txt`, generate it at
+deployment time; it is not part of the dev-tree source of truth.
 
 The JSON stores:
 

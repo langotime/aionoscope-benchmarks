@@ -11,6 +11,22 @@ This repo benchmarks frozen foundational time-series models on the balanced Aion
 - writes one JSON artifact per benchmark run into `results/models/`;
 - optionally visualizes those artifacts in `results/dashboard.html`.
 
+## Knowledge Map
+
+Start with these docs before exploring ad hoc:
+
+- `docs/index.md`: task-oriented entry point for the repo knowledge base
+- `ARCHITECTURE.md`: durable design decisions and invariants
+- `docs/planning.md`: GitHub-issue planning workflow
+- `docs/maintenance.md`: recurring maintenance inventory and automation venue decisions
+
+Top-level `AGENTS.md` is intentionally short and points into that doc set. `README.md` is human-facing onboarding; agents must keep it up to date, but should not use it as the repository context source.
+
+## Planning Workflow
+
+Execution plans live as GitHub issues managed with `gh`, not as checked-in Markdown under `plans/`.
+Use `docs/planning.md` for the canonical create/read/update flow, commit-message convention (`Part of #<issue>`), and historical-plan archival procedure.
+
 ## Environment Layout
 
 Base development uses `uv` and the editable sibling dependency declared in `pyproject.toml`.
@@ -90,6 +106,18 @@ Run all foundational models with the per-model pinned interpreters:
 
 ```bash
 uv run python scripts/run_foundational_sequential.py
+```
+
+Run the repository contract gate:
+
+```bash
+uv run python -m aionoscope_benchmarks.repo_checks
+```
+
+Run the dashboard smoke harness against the checked-in `results/` site:
+
+```bash
+uv run python -m aionoscope_benchmarks.dashboard_smoke
 ```
 
 Be aware that exact model-native sequence lengths can materially increase RAM use because
@@ -346,6 +374,7 @@ Each benchmark run writes `results/models/<slug>__num_enabled_<k>.json`.
 `results/models/` is the active `v2` discovery path and must contain one coherent
 benchmark version only. Historical `v1` artifacts are kept in git history rather than
 in a checked-in archive directory.
+`results/models/list.txt` is a deployment artifact for static hosts that need an explicit manifest. It should not exist in the dev checkout.
 
 High-level structure:
 

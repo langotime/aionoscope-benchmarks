@@ -1,5 +1,7 @@
 # Aionoscope Benchmarks
 
+This file is human-facing onboarding. Agents should update it when public-facing workflow or scope changes, but they should gather repository context from `AGENTS.md`, `docs/index.md`, `ARCHITECTURE.md`, and `DOCUMENTATION.md` instead.
+
 Separate benchmark repo for running frozen-feature offline probes on the balanced
 Aiono basic-components dataset against foundational models listed in
 `benchmark_models_list.md`.
@@ -20,8 +22,18 @@ unofficial mirror or alias.
 
 Additional docs:
 
+- `docs/index.md` for the repo knowledge map and task-oriented doc index
 - `ARCHITECTURE.md` for the stable benchmark design and execution model
 - `DOCUMENTATION.md` for operational details, result schema expectations, and workflow notes
+- `docs/planning.md` for the GitHub-issue planning workflow
+
+Canonical local validation commands:
+
+```bash
+uv run python -m aionoscope_benchmarks.repo_checks
+uv run python -m aionoscope_benchmarks.dashboard_smoke
+uv run pytest
+```
 
 ## Benchmark Identity
 
@@ -223,6 +235,8 @@ While loading many result artifacts, the dashboard fetches JSONs with bounded
 concurrency, retries transient per-file failures, and enforces a per-file
 timeout. The `Visible runs` summary shows live progress as
 `Loading... loaded/total` until loading completes.
+`results/models/list.txt` is only for deployment environments that need an explicit
+manifest and should not exist in the dev checkout.
 
 For the full foundational sweep used in the current results, use
 `scripts/run_foundational_sequential.py`. It dispatches each model into the

@@ -11,5 +11,4 @@ logs/
 artifacts/
 external/
 results/datasets/
-results/models/list.txt
 *.egg-info/
