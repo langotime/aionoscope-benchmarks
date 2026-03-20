@@ -56,6 +56,27 @@ def test_dashboard_run_labels_hide_benchmark_version_but_keep_num_enabled_suffix
     assert "function runLabel(result)" in html
     assert 'return `${canonicalModelName(result)} · num_enabled=${numEnabled === null ? "?" : numEnabled}`;' in html
     assert 'return `${canonicalModelName(result)} · ${resultBenchmarkVersion(result)} · num_enabled=${numEnabled === null ? "?" : numEnabled}`;' not in html
+    assert "function plotLabel(result)" in html
+    assert "return canonicalModelName(result);" in html
+
+
+def test_dashboard_encodes_num_enabled_visually_in_charts() -> None:
+    html = DASHBOARD_PATH.read_text(encoding="utf-8")
+
+    assert "function numEnabledLineStyleType(result)" in html
+    assert 'return "dashed";' in html
+    assert 'return "dotted";' in html
+    assert 'return "solid";' in html
+    assert "function numEnabledBubbleDecal(result)" in html
+    assert 'symbol: "rect"' in html
+    assert 'symbol: "circle"' in html
+    assert 'return "none";' in html
+    assert "function numEnabledVisualSummary()" in html
+    assert 'type: lineStyleType' in html
+    assert "aria: {" in html
+    assert "decal: {" in html
+    assert "show: true" in html
+    assert 'decal: result ? numEnabledBubbleDecal(result) : "none"' in html
 
 
 def test_dashboard_num_enabled_filter_applies_before_selector_and_plots() -> None:

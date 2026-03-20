@@ -1067,28 +1067,28 @@
             <div class="panel chart-card">
               <div class="chart-card-header">
                 <div class="chart-card-title">Macro AUROC By Layer</div>
-                <div class="chart-card-note">Categorical probe summary, median line + std band</div>
+                <div class="chart-card-note">Categorical probe summary, median line + std band, <code>num_enabled</code>: 1 solid / 2 dashed / 3 dotted</div>
               </div>
               <div id="chart-line-auroc" class="chart line"></div>
             </div>
             <div class="panel chart-card">
               <div class="chart-card-header">
                 <div class="chart-card-title">Macro AUPRC By Layer</div>
-                <div class="chart-card-note">Categorical probe summary, median line + std band</div>
+                <div class="chart-card-note">Categorical probe summary, median line + std band, <code>num_enabled</code>: 1 solid / 2 dashed / 3 dotted</div>
               </div>
               <div id="chart-line-auprc" class="chart line"></div>
             </div>
             <div class="panel chart-card">
               <div class="chart-card-header">
                 <div class="chart-card-title">Macro Pearson By Layer</div>
-                <div class="chart-card-note">Dense probe summary, median line + std band</div>
+                <div class="chart-card-note">Dense probe summary, median line + std band, <code>num_enabled</code>: 1 solid / 2 dashed / 3 dotted</div>
               </div>
               <div id="chart-line-pearson" class="chart line"></div>
             </div>
             <div class="panel chart-card">
               <div class="chart-card-header">
                 <div class="chart-card-title">Macro R2 By Layer</div>
-                <div class="chart-card-note">Dense probe summary, median line + std band, clipped at <code>0</code> for plotting</div>
+                <div class="chart-card-note">Dense probe summary, median line + std band, clipped at <code>0</code> for plotting, <code>num_enabled</code>: 1 solid / 2 dashed / 3 dotted</div>
               </div>
               <div id="chart-line-r2" class="chart line"></div>
             </div>
@@ -1244,10 +1244,6 @@
       return runLabel(result);
     }
 
-    function resultByModelName(name) {
-      return visibleResults().find((result) => modelName(result) === String(name)) || null;
-    }
-
     function resultBenchmarkFamily(result) {
       const dataset = result && result.dataset ? result.dataset : null;
       return dataset && typeof dataset.benchmark_family === "string" && dataset.benchmark_family
@@ -1280,6 +1276,49 @@
     function runLabel(result) {
       const numEnabled = resultNumEnabled(result);
       return `${canonicalModelName(result)} · num_enabled=${numEnabled === null ? "?" : numEnabled}`;
+    }
+
+    function plotLabel(result) {
+      return canonicalModelName(result);
+    }
+
+    function numEnabledLineStyleType(result) {
+      const numEnabled = resultNumEnabled(result);
+      if (numEnabled === 2) {
+        return "dashed";
+      }
+      if (numEnabled === 3) {
+        return "dotted";
+      }
+      return "solid";
+    }
+
+    function numEnabledBubbleDecal(result) {
+      const numEnabled = resultNumEnabled(result);
+      if (numEnabled === 2) {
+        return {
+          symbol: "rect",
+          symbolSize: 0.9,
+          color: "rgba(255, 255, 255, 0.50)",
+          dashArrayX: [1, 0],
+          dashArrayY: [7, 5],
+          rotation: -Math.PI / 4
+        };
+      }
+      if (numEnabled === 3) {
+        return {
+          symbol: "circle",
+          symbolSize: 0.5,
+          color: "rgba(255, 255, 255, 0.58)",
+          dashArrayX: [0, 6],
+          dashArrayY: [0, 6]
+        };
+      }
+      return "none";
+    }
+
+    function numEnabledVisualSummary() {
+      return "num_enabled: lines 1 solid / 2 dashed / 3 dotted; bubbles 1 plain / 2 striped / 3 dotted fill";
     }
 
     function visibleResults() {
@@ -1400,11 +1439,6 @@
 
     function colorForResult(result, mode = getColorMode()) {
       return colorForGroupValue(groupValueForResult(result, mode), mode);
-    }
-
-    function colorForModel(name) {
-      const result = resultByModelName(name);
-      return result ? colorForResult(result) : COLOR_PALETTE[0];
     }
 
     function groupEntries(mode = getColorMode()) {
@@ -1546,16 +1580,19 @@
       });
     }
 
-    function modelMetadataLines(result) {
-      return [
+    function modelMetadataLines(result, { includeNumEnabled = true } = {}) {
+      const lines = [
         `Model: ${canonicalModelName(result)}`,
         `Family: ${modelFamily(result)}`,
         `Checkpoint: ${modelCheckpointName(result)}`,
         `Architecture type: ${architectureBackboneLabel(modelArchitectureBackbone(result))}`,
         `Training: ${trainingParadigmLabel(modelTrainingParadigm(result))}`,
-        `Benchmark: ${resultBenchmarkFamily(result)}/${resultBenchmarkVersion(result)}`,
-        `num_enabled: ${resultNumEnabled(result) === null ? "N/A" : resultNumEnabled(result)}`
+        `Benchmark: ${resultBenchmarkFamily(result)}/${resultBenchmarkVersion(result)}`
       ];
+      if (includeNumEnabled) {
+        lines.push(`num_enabled: ${resultNumEnabled(result) === null ? "N/A" : resultNumEnabled(result)}`);
+      }
+      return lines;
     }
 
     function orderedCategories(categories, preferredOrder) {
@@ -2615,7 +2652,7 @@
             return null;
           }
           return {
-            name: modelName(result),
+            name: plotLabel(result),
             runKey: key,
             value: dataByModel[key]
           };
@@ -2633,7 +2670,7 @@
               const rowRunKey =
                 param && param.data && typeof param.data.runKey === "string" ? param.data.runKey : null;
               const result = rowRunKey ? resultByRunKey(rowRunKey) : null;
-              const label = result ? modelName(result) : param.name || param.seriesName;
+              const label = result ? plotLabel(result) : param.name || param.seriesName;
               const stats = rowRunKey ? statsByModel[rowRunKey] || [] : [];
               const plottedValues = rowRunKey ? dataByModel[rowRunKey] || param.value : param.value;
               const layer = rowRunKey ? layerByModel[rowRunKey] : null;
@@ -2765,8 +2802,9 @@
 
     function lineSeriesGroup(result, metricKey, selectorKey, layerCategories) {
       const key = runKey(result);
-      const name = modelName(result);
+      const name = plotLabel(result);
       const color = colorForResult(result);
+      const lineStyleType = numEnabledLineStyleType(result);
       const selectedLayer = selectedLayerForResult(result, selectorKey);
       const { layers, stats } = metricStatsByLayer(result, metricKey);
       const medians = stats.map((value) => statMedian(value));
@@ -2877,7 +2915,8 @@
           },
           lineStyle: {
             width: 2.2,
-            color
+            color,
+            type: lineStyleType
           },
           itemStyle: {
             color
@@ -3018,7 +3057,8 @@
         `color = ${groupModeLabel(getColorMode())}`,
         `X = ${bubbleAxisLabel(xMetric)}`,
         `Y = ${bubbleAxisLabel(yMetric)}`,
-        `bubble size = ${sizeMetric.label}`
+        `bubble size = ${sizeMetric.label}`,
+        numEnabledVisualSummary()
       ];
       if (bubbleUsesParameterMetric(selection)) {
         if (selection.parameterScope === "best_layer") {
@@ -3102,13 +3142,13 @@
               resultMissingHints.push(sizeMetric.missingHint);
             }
             skippedDetails.push({
-              name: modelName(result),
+              name: plotLabel(result),
               missingHints: Array.from(new Set(resultMissingHints))
             });
             return null;
           }
           return {
-            name: modelName(result),
+            name: plotLabel(result),
             runKey: runKey(result),
             xValue,
             yValue,
@@ -3168,9 +3208,15 @@
               return [
                 `<strong>${row.name}</strong>`,
                 `Color group: ${result ? groupLabelForResult(result) : row.name}`,
-                ...(result ? modelMetadataLines(result) : []),
+                ...(result ? modelMetadataLines(result, { includeNumEnabled: false }) : []),
                 ...uniqueDetailLines
               ].join("<br>");
+            }
+          },
+          aria: {
+            enabled: true,
+            decal: {
+              show: true
             }
           },
           toolbox: {
@@ -3219,15 +3265,20 @@
           series: [
             {
               type: "scatter",
-              data: bubbleRows.map((row) => ({
-                ...row,
-                value: [row.xValue, row.yValue, row.sizeValue],
-                itemStyle: {
-                  color: rgbaWithAlpha(colorForModel(row.name), 0.68),
-                  borderColor: colorForModel(row.name),
-                  borderWidth: 1.5
-                }
-              })),
+              data: bubbleRows.map((row) => {
+                const result = resultByRunKey(row.runKey);
+                const color = result ? colorForResult(result) : COLOR_PALETTE[0];
+                return {
+                  ...row,
+                  value: [row.xValue, row.yValue, row.sizeValue],
+                  itemStyle: {
+                    color: rgbaWithAlpha(color, 0.68),
+                    borderColor: color,
+                    borderWidth: 1.5,
+                    decal: result ? numEnabledBubbleDecal(result) : "none"
+                  }
+                };
+              }),
               symbolSize: (value) => bubbleSymbolSize(value[2], sizeMetric, sizeValues),
               emphasis: {
                 focus: "self",
