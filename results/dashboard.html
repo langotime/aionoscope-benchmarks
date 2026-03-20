@@ -1314,7 +1314,7 @@
           dashArrayY: [0, 6]
         };
       }
-      return "none";
+      return null;
     }
 
     function numEnabledVisualSummary() {
@@ -3275,7 +3275,9 @@
                     color: rgbaWithAlpha(color, 0.68),
                     borderColor: color,
                     borderWidth: 1.5,
-                    decal: result ? numEnabledBubbleDecal(result) : "none"
+                    ...(result && numEnabledBubbleDecal(result)
+                      ? { decal: numEnabledBubbleDecal(result) }
+                      : {})
                   }
                 };
               }),

@@ -70,13 +70,13 @@ def test_dashboard_encodes_num_enabled_visually_in_charts() -> None:
     assert "function numEnabledBubbleDecal(result)" in html
     assert 'symbol: "rect"' in html
     assert 'symbol: "circle"' in html
-    assert 'return "none";' in html
+    assert "return null;" in html
     assert "function numEnabledVisualSummary()" in html
     assert 'type: lineStyleType' in html
     assert "aria: {" in html
     assert "decal: {" in html
     assert "show: true" in html
-    assert 'decal: result ? numEnabledBubbleDecal(result) : "none"' in html
+    assert "? { decal: numEnabledBubbleDecal(result) }" in html
 
 
 def test_dashboard_num_enabled_filter_applies_before_selector_and_plots() -> None:
