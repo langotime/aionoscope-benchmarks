@@ -8,37 +8,33 @@ from .base import FrozenTimeSeriesAdapter
 class _THUMLCausalAdapter(FrozenTimeSeriesAdapter):
     import_path = "transformers"
     env_name = "timemoe"
-    default_encode_batch_size = 64
+    default_encode_batch_size = 512
     use_bfloat16_amp = True
     benchmark_sequence_length = 2880
 
     def __init__(self) -> None:
         super().__init__()
-        from transformers import AutoModelForCausalLM
+        from transformers import AutoConfig
 
-        self.model = AutoModelForCausalLM.from_pretrained(
+        self.config = AutoConfig.from_pretrained(
             self.checkpoint,
             trust_remote_code=True,
-            torch_dtype="auto",
         )
-        self.model.eval()
-        get_decoder = getattr(self.model, "get_decoder", None)
-        if get_decoder is None:
-            raise ValueError(f"{self.model_name} model does not expose get_decoder()")
-        self.decoder = get_decoder()
-        self.num_hidden_layers = int(self.model.config.num_hidden_layers)
-        if int(len(self.decoder.layers)) != self.num_hidden_layers:
-            raise ValueError(
-                f"{self.model_name} layer mismatch: config={self.num_hidden_layers} decoder={len(self.decoder.layers)}"
-            )
-        self.input_token_len = int(self.model.config.input_token_len)
-        self.hidden_size = int(self.model.config.hidden_size)
+        self.model: torch.nn.Module | None = None
+        self.decoder: torch.nn.Module | None = None
+        self.attention_implementation = "uninitialized"
+        self.model_input_dtype = torch.float32
+        self.num_hidden_layers = int(self.config.num_hidden_layers)
+        self.input_token_len = int(self.config.input_token_len)
+        self.hidden_size = int(self.config.hidden_size)
 
     @property
     def available_layers(self) -> tuple[int, ...]:
         return tuple(range(self.num_hidden_layers + 1))
 
-    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]]:
+    def parameter_count_prefix_sources(self) -> dict[int, tuple[object, ...]] | None:
+        if self.decoder is None:
+            return None
         sources: dict[int, tuple[object, ...]] = {0: (self.decoder.embed_layer,)}
         for layer_index, layer in enumerate(self.decoder.layers, start=1):
             layer_sources: tuple[object, ...] = (layer,)
@@ -52,6 +48,8 @@ class _THUMLCausalAdapter(FrozenTimeSeriesAdapter):
         payload["hidden_size"] = int(self.hidden_size)
         payload["input_token_len"] = int(self.input_token_len)
         payload["num_hidden_layers"] = int(self.num_hidden_layers)
+        payload["attention_implementation"] = str(self.attention_implementation)
+        payload["model_dtype"] = str(self.model_input_dtype).replace("torch.", "")
         payload["preprocess"] = (
             "feed the exact official quickstart lookback length directly into the published decoder-only model; "
             "mean-pool token states across time"
@@ -62,6 +60,99 @@ class _THUMLCausalAdapter(FrozenTimeSeriesAdapter):
             "layer N is the post-final-norm decoder output"
         )
         return payload
+
+    def prepare(
+        self,
+        *,
+        manifest: dict[str, object],
+        train_split: dict[str, torch.Tensor],
+        val_split: dict[str, torch.Tensor],
+    ) -> None:
+        del manifest, train_split, val_split
+
+    def prepare_runtime(self, *, device: torch.device) -> None:
+        self._ensure_model_loaded(device=device)
+
+    def _preferred_attention_implementation(self, device: torch.device) -> str:
+        if device.type != "cuda":
+            return "eager"
+        try:
+            import flash_attn  # noqa: F401
+        except Exception:
+            return "eager"
+        return "flash_attention_2"
+
+    def _preferred_model_dtype(
+        self,
+        *,
+        device: torch.device,
+        attention_implementation: str,
+    ) -> torch.dtype | None:
+        if device.type == "cuda" and attention_implementation == "flash_attention_2":
+            return torch.bfloat16
+        return None
+
+    def _ensure_model_loaded(self, *, device: torch.device) -> None:
+        requested_attention_impl = self._preferred_attention_implementation(device)
+        requested_dtype = self._preferred_model_dtype(
+            device=device,
+            attention_implementation=requested_attention_impl,
+        )
+        if isinstance(self.model, torch.nn.Module):
+            loaded_attention_impl = str(
+                getattr(self.model.config, "_attn_implementation", self.attention_implementation)
+            )
+            model_device = next(self.model.parameters()).device
+            current_dtype = next(self.model.parameters()).dtype
+            if loaded_attention_impl == requested_attention_impl:
+                if model_device != device or (
+                    requested_dtype is not None and current_dtype != requested_dtype
+                ):
+                    to_kwargs: dict[str, object] = {"device": device}
+                    if requested_dtype is not None:
+                        to_kwargs["dtype"] = requested_dtype
+                    self.model = self.model.to(**to_kwargs)
+                    self.model.eval()
+                    self.decoder = self.model.get_decoder()
+                self.attention_implementation = loaded_attention_impl
+                self.model_input_dtype = next(self.model.parameters()).dtype
+                return
+
+            old_model = self.model
+            self.model = None
+            self.decoder = None
+            self.attention_implementation = "uninitialized"
+            del old_model
+            if device.type == "cuda":
+                torch.cuda.empty_cache()
+
+        from transformers import AutoModelForCausalLM
+
+        load_kwargs: dict[str, object] = {
+            "trust_remote_code": True,
+            "attn_implementation": requested_attention_impl,
+            "torch_dtype": "auto" if requested_dtype is None else requested_dtype,
+        }
+        loaded_model = AutoModelForCausalLM.from_pretrained(
+            self.checkpoint,
+            **load_kwargs,
+        )
+        loaded_model = loaded_model.to(device)
+        loaded_model.eval()
+        get_decoder = getattr(loaded_model, "get_decoder", None)
+        if get_decoder is None:
+            raise ValueError(f"{self.model_name} model does not expose get_decoder()")
+        decoder = get_decoder()
+        if int(len(decoder.layers)) != self.num_hidden_layers:
+            raise ValueError(
+                f"{self.model_name} layer mismatch: config={self.num_hidden_layers} decoder={len(decoder.layers)}"
+            )
+        self.model = loaded_model
+        self.decoder = decoder
+        self.attention_implementation = str(
+            getattr(self.model.config, "_attn_implementation", requested_attention_impl)
+        )
+        self.model_input_dtype = next(self.model.parameters()).dtype
 
     def _context_tensor(self, x: torch.Tensor) -> torch.Tensor:
         self.validate_benchmark_input(x, channels=1)
@@ -80,7 +171,10 @@ class _THUMLCausalAdapter(FrozenTimeSeriesAdapter):
         layers: tuple[int, ...] | None = None,
     ) -> dict[int, torch.Tensor]:
         requested_layers = set(int(layer) for layer in (layers or self.available_layers))
-        context = self._context_tensor(x)
+        self._ensure_model_loaded(device=x.device)
+        if self.decoder is None:
+            raise RuntimeError(f"{self.model_name} decoder is not loaded")
+        context = self._context_tensor(x).to(dtype=self.model_input_dtype)
         outputs = self.decoder(
             input_ids=context,
             use_cache=False,
@@ -102,6 +196,7 @@ class TimerBase84MAdapter(_THUMLCausalAdapter):
     source = "https://github.com/thuml/Timer"
     checkpoint = "thuml/timer-base-84m"
     benchmark_sequence_length_source = "official_timer_model_card_context_length"
+    default_encode_batch_size = 1024
 
 
 class SundialBase128MAdapter(_THUMLCausalAdapter):

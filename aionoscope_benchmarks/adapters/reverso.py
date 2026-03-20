@@ -16,7 +16,7 @@ class ReversoSmall550KAdapter(FrozenTimeSeriesAdapter):
     checkpoint = "shinfxh/reverso"
     import_path = "reverso_torch + huggingface_hub"
     env_name = "core"
-    default_encode_batch_size = 64
+    default_encode_batch_size = 512
     use_bfloat16_amp = True
 
     def __init__(self) -> None:

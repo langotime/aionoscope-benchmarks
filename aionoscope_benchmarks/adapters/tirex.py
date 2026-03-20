@@ -12,7 +12,7 @@ class TiRexAdapter(FrozenTimeSeriesAdapter):
     checkpoint = "NX-AI/TiRex"
     import_path = "tirex-ts"
     env_name = "tirex"
-    default_encode_batch_size = 128
+    default_encode_batch_size = 512
     use_bfloat16_amp = True
 
     def __init__(self) -> None:

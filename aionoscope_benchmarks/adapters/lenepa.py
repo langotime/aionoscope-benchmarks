@@ -175,7 +175,7 @@ class LeNEPAAionoAdapter(_LeNEPABaseAdapter):
     model_slug = "LeNEPA-Aiono"
     source = "https://huggingface.co/Natively-TS-Understanding/lenepa-encoder-aiono"
     checkpoint = "Natively-TS-Understanding/lenepa-encoder-aiono"
-    default_encode_batch_size = 128
+    default_encode_batch_size = 512
 
 
 class LeNEPACauKer2MAdapter(_LeNEPABaseAdapter):
@@ -183,7 +183,7 @@ class LeNEPACauKer2MAdapter(_LeNEPABaseAdapter):
     model_slug = "LeNEPA-CauKer2M"
     source = "https://huggingface.co/Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256-steps200k"
     checkpoint = "Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256-steps200k"
-    default_encode_batch_size = 64
+    default_encode_batch_size = 256
 
 
 class LeNEPACauKer2M20KAdapter(_LeNEPABaseAdapter):
@@ -191,4 +191,4 @@ class LeNEPACauKer2M20KAdapter(_LeNEPABaseAdapter):
     model_slug = "LeNEPA-CauKer2M-20k"
     source = "https://huggingface.co/Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256"
     checkpoint = "Natively-TS-Understanding/lenepa-cauker2m-5000-patchnorm-d256"
-    default_encode_batch_size = 64
+    default_encode_batch_size = 256

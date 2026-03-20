@@ -12,7 +12,7 @@ class MantisV2Adapter(FrozenTimeSeriesAdapter):
     checkpoint = "paris-noah/MantisV2"
     import_path = "mantis-tsfm"
     env_name = "mantis"
-    default_encode_batch_size = 128
+    default_encode_batch_size = 512
     use_bfloat16_amp = True
 
     def __init__(self) -> None:

@@ -17,7 +17,7 @@ class NuTimeAdapter(FrozenTimeSeriesAdapter):
     checkpoint = "checkpoint_bias9.pth"
     import_path = "NuTime repo"
     env_name = "tivit"
-    default_encode_batch_size = 128
+    default_encode_batch_size = 512
     use_bfloat16_amp = True
 
     def __init__(self) -> None:

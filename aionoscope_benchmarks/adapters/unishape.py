@@ -13,7 +13,7 @@ class _BaseUniShapeAdapter(FrozenTimeSeriesAdapter):
     source = "https://github.com/qianlima-lab/UniShape"
     import_path = "UniShape repo"
     env_name = "core"
-    default_encode_batch_size = 128
+    default_encode_batch_size = 512
     use_bfloat16_amp = True
     benchmark_sequence_length = 512
     benchmark_sequence_length_source = "official_unishape_scripts_resized_series_length"

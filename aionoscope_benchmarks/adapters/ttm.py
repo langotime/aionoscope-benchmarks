@@ -12,7 +12,7 @@ class TTMAdapter(FrozenTimeSeriesAdapter):
     checkpoint = "ibm-granite/granite-timeseries-ttm-r2"
     import_path = "tsfm_public"
     env_name = "ttm"
-    default_encode_batch_size = 128
+    default_encode_batch_size = 512
     use_bfloat16_amp = True
 
     def __init__(self) -> None:

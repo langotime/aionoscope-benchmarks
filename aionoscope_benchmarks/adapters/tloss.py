@@ -19,7 +19,7 @@ class TLossAdapter(FrozenTimeSeriesAdapter):
     checkpoint = "CricketX_CausalCNN_encoder.pth"
     import_path = "TLossRepo"
     env_name = "core"
-    default_encode_batch_size = 256
+    default_encode_batch_size = 1024
     use_bfloat16_amp = False
 
     def __init__(self) -> None:

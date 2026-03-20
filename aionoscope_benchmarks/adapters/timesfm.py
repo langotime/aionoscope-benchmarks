@@ -16,7 +16,7 @@ class TimesFM25Adapter(FrozenTimeSeriesAdapter):
     checkpoint = "google/timesfm-2.5-200m-pytorch"
     import_path = "timesfm repo"
     env_name = "core"
-    default_encode_batch_size = 8
+    default_encode_batch_size = 128
     use_bfloat16_amp = True
 
     def __init__(self) -> None:

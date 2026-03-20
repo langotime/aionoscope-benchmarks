@@ -12,7 +12,7 @@ class _BaseKairosAdapter(FrozenTimeSeriesAdapter):
     source = "https://github.com/foundation-model-research/Kairos"
     import_path = "Kairos repo + transformers"
     env_name = "core"
-    default_encode_batch_size = 16
+    default_encode_batch_size = 512
     use_bfloat16_amp = True
 
     def __init__(self) -> None:
@@ -180,4 +180,4 @@ class Kairos50MAdapter(_BaseKairosAdapter):
     model_name = "Kairos-50M"
     model_slug = "Kairos-50M"
     checkpoint = "mldi-lab/Kairos_50m"
-    default_encode_batch_size = 8
+    default_encode_batch_size = 512

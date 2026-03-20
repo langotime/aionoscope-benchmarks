@@ -14,7 +14,7 @@ class TiConvNextAdapter(FrozenTimeSeriesAdapter):
     checkpoint = "laion/CLIP-convnext_xxlarge-laion2B-s34B-b82K-augreg"
     import_path = "open_clip_torch"
     env_name = "tivit"
-    default_encode_batch_size = 8
+    default_encode_batch_size = 128
     use_bfloat16_amp = True
     cpu_feature_cache_dtype = torch.float16
 

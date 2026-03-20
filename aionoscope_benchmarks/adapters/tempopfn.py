@@ -19,7 +19,7 @@ class TempoPFN38MAdapter(FrozenTimeSeriesAdapter):
     checkpoint = "AutoML-org/TempoPFN"
     import_path = "published Hugging Face repo snapshot via huggingface_hub"
     env_name = "tempopfn"
-    default_encode_batch_size = 16
+    default_encode_batch_size = 32
     use_bfloat16_amp = True
     prediction_length = 1
     _fixed_start = np.datetime64("2000-01-01")

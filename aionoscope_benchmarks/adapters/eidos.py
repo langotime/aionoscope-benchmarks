@@ -15,7 +15,7 @@ class EIDOSAdapter(FrozenTimeSeriesAdapter):
     checkpoint = "external/EIDOS/eidos 1.pt"
     import_path = "local external/EIDOS runtime"
     env_name = "timemoe"
-    default_encode_batch_size = 16
+    default_encode_batch_size = 1024
     use_bfloat16_amp = True
     benchmark_sequence_length = 512
     benchmark_sequence_length_source = "official_eidos_readme_basic_usage_history_length"
@@ -72,8 +72,7 @@ class EIDOSAdapter(FrozenTimeSeriesAdapter):
         train_split: dict[str, torch.Tensor],
         val_split: dict[str, torch.Tensor],
     ) -> None:
-        del manifest, val_split
-        self._ensure_model_loaded(device=train_split["x"].device)
+        del manifest, train_split, val_split
 
     def prepare_runtime(self, *, device: torch.device) -> None:
         self._ensure_model_loaded(device=device)
@@ -102,6 +101,7 @@ class EIDOSAdapter(FrozenTimeSeriesAdapter):
         payload["horizon_lengths"] = list(self.horizon_lengths)
         payload["quantiles"] = list(self.quantiles)
         payload["attention_implementation"] = str(self.attention_implementation)
+        payload["model_dtype"] = str(self.model_input_dtype).replace("torch.", "")
         payload["checkpoint_origin"] = "local_repo_hosted_checkpoint"
         payload["checkpoint_file"] = str(self.checkpoint)
         payload["preprocess"] = (
@@ -147,11 +147,17 @@ class EIDOSAdapter(FrozenTimeSeriesAdapter):
 
     def _ensure_model_loaded(self, *, device: torch.device) -> None:
         requested_attention_impl = self._preferred_attention_implementation(device)
+        requested_dtype = (
+            torch.bfloat16
+            if device.type == "cuda" and requested_attention_impl == "flash_attention_2"
+            else torch.float32
+        )
         if isinstance(self.model, torch.nn.Module):
             model_device = next(self.model.parameters()).device
+            current_dtype = next(self.model.parameters()).dtype
             if self.attention_implementation == requested_attention_impl:
-                if model_device != device:
-                    self.model = self.model.to(device)
+                if model_device != device or current_dtype != requested_dtype:
+                    self.model = self.model.to(device=device, dtype=requested_dtype)
                     self.model.eval()
                     self.decoder_model = self.model.get_decoder()
                     self.model_input_dtype = next(self.model.parameters()).dtype
@@ -178,7 +184,7 @@ class EIDOSAdapter(FrozenTimeSeriesAdapter):
                 f"{self.model_name} checkpoint at {self.checkpoint_path} does not expose a state dict"
             )
         loaded_model.load_state_dict(self._clean_state_dict(raw_state_dict), strict=True)
-        loaded_model = loaded_model.to(device)
+        loaded_model = loaded_model.to(device=device, dtype=requested_dtype)
         loaded_model.eval()
 
         decoder_model = loaded_model.get_decoder()

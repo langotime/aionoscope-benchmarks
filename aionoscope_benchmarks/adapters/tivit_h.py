@@ -14,7 +14,7 @@ class TiViTHAdapter(FrozenTimeSeriesAdapter):
     checkpoint = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
     import_path = "transformers"
     env_name = "tivit"
-    default_encode_batch_size = 16
+    default_encode_batch_size = 256
     use_bfloat16_amp = True
 
     def __init__(self) -> None:

@@ -12,7 +12,7 @@ class TotoAdapter(FrozenTimeSeriesAdapter):
     checkpoint = "Datadog/Toto-Open-Base-1.0"
     import_path = "toto-ts"
     env_name = "toto"
-    default_encode_batch_size = 64
+    default_encode_batch_size = 512
     use_bfloat16_amp = True
 
     def __init__(self) -> None:

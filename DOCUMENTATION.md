@@ -53,9 +53,12 @@ uv pip install --python .venv-timemoe/bin/python 'transformers==4.40.1' 'einops>
 ```
 
 When `flash-attn` is available in `.venv-timemoe`, the adapter prefers
-`flash_attention_2` on CUDA. Otherwise it falls back to eager attention and keeps
-the published eager path. The local EIDOS drop also lives in `.venv-timemoe`
-because it reuses the same `transformers==4.40.1` stack.
+`flash_attention_2` on CUDA for Time-MoE, EIDOS, Timer, and Sundial. Otherwise
+it falls back to eager attention and keeps the published eager path. On CUDA,
+load or cast those models to BF16/FP16 when using `flash_attention_2`; loading
+them as float32 can still run under autocast, but it leaves warnings and can
+hide avoidable performance loss. The local EIDOS drop also lives in
+`.venv-timemoe` because it reuses the same `transformers==4.40.1` stack.
 
 TempoPFN uses a separate `.venv-tempopfn` env because the published stack adds
 `triton==3.2.0`, `flash-linear-attention`, and the self-contained Hugging Face
@@ -466,12 +469,21 @@ To add a new model:
 4. Assign explicit taxonomy fields in `MODEL_TAXONOMY`, using the benchmark-path rules above for `model.architecture.backbone` and `model.training.paradigm`.
 5. Expose an exact benchmark sequence length, honest `available_layers`, and stable `adapter_metadata()`.
 6. Make the adapter fail fast on sequence-length mismatch rather than silently cropping, padding, or waveform-resampling benchmark inputs.
-7. Run at least one benchmark invocation and verify that a JSON result is produced and the dashboard can read it.
+7. Run a short encode-only tuning sweep on the actual benchmark GPU before choosing `default_encode_batch_size`. Prefer `aionoscope_benchmarks/tune_encode_batch.py` for one model or `scripts/run_foundational_encode_tuning.py` for a sequential sweep.
+8. Choose the smallest batch size within a small margin of peak throughput instead of blindly picking the largest batch that fits. Treat OOMs and CUDA kernel failures as an upper bound, not as a desirable operating point.
+9. If the upstream stack supports `flash_attention_2` or `sdpa`, verify that the runtime backend actually switched on CUDA and record any intentionally conservative fallback in code or adapter metadata.
+10. Keep `prepare()` CPU-safe and move CUDA-only materialization or attention-backend selection into `prepare_runtime()` so dataset building and adapter bootstrap can stay device-agnostic.
+11. Run at least one benchmark invocation and verify that a JSON result is produced and the dashboard can read it.
 
 Use `prepare()` and `update_probe_val_split()` only for benchmark-facing preprocessing that the adapter genuinely needs.
 Forecast-derived adapters should prefer keeping the full exact waveform as context and
 adding a deterministic query row internally over burning one real benchmark timestep as
 forecast horizon.
+
+The tuning sweep is a guardrail, not a rule that every model should land at `512`
+or `1024`. Some models plateau early or already run near their optimum at smaller
+defaults, especially when the official runtime, sequence length, or attention
+kernel imposes a real throughput limit.
 
 If a model repo already publishes a self-contained inference bundle, prefer importing
 that bundle through `huggingface_hub` instead of copying the upstream inference code into

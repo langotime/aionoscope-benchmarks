@@ -10,7 +10,7 @@ class _BaseMoiraiAdapter(FrozenTimeSeriesAdapter):
     source = "https://github.com/SalesforceAIResearch/uni2ts"
     import_path = "uni2ts"
     env_name = "moirai"
-    default_encode_batch_size = 64
+    default_encode_batch_size = 512
     use_bfloat16_amp = True
 
     def __init__(self) -> None:
@@ -404,7 +404,7 @@ class Moirai10RLargeAdapter(_Moirai1BaseAdapter):
     model_name = "Moirai-1.0-R-Large"
     model_slug = "Moirai-1.0-R-Large"
     checkpoint = "Salesforce/moirai-1.0-R-large"
-    default_encode_batch_size = 32
+    default_encode_batch_size = 512
 
 
 class Moirai11RSmallAdapter(_Moirai1BaseAdapter):
@@ -423,14 +423,14 @@ class Moirai11RLargeAdapter(_Moirai1BaseAdapter):
     model_name = "Moirai-1.1-R-Large"
     model_slug = "Moirai-1.1-R-Large"
     checkpoint = "Salesforce/moirai-1.1-R-large"
-    default_encode_batch_size = 32
+    default_encode_batch_size = 512
 
 
 class Moirai20RSmallAdapter(_Moirai2BaseAdapter):
     model_name = "Moirai-2.0-R-Small"
     model_slug = "Moirai-2.0-R-Small"
     checkpoint = "Salesforce/moirai-2.0-R-small"
-    default_encode_batch_size = 32
+    default_encode_batch_size = 512
 
 
 class MoiraiMoE10RSmallAdapter(_MoiraiMoEBaseAdapter):
@@ -443,4 +443,4 @@ class MoiraiMoE10RBaseAdapter(_MoiraiMoEBaseAdapter):
     model_name = "Moirai-MoE-1.0-R-Base"
     model_slug = "Moirai-MoE-1.0-R-Base"
     checkpoint = "Salesforce/moirai-moe-1.0-R-base"
-    default_encode_batch_size = 32
+    default_encode_batch_size = 512

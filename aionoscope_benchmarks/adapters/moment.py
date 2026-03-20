@@ -12,7 +12,7 @@ class MomentAdapter(FrozenTimeSeriesAdapter):
     checkpoint = "AutonLab/MOMENT-1-large"
     import_path = "momentfm"
     env_name = "moment"
-    default_encode_batch_size = 16
+    default_encode_batch_size = 512
     use_bfloat16_amp = True
 
     def __init__(self) -> None:

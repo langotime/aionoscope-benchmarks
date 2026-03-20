@@ -13,7 +13,7 @@ class MantisUTICA8MAdapter(FrozenTimeSeriesAdapter):
     checkpoint = "fegounna/Utica"
     import_path = "mantis-tsfm + huggingface_hub"
     env_name = "mantis"
-    default_encode_batch_size = 128
+    default_encode_batch_size = 512
     use_bfloat16_amp = True
 
     def __init__(self) -> None:
