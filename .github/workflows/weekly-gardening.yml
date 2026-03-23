@@ -8,8 +8,17 @@ on:
 jobs:
   weekly-gardening:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: aionoscope-benchmarks
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: aionoscope-benchmarks
+      - uses: actions/checkout@v4
+        with:
+          repository: langotime/aionoscope
+          path: aionoscope
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
