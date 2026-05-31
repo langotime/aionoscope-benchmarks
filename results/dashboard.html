@@ -964,6 +964,7 @@
                   <option value="family">Model family</option>
                   <option value="architecture_backbone" selected>Architecture type</option>
                   <option value="training">Training paradigm</option>
+                  <option value="baseline_length">Baseline length</option>
                 </select>
                 <div class="color-legend" aria-live="polite">
                   <div class="color-legend-header">
@@ -1174,7 +1175,8 @@
       model: "Model checkpoint",
       family: "Model family",
       architecture_backbone: "Architecture type",
-      training: "Training paradigm"
+      training: "Training paradigm",
+      baseline_length: "Baseline length"
     };
     const ARCHITECTURE_BACKBONE_LABELS = {
       transformer_full_attention: "Transformer (full attention)",
@@ -1289,11 +1291,17 @@
 	      return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
 	    }
 
-	    function resultRunType(result) {
-	      const model = result && result.model ? result.model : null;
-	      const type = model && typeof model.type === "string" && model.type ? model.type : "foundational";
-	      return type === "baseline" ? "baseline" : "foundational";
-	    }
+    function resultRunType(result) {
+      const model = result && result.model ? result.model : null;
+      const type = model && typeof model.type === "string" && model.type ? model.type : "foundational";
+      return type === "baseline" ? "baseline" : "foundational";
+    }
+
+    function resultChannelSize(result) {
+      const dataset = result && result.dataset ? result.dataset : null;
+      const numeric = dataset ? Number(dataset.channel_size) : NaN;
+      return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+    }
 
     function runKey(result) {
       return [
@@ -1446,6 +1454,22 @@
       return typeof paradigm === "string" && paradigm ? paradigm : "unknown";
     }
 
+    function baselineLengthGroupValue(result) {
+      if (resultRunType(result) !== "baseline") {
+        return "non_baseline";
+      }
+      const channelSize = resultChannelSize(result);
+      return channelSize === null ? "L=unknown" : `L=${channelSize}`;
+    }
+
+    function baselineLengthGroupSortKey(groupValue) {
+      const match = /^L=(\d+)$/.exec(String(groupValue));
+      if (match) {
+        return Number(match[1]);
+      }
+      return Number.POSITIVE_INFINITY;
+    }
+
     function groupModeLabel(mode) {
       return GROUP_MODE_LABELS[String(mode)] || humanizeToken(mode);
     }
@@ -1465,6 +1489,9 @@
       if (mode === "training") {
         return trainingParadigmLabel(value);
       }
+      if (mode === "baseline_length" && value === "non_baseline") {
+        return "Model runs";
+      }
       return value;
     }
 
@@ -1478,6 +1505,9 @@
       if (mode === "training") {
         return modelTrainingParadigm(result);
       }
+      if (mode === "baseline_length") {
+        return baselineLengthGroupValue(result);
+      }
       return canonicalModelName(result);
     }
 
@@ -1486,7 +1516,22 @@
     }
 
     function orderedGroupValues(mode = getColorMode()) {
-      return Array.from(new Set(visibleResults().map((result) => groupValueForResult(result, mode))));
+      const values = Array.from(new Set(visibleResults().map((result) => groupValueForResult(result, mode))));
+      if (mode !== "baseline_length") {
+        return values;
+      }
+      return values.sort((left, right) => {
+        const leftIsLength = String(left).startsWith("L=");
+        const rightIsLength = String(right).startsWith("L=");
+        if (leftIsLength !== rightIsLength) {
+          return leftIsLength ? -1 : 1;
+        }
+        const lengthDelta = baselineLengthGroupSortKey(left) - baselineLengthGroupSortKey(right);
+        if (lengthDelta !== 0) {
+          return lengthDelta;
+        }
+        return String(left).localeCompare(String(right));
+      });
     }
 
     function colorForGroupValue(groupValue, mode = getColorMode()) {

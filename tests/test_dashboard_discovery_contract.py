@@ -60,6 +60,22 @@ def test_dashboard_uses_composite_run_identity_and_enabled_component_filter() ->
     assert "return visibleResults().filter((result) => state.selectedRunKeys.has(runKey(result)));" in html
 
 
+def test_dashboard_selection_classes_can_group_baselines_by_length() -> None:
+    html = DASHBOARD_PATH.read_text(encoding="utf-8")
+
+    assert '<option value="baseline_length">Baseline length</option>' in html
+    assert 'baseline_length: "Baseline length"' in html
+    assert "function resultChannelSize(result)" in html
+    assert "function baselineLengthGroupValue(result)" in html
+    assert 'return channelSize === null ? "L=unknown" : `L=${channelSize}`;' in html
+    assert 'if (mode === "baseline_length" && value === "non_baseline")' in html
+    assert 'return "Model runs";' in html
+    assert 'if (mode === "baseline_length")' in html
+    assert 'return baselineLengthGroupValue(result);' in html
+    assert 'if (mode !== "baseline_length")' in html
+    assert "baselineLengthGroupSortKey(left) - baselineLengthGroupSortKey(right)" in html
+
+
 def test_dashboard_run_labels_hide_benchmark_version_but_keep_num_enabled_suffix() -> None:
     html = DASHBOARD_PATH.read_text(encoding="utf-8")
 
