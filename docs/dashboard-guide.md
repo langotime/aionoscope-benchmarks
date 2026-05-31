@@ -15,6 +15,7 @@ When published with `results/` as the site root, the page first tries `/models/l
 - load result JSON files
 - derive view-specific summaries from already serialized JSON
 - filter or group runs in browser state
+- filter `model.type` so baseline artifacts can stay hidden from the model view by default
 
 ## What The Dashboard Must Not Do
 

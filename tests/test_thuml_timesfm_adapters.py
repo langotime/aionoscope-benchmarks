@@ -36,6 +36,7 @@ class _FakeTHUMLDecoder(torch.nn.Module):
 class _FakeTHUMLModel(torch.nn.Module):
     def __init__(self, input_token_len: int) -> None:
         super().__init__()
+        self.dummy_parameter = torch.nn.Parameter(torch.zeros(()))
         self.config = types.SimpleNamespace(
             num_hidden_layers=2,
             input_token_len=int(input_token_len),
@@ -56,6 +57,24 @@ def _install_fake_transformers_for_thuml(
 ) -> list[tuple[str, dict[str, object]]]:
     load_calls: list[tuple[str, dict[str, object]]] = []
 
+    class _FakeAutoConfig:
+        @classmethod
+        def from_pretrained(cls, checkpoint: str, **kwargs: object):
+            del cls, kwargs
+            if checkpoint == "thuml/timer-base-84m":
+                return types.SimpleNamespace(
+                    num_hidden_layers=2,
+                    input_token_len=96,
+                    hidden_size=2,
+                )
+            if checkpoint == "thuml/sundial-base-128m":
+                return types.SimpleNamespace(
+                    num_hidden_layers=2,
+                    input_token_len=16,
+                    hidden_size=2,
+                )
+            raise AssertionError(f"Unexpected checkpoint {checkpoint}")
+
     class _FakeAutoModelForCausalLM:
         @classmethod
         def from_pretrained(cls, checkpoint: str, **kwargs: object):
@@ -68,6 +87,7 @@ def _install_fake_transformers_for_thuml(
             raise AssertionError(f"Unexpected checkpoint {checkpoint}")
 
     transformers_module = types.ModuleType("transformers")
+    transformers_module.AutoConfig = _FakeAutoConfig
     transformers_module.AutoModelForCausalLM = _FakeAutoModelForCausalLM
     monkeypatch.setitem(sys.modules, "transformers", transformers_module)
     return load_calls
@@ -171,8 +191,22 @@ def test_timer_and_sundial_adapters_use_official_2880_context(
     sundial_base = torch.tensor([[1432.0, 1433.0]], dtype=torch.float32)
 
     assert load_calls == [
-        ("thuml/timer-base-84m", {"trust_remote_code": True, "torch_dtype": "auto"}),
-        ("thuml/sundial-base-128m", {"trust_remote_code": True, "torch_dtype": "auto"}),
+        (
+            "thuml/timer-base-84m",
+            {
+                "trust_remote_code": True,
+                "attn_implementation": "eager",
+                "torch_dtype": "auto",
+            },
+        ),
+        (
+            "thuml/sundial-base-128m",
+            {
+                "trust_remote_code": True,
+                "attn_implementation": "eager",
+                "torch_dtype": "auto",
+            },
+        ),
     ]
 
     assert timer.benchmark_sequence_length == 2880

@@ -910,6 +910,21 @@
 
           <details class="sidebar-disclosure">
             <summary class="sidebar-disclosure-summary">
+              <span class="sidebar-disclosure-title">Run type</span>
+              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
+            </summary>
+            <div class="sidebar-disclosure-body">
+              <div class="sidebar-section control-block">
+                <span class="control-label">Visible artifacts</span>
+                <div id="run-type-filter-list" class="selection-group-list">
+                  <div class="color-legend-empty">Loading run-type filters…</div>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="sidebar-disclosure">
+            <summary class="sidebar-disclosure-summary">
               <span class="sidebar-disclosure-title">Enabled components</span>
               <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
             </summary>
@@ -1172,17 +1187,20 @@
       linear_rnn: "Linear RNN",
       mlp_mixer: "MLP-Mixer",
       hybrid_sequence_model: "Hybrid sequence model",
-      vision_transformer: "Vision Transformer",
-      vision_convnet: "Vision ConvNet",
-      causal_cnn: "Causal CNN"
-    };
+	      vision_transformer: "Vision Transformer",
+	      vision_convnet: "Vision ConvNet",
+	      causal_cnn: "Causal CNN",
+	      fixed_feature_extractor: "Fixed feature extractor",
+	      metric_floor: "Metric floor"
+	    };
     // Training groups follow backbone pretraining, not downstream checkpoint packaging.
     const TRAINING_PARADIGM_LABELS = {
       forecasting: "Forecasting",
-      representation_ssl: "Representation / SSL",
-      cross_modal_transfer: "Cross-modal transfer",
-      tabular_supervised: "Tabular supervised"
-    };
+	      representation_ssl: "Representation / SSL",
+	      cross_modal_transfer: "Cross-modal transfer",
+	      tabular_supervised: "Tabular supervised",
+	      none: "None"
+	    };
 
     const CHART_IDS = {
       bubbleOverview: "chart-bubble-overview",
@@ -1196,10 +1214,15 @@
       lineAuprc: "chart-line-auprc",
       linePearson: "chart-line-pearson",
       lineR2: "chart-line-r2"
-    };
-    const SIDEBAR_OVERLAY_MEDIA = window.matchMedia("(max-width: 960px)");
-    const DEFAULT_NUM_ENABLED_FILTER_VALUE = 2;
-    const RESULT_FETCH_TIMEOUT_MS = 30000;
+	    };
+	    const SIDEBAR_OVERLAY_MEDIA = window.matchMedia("(max-width: 960px)");
+	    const DEFAULT_NUM_ENABLED_FILTER_VALUE = 2;
+	    const DEFAULT_RUN_TYPE_FILTER_VALUE = "foundational";
+	    const RUN_TYPE_LABELS = {
+	      foundational: "Models",
+	      baseline: "Baselines"
+	    };
+	    const RESULT_FETCH_TIMEOUT_MS = 30000;
     const RESULT_FETCH_CONCURRENCY = 2;
     const RESULT_FETCH_MAX_ATTEMPTS = 3;
     const RESULT_FETCH_RETRY_DELAY_MS = 500;
@@ -1210,10 +1233,12 @@
     const LAYER_ANCHORED_BUBBLE_METRICS = new Set(["auroc", "auprc", "r2", "pearson"]);
 
     const state = {
-      allResults: [],
-      selectedRunKeys: new Set(),
-      numEnabledFilterValues: new Set(),
-      numEnabledFilterInitialized: false,
+	      allResults: [],
+	      selectedRunKeys: new Set(),
+	      runTypeFilterValues: new Set(),
+	      runTypeFilterInitialized: false,
+	      numEnabledFilterValues: new Set(),
+	      numEnabledFilterInitialized: false,
       charts: {},
       chartHoverTargets: {},
       discoverySource: "loading",
@@ -1258,11 +1283,17 @@
         : "unknown_benchmark_version";
     }
 
-    function resultNumEnabled(result) {
-      const dataset = result && result.dataset ? result.dataset : null;
-      const numeric = dataset ? Number(dataset.num_enabled) : NaN;
-      return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
-    }
+	    function resultNumEnabled(result) {
+	      const dataset = result && result.dataset ? result.dataset : null;
+	      const numeric = dataset ? Number(dataset.num_enabled) : NaN;
+	      return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+	    }
+
+	    function resultRunType(result) {
+	      const model = result && result.model ? result.model : null;
+	      const type = model && typeof model.type === "string" && model.type ? model.type : "foundational";
+	      return type === "baseline" ? "baseline" : "foundational";
+	    }
 
     function runKey(result) {
       return [
@@ -1321,9 +1352,11 @@
       return "num_enabled: lines 1 solid / 2 dashed / 3 dotted; bubbles 1 plain / 2 striped / 3 dotted fill";
     }
 
-    function visibleResults() {
-      return state.allResults.filter((result) => resultMatchesNumEnabledFilter(result));
-    }
+	    function visibleResults() {
+	      return state.allResults.filter(
+	        (result) => resultMatchesRunTypeFilter(result) && resultMatchesNumEnabledFilter(result)
+	      );
+	    }
 
     function resultByRunKey(runKeyValue) {
       return visibleResults().find((result) => runKey(result) === String(runKeyValue)) || null;
@@ -1339,7 +1372,7 @@
       ).sort((left, right) => Number(left) - Number(right));
     }
 
-    function normalizeNumEnabledFilterState() {
+	    function normalizeNumEnabledFilterState() {
       const availableValues = new Set(availableNumEnabledValues());
       if (!availableValues.size) {
         state.numEnabledFilterValues = new Set();
@@ -1357,13 +1390,39 @@
       state.numEnabledFilterValues = new Set(retainedValues);
     }
 
-    function resultMatchesNumEnabledFilter(result) {
-      const numEnabled = resultNumEnabled(result);
-      if (numEnabled === null) {
-        return false;
-      }
-      return state.numEnabledFilterValues.has(numEnabled);
-    }
+	    function resultMatchesNumEnabledFilter(result) {
+	      const numEnabled = resultNumEnabled(result);
+	      if (numEnabled === null) {
+	        return false;
+	      }
+	      return state.numEnabledFilterValues.has(numEnabled);
+	    }
+
+	    function availableRunTypes() {
+	      return Array.from(new Set(state.allResults.map((result) => resultRunType(result)))).sort();
+	    }
+
+	    function normalizeRunTypeFilterState() {
+	      const availableValues = new Set(availableRunTypes());
+	      if (!availableValues.size) {
+	        state.runTypeFilterValues = new Set();
+	        state.runTypeFilterInitialized = false;
+	        return;
+	      }
+	      if (!state.runTypeFilterInitialized) {
+	        state.runTypeFilterValues = availableValues.has(DEFAULT_RUN_TYPE_FILTER_VALUE)
+	          ? new Set([DEFAULT_RUN_TYPE_FILTER_VALUE])
+	          : new Set(Array.from(availableValues));
+	        state.runTypeFilterInitialized = true;
+	        return;
+	      }
+	      const retainedValues = Array.from(state.runTypeFilterValues).filter((value) => availableValues.has(value));
+	      state.runTypeFilterValues = new Set(retainedValues);
+	    }
+
+	    function resultMatchesRunTypeFilter(result) {
+	      return state.runTypeFilterValues.has(resultRunType(result));
+	    }
 
     function modelFamily(result) {
       const family = result && result.model ? result.model.family : null;
@@ -1818,11 +1877,14 @@
       return document.getElementById("model-search").value.trim().toLowerCase();
     }
 
-    function modelMatchesPickerFilters(result) {
-      const searchTerm = getSearchTerm();
-      if (!resultMatchesNumEnabledFilter(result)) {
-        return false;
-      }
+	    function modelMatchesPickerFilters(result) {
+	      const searchTerm = getSearchTerm();
+	      if (!resultMatchesRunTypeFilter(result)) {
+	        return false;
+	      }
+	      if (!resultMatchesNumEnabledFilter(result)) {
+	        return false;
+	      }
       if (!searchTerm) {
         return true;
       }
@@ -1929,7 +1991,7 @@
       state.hoveredRunKeys = state.hoveredRunKeys.filter((runKeyValue) => visibleRunKeys.has(runKeyValue));
     }
 
-    function toggleNumEnabledFilterValue(numEnabled) {
+	    function toggleNumEnabledFilterValue(numEnabled) {
       const numeric = Number(numEnabled);
       if (!Number.isInteger(numeric) || numeric <= 0) {
         return;
@@ -1940,10 +2002,61 @@
         state.numEnabledFilterValues.add(numeric);
       }
       syncSelectedRunsToVisibleResults();
-      normalizeHoveredState();
-    }
+	      normalizeHoveredState();
+	    }
 
-    function renderNumEnabledFilter() {
+	    function toggleRunTypeFilterValue(runType) {
+	      const value = String(runType);
+	      if (!value) {
+	        return;
+	      }
+	      if (state.runTypeFilterValues.has(value)) {
+	        state.runTypeFilterValues.delete(value);
+	      } else {
+	        state.runTypeFilterValues.add(value);
+	      }
+	      syncSelectedRunsToVisibleResults();
+	      normalizeHoveredState();
+	    }
+
+	    function renderRunTypeFilter() {
+	      const listNode = document.getElementById("run-type-filter-list");
+	      const values = availableRunTypes();
+	      listNode.innerHTML = "";
+
+	      if (!values.length) {
+	        const empty = document.createElement("div");
+	        empty.className = "color-legend-empty";
+	        empty.textContent = "Load benchmark JSON files to populate run-type filters.";
+	        listNode.appendChild(empty);
+	        return;
+	      }
+
+	      values.forEach((value) => {
+	        const visibleCount = state.allResults.filter((result) => resultRunType(result) === value).length;
+	        const label = document.createElement("label");
+	        label.className = "model-chip";
+	        label.title = `Show ${RUN_TYPE_LABELS[value] || humanizeToken(value)}`;
+
+	        const checkbox = document.createElement("input");
+	        checkbox.type = "checkbox";
+	        checkbox.checked = state.runTypeFilterValues.has(value);
+	        checkbox.addEventListener("change", () => {
+	          toggleRunTypeFilterValue(value);
+	          renderAll();
+	        });
+
+	        const text = document.createElement("span");
+	        text.className = "model-name";
+	        text.textContent = `${RUN_TYPE_LABELS[value] || humanizeToken(value)} (${visibleCount})`;
+
+	        label.appendChild(checkbox);
+	        label.appendChild(text);
+	        listNode.appendChild(label);
+	      });
+	    }
+
+	    function renderNumEnabledFilter() {
       const listNode = document.getElementById("num-enabled-filter-list");
       const values = availableNumEnabledValues();
       listNode.innerHTML = "";
@@ -3775,17 +3888,19 @@
     }
 
     function renderAll() {
-      if (state.isLoadingResults) {
-        updateSummaries();
-        updateLoadingStatus();
-        return;
-      }
-      normalizeNumEnabledFilterState();
-      syncSelectedRunsToVisibleResults();
-      const selectorKey = getBestLayerSelector();
-      const results = getSelectedResults();
-      normalizeHoveredState();
-      renderNumEnabledFilter();
+	      if (state.isLoadingResults) {
+	        updateSummaries();
+	        updateLoadingStatus();
+	        return;
+	      }
+	      normalizeRunTypeFilterState();
+	      normalizeNumEnabledFilterState();
+	      syncSelectedRunsToVisibleResults();
+	      const selectorKey = getBestLayerSelector();
+	      const results = getSelectedResults();
+	      normalizeHoveredState();
+	      renderRunTypeFilter();
+	      renderNumEnabledFilter();
       renderColorLegend();
       renderModelSelectionGroups();
       renderModelPicker();
@@ -3803,8 +3918,8 @@
             "No JSON result files were loaded. Serve the repo over HTTP and keep benchmark JSONs in results/models/.",
           "warning"
         );
-      } else if (!visibleResults().length) {
-        setStatus("No runs match the current num_enabled filter. Re-enable at least one value.", "warning");
+	      } else if (!visibleResults().length) {
+	        setStatus("No runs match the current run-type and num_enabled filters. Re-enable at least one value.", "warning");
       } else if (!results.length) {
         setStatus("No runs selected. Use the Model selector to choose at least one benchmark run.", "warning");
       } else if (warnings.length) {
@@ -4118,9 +4233,10 @@
       state.discoverySource = resolved.source;
       state.discoveryWarning = resolved.warning;
 
-      const { loaded, errors } = await loadResults(resolved.files);
-      state.allResults = loaded;
-      normalizeNumEnabledFilterState();
+	      const { loaded, errors } = await loadResults(resolved.files);
+	      state.allResults = loaded;
+	      normalizeRunTypeFilterState();
+	      normalizeNumEnabledFilterState();
       state.selectedRunKeys = new Set(visibleResults().map((result) => runKey(result)));
       if (errors.length) {
         state.discoveryWarning = [state.discoveryWarning, ...errors].filter(Boolean).join(" | ");

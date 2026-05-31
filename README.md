@@ -8,7 +8,7 @@ Aiono basic-components dataset against foundational models listed in
 
 Current scope:
 
-- foundational models only
+- foundational models plus explicit calibration baselines
 - balanced Aiono basic-components offline probes
 - one JSON result per benchmark run
 - interactive browser dashboard from those JSON results
@@ -34,6 +34,20 @@ uv run python -m aionoscope_benchmarks.repo_checks
 uv run python -m aionoscope_benchmarks.dashboard_smoke
 uv run pytest
 ```
+
+Run paper-critical baseline calibrations for one exact sequence length and
+interference regime:
+
+```bash
+uv run python -m aionoscope_benchmarks.run_baseline \
+  --baseline paper-critical \
+  --channel-size 512 \
+  --num-enabled 2
+```
+
+Baseline artifacts use the same `results/models/<slug>__num_enabled_<k>.json`
+schema as model artifacts with `model.type = "baseline"`. The dashboard has a
+run-type filter so baselines do not mix into the model leaderboard by default.
 
 ## Benchmark Identity
 

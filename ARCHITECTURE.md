@@ -109,6 +109,17 @@ crop, pad, or waveform-resample the generated Aiono sequence to fit the model.
 
 `run_model.py` first collects layerwise representations for the full finite train and validation splits, then runs linear probes over those frozen features. Feature collection and probe training are intentionally separated so per-layer probe evaluation does not recompute model embeddings.
 
+### Calibration baselines share the result schema
+
+`run_baseline.py` runs non-pretrained calibration baselines against the same
+runtime dataset, validation-seed schedule, probe configuration, and result JSON
+schema. Baselines use a synthetic layer `0` and set `model.type = "baseline"` so
+the dashboard can filter them separately from foundational model runs. Metric
+floors such as prevalence and train-mean prediction do not train a probe, but
+they still emit schema-compatible categorical, dense, shared, and summary
+sections. Oracle baselines are sanity checks and must be labelled as oracle
+features, not fair model competitors.
+
 ### Result JSON is the canonical artifact
 
 One JSON file in `results/models/` is the canonical output for one benchmark run. For

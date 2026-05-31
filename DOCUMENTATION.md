@@ -387,6 +387,19 @@ High-level structure:
 - `results.shared`: validation-run aggregates shared across sections;
 - `results.summary`: best-layer summaries and oracle-per-target summaries.
 
+Calibration baselines are written to the same `results/models/` schema with
+`model.type = "baseline"` and a synthetic layer `0`. The paper-critical group is:
+
+```bash
+uv run python -m aionoscope_benchmarks.run_baseline \
+  --baseline paper-critical \
+  --channel-size 512 \
+  --num-enabled 2
+```
+
+The dashboard defaults to model artifacts and exposes a run-type filter for
+showing or hiding baseline artifacts.
+
 Numeric values aggregated across validation seeds use the payload:
 
 ```json

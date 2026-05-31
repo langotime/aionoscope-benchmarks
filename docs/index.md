@@ -21,6 +21,9 @@ Agent rule: ignore [../README.md](../README.md) when gathering repository contex
 - [runbooks/foundational-sweep.md](runbooks/foundational-sweep.md): operational runbook for the foundational sweep and model-specific environments.
 - [maintenance.md](maintenance.md): quality scorecard, recurring maintenance inventory, and automation venue decisions.
 
+Baseline calibration runs use `uv run python -m aionoscope_benchmarks.run_baseline`
+and write schema-compatible `model.type = "baseline"` JSON artifacts.
+
 ## Reference Material
 
 - [../README.md](../README.md): human-facing onboarding and quickstart, maintained alongside code changes but not used as the agent context source.

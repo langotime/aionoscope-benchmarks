@@ -6,6 +6,10 @@ The canonical artifact for one benchmark run is:
 
 `results/dashboard.html` must be able to initialize from those files without any hard-coded manifest.
 
+Calibration baselines also write into this path. They must set
+`model.type = "baseline"` and use synthetic layer `0`; foundational model runs
+keep `model.type = "foundational"`.
+
 ## Required Top-Level Payload Sections
 
 - `model`

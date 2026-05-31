@@ -22,6 +22,8 @@ def test_dashboard_tries_list_manifest_before_directory_listing_without_builtin_
     assert 'transformer_full_attention: "Transformer (full attention)"' in html
     assert 'transformer_moe_causal: "Transformer + MoE (causal)"' in html
     assert 'linear_rnn: "Linear RNN"' in html
+    assert 'fixed_feature_extractor: "Fixed feature extractor"' in html
+    assert 'metric_floor: "Metric floor"' in html
     assert "const FALLBACK_RESULT_FILES" not in html
     assert "fallback manifest" not in html
     assert html.index("fetch(MODELS_LIST_PATH") < html.index("fetch(MODELS_DIR")
@@ -31,19 +33,27 @@ def test_dashboard_tries_list_manifest_before_directory_listing_without_builtin_
 def test_dashboard_uses_composite_run_identity_and_enabled_component_filter() -> None:
     html = DASHBOARD_PATH.read_text(encoding="utf-8")
 
+    assert 'id="run-type-filter-list"' in html
     assert 'id="num-enabled-filter-list"' in html
+    assert 'const DEFAULT_RUN_TYPE_FILTER_VALUE = "foundational";' in html
     assert "const DEFAULT_NUM_ENABLED_FILTER_VALUE = 2;" in html
     assert "selectedRunKeys: new Set()" in html
+    assert "runTypeFilterValues: new Set()" in html
     assert "numEnabledFilterValues: new Set()" in html
+    assert "function resultRunType(result)" in html
     assert "function resultNumEnabled(result)" in html
     assert "function runKey(result)" in html
     assert 'result && result.model ? String(result.model.slug || canonicalModelName(result)) : "unknown_model"' in html
     assert 'resultBenchmarkFamily(result),' in html
     assert 'resultBenchmarkVersion(result),' in html
     assert '`num_enabled_${resultNumEnabled(result) === null ? "unknown" : resultNumEnabled(result)}`' in html
+    assert "function renderRunTypeFilter()" in html
     assert "function renderNumEnabledFilter()" in html
+    assert "function resultMatchesRunTypeFilter(result)" in html
     assert "function resultMatchesNumEnabledFilter(result)" in html
+    assert "state.runTypeFilterValues = availableValues.has(DEFAULT_RUN_TYPE_FILTER_VALUE)" in html
     assert "state.numEnabledFilterValues = availableValues.has(DEFAULT_NUM_ENABLED_FILTER_VALUE)" in html
+    assert "? new Set([DEFAULT_RUN_TYPE_FILTER_VALUE])" in html
     assert "? new Set([DEFAULT_NUM_ENABLED_FILTER_VALUE])" in html
     assert "state.numEnabledFilterValues = new Set(Array.from(availableValues));" not in html
     assert "state.selectedRunKeys = new Set(visibleResults().map((result) => runKey(result)));" in html
@@ -89,7 +99,7 @@ def test_dashboard_num_enabled_filter_applies_before_selector_and_plots() -> Non
     assert "setHoveredModels(runKeysForGroup(entry.groupValue, mode));" in html
     assert "dataIndexByModel: new Map(bubbleRows.map((row, index) => [row.runKey, index]))" in html
     assert "seriesIndexByModel.set(runKey(result), series.length - 1);" in html
-    assert "No runs match the current num_enabled filter. Re-enable at least one value." in html
+    assert "No runs match the current run-type and num_enabled filters. Re-enable at least one value." in html
 
 
 def test_dashboard_json_loader_uses_bounded_concurrency_timeout_and_progress() -> None:
@@ -121,6 +131,7 @@ def test_dashboard_sidebar_disclosures_keep_only_model_selector_open_by_default(
     assert '<span class="sidebar-disclosure-title">Best layer selector</span>' in html
     assert '<span class="sidebar-disclosure-title">Color palette</span>' in html
     assert '<span class="sidebar-disclosure-title">Bubble chart</span>' in html
+    assert '<span class="sidebar-disclosure-title">Run type</span>' in html
     assert '<span class="sidebar-disclosure-title">Enabled components</span>' in html
     assert '<span class="sidebar-disclosure-title">Model selector</span>' in html
     assert len(re.findall(r'<details class="sidebar-disclosure" open>', html)) == 1
