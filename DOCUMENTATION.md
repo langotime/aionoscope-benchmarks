@@ -120,6 +120,52 @@ Run the dashboard smoke harness against the checked-in `results/` site:
 uv run python -m aionoscope_benchmarks.dashboard_smoke
 ```
 
+Run the standalone manifold calibration prototype for one model in the current
+environment:
+
+```bash
+uv run python scripts/run_manifold_calibration.py \
+  --model MantisV2 \
+  --target sine_phase \
+  --target sine_frequency_hz \
+  --target spike_time_frac \
+  --target linear_trend_slope \
+  --max-layers 4 \
+  --grid-size 32
+```
+
+This encodes controlled one-factor slices through the normal
+`FrozenTimeSeriesAdapter` boundary and writes artifacts under
+`results/manifold_calibration/<run-id>/`. It does not write
+`results/models/*.json` and is intentionally not consumed by
+`results/dashboard.html`. The generated `index.html` inside the run directory is
+the review page for inspecting metrics and ECharts visualizations before
+deciding whether this should become part of the benchmark dashboard. It reads the
+stored `plot_data_json` files in the browser, so serve the run directory over a
+static HTTP server rather than opening the file directly when the browser blocks
+local `fetch()` calls.
+
+For a mixed-environment subset such as `MantisV2`, `LeNEPA-Aiono`, `Chronos-2`,
+and `Toto-Open-Base-1.0`, use the sequential dispatcher so each model runs under
+its pinned interpreter:
+
+```bash
+uv run python scripts/run_manifold_calibration_sequential.py \
+  --model MantisV2 \
+  --model LeNEPA-Aiono \
+  --model Chronos-2 \
+  --model Toto-Open-Base-1.0 \
+  --target sine_phase \
+  --target sine_frequency_hz \
+  --target spike_time_frac \
+  --target linear_trend_slope \
+  --max-layers 4 \
+  --grid-size 32
+```
+
+When running from an isolated git worktree that does not contain the `.venv-*`
+directories, pass `--env-root /path/to/checkout/with/model/envs`.
+
 Be aware that exact model-native sequence lengths can materially increase RAM use because
 the benchmark still materializes finite train and validation tensors in memory before
 feature collection. `Chronos-2` is the heaviest case because it now runs at exact length
@@ -410,6 +456,50 @@ uv run python -m aionoscope_benchmarks.run_baseline \
 
 The dashboard defaults to model artifacts and exposes a run-type filter for
 showing or hiding baseline artifacts.
+
+### Manifold Calibration Artifacts
+
+The manifold calibration prototype is a separate inspection workflow rather than a
+benchmark result schema. It materializes deterministic controlled slices with
+`num_enabled=1`, sweeps one latent factor at a time, collects layerwise frozen
+representations, and measures whether the representation geometry preserves the
+known target geometry.
+
+Default calibration targets are:
+
+- `sine_phase`
+- `sine_frequency_hz`
+- `sine_amplitude`
+- `spike_time_frac`
+- `gaussian_time_frac`
+- `linear_trend_slope`
+
+Default calibration models are:
+
+- `MantisV2`
+- `LeNEPA-Aiono`
+- `Chronos-2`
+- `Toto-Open-Base-1.0`
+
+Each target artifact lives at:
+
+```text
+results/manifold_calibration/<run-id>/<model-slug>/<target>/metrics.json
+```
+
+The payload uses `schema_version = "manifold_calibration_result_v0"` and stores
+the controlled-slice manifest, layerwise metrics, summaries, timings, and paths to
+standalone JSON plot artifacts. The run-level viewer is built with:
+
+```bash
+uv run python scripts/build_manifold_calibration_viewer.py \
+  --artifact-root results/manifold_calibration/<run-id> \
+  --out results/manifold_calibration/<run-id>/index.html
+```
+
+Encoder models only receive representation evaluation in this workflow. Steering
+experiments for generative models are a later extension and should not be folded
+into these encoder calibration metrics.
 
 Numeric values aggregated across validation seeds use the payload:
 

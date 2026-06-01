@@ -6,6 +6,13 @@ The canonical artifact for one benchmark run is:
 
 `results/dashboard.html` must be able to initialize from those files without any hard-coded manifest.
 
+Standalone manifold calibration artifacts live under
+`results/manifold_calibration/` and are not canonical benchmark result artifacts.
+They use `schema_version = "manifold_calibration_result_v0"` plus a dedicated static
+viewer for inspection, and `results/dashboard.html` must not discover them as
+leaderboard inputs. The manifold viewer reads each layer's `plot_data_json` in
+the browser and renders ECharts charts; metric computation remains in Python.
+
 Calibration baselines also write into this path. They must set
 `model.type = "baseline"` and use synthetic layer `0`; foundational model runs
 keep `model.type = "foundational"`.
