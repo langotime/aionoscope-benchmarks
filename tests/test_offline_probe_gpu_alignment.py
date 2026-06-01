@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 import torch
@@ -19,6 +21,7 @@ from aionoscope_benchmarks.probe_metrics import (
 
 
 CUDA_AVAILABLE = torch.cuda.is_available()
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _build_probe_config() -> OfflineProbeConfig:
@@ -33,6 +36,12 @@ def _build_probe_config() -> OfflineProbeConfig:
         gradient_clip=1.0,
         checkpoint_interval=1,
     )
+
+
+def test_offline_probe_heads_do_not_layer_normalize_features() -> None:
+    source = (REPO_ROOT / "aionoscope_benchmarks" / "offline_probe.py").read_text(encoding="utf-8")
+
+    assert "nn.LayerNorm" not in source
 
 
 def _make_collected(

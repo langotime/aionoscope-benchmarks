@@ -28,7 +28,7 @@
     ],
     "adapter": {
       "env": "baseline",
-      "encode_batch_size": 4096,
+      "encode_batch_size": 2048,
       "cpu_feature_cache_dtype": "float32",
       "benchmark_sequence_length": 2048,
       "benchmark_sequence_length_source": "baseline.channel_size",
@@ -485,7 +485,7 @@
       }
     },
     "config_sha256": "8484a2aa4603d7a6acd1dc0663571d2ea453fe435c02705d19f993c9b661eb21",
-    "created_at_unix": 1780260557.7312534,
+    "created_at_unix": 1780296682.5750904,
     "generator_device": "cuda",
     "generation_mode": "online_iterable_materialized"
   },
@@ -506,12 +506,12 @@
     "probe_seed": null
   },
   "runtime": {
-    "started_at_unix": 1780260580.247639,
+    "started_at_unix": 1780296704.1544914,
     "device": "cuda",
     "device_type": "cuda",
-    "process_id": 4075736,
-    "dataset_build_s": 22.529562982032076,
-    "feature_batch_size": 4096,
+    "process_id": 37016,
+    "dataset_build_s": 21.591046435991302,
+    "feature_batch_size": 2048,
     "feature_seed": 0,
     "layers_evaluated_count": 1,
     "validation_seed_count": 10,
@@ -521,9 +521,9 @@
     "baseline_is_oracle": false,
     "cuda_device_index": 0,
     "cuda_device_name": "NVIDIA H200",
-    "metric_floor_s": 0.8107204209081829,
-    "finished_at_unix": 1780260581.0586698,
-    "total_wall_s": 0.8110319769475609
+    "metric_floor_s": 0.7883026378694922,
+    "finished_at_unix": 1780296704.943066,
+    "total_wall_s": 0.7885757801122963
   },
   "results": {
     "categorical": {

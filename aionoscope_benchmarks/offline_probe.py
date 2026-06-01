@@ -644,7 +644,7 @@ def _train_linear_classification_probe(
     if val_size < 1:
         raise ValueError("Offline probe validation split is empty")
 
-    probe = nn.Sequential(nn.LayerNorm(feature_dim), nn.Linear(feature_dim, num_classes)).to(device)
+    probe = nn.Linear(feature_dim, num_classes).to(device)
     optimizer = torch.optim.AdamW(
         probe.parameters(),
         lr=eval_config.learning_rate,
@@ -863,11 +863,8 @@ def _train_linear_regression_probe(
         )
 
     dense_dim = int(train_targets.size(1))
-    probe = nn.Sequential(
-        nn.LayerNorm(feature_dim, elementwise_affine=False),
-        nn.Linear(feature_dim, dense_dim),
-    ).to(device)
-    linear_head = probe[1]
+    probe = nn.Linear(feature_dim, dense_dim).to(device)
+    linear_head = probe
     optimizer = torch.optim.AdamW(
         probe.parameters(),
         lr=eval_config.learning_rate,
@@ -1075,7 +1072,7 @@ def _train_linear_classification_probe_multi_val(
         if val_size < 1:
             raise ValueError(f"Offline probe validation split is empty for seed={seed_value}")
 
-    probe = nn.Sequential(nn.LayerNorm(feature_dim), nn.Linear(feature_dim, num_classes)).to(device)
+    probe = nn.Linear(feature_dim, num_classes).to(device)
     optimizer = torch.optim.AdamW(
         probe.parameters(),
         lr=eval_config.learning_rate,
@@ -1318,11 +1315,8 @@ def _train_linear_regression_probe_multi_val(
             )
 
     dense_dim = int(train_targets.size(1))
-    probe = nn.Sequential(
-        nn.LayerNorm(feature_dim, elementwise_affine=False),
-        nn.Linear(feature_dim, dense_dim),
-    ).to(device)
-    linear_head = probe[1]
+    probe = nn.Linear(feature_dim, dense_dim).to(device)
+    linear_head = probe
     optimizer = torch.optim.AdamW(
         probe.parameters(),
         lr=eval_config.learning_rate,
