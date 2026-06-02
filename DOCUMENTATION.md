@@ -497,6 +497,17 @@ uv run python scripts/build_manifold_calibration_viewer.py \
   --out results/manifold_calibration/<run-id>/index.html
 ```
 
+The viewer renders everything in the browser from the embedded record index and
+the per-target `plot_data_json` files. Pickers (Run/Model/Geometry/Target/Layer)
+select an active record; a comparison bar pins up to four records as colour-coded
+chips. With pins present, "Metrics across layers" overlays one curve per
+(model, target) track, and Centroid path / Distance scatter / Distance heatmap
+show one side-by-side panel per pinned record. Centroid panels project to 2D or
+3D PCA (`echarts-gl`, with a 2D fallback) and Procrustes-align same-target panels
+to a shared frame so manifold shapes are directly comparable; different-target
+panels are projected independently and badged. An empty comparison bar reproduces
+the single active-record view.
+
 Encoder models only receive representation evaluation in this workflow. Steering
 experiments for generative models are a later extension and should not be folded
 into these encoder calibration metrics.

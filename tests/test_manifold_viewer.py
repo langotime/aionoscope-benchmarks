@@ -89,6 +89,13 @@ def test_manifold_visualization_bundle_and_viewer_are_static_artifacts(tmp_path:
     assert "Distance heatmap" in html
     assert "Spearman: latent vs linear" in html
     assert "plot data JSON" in html
+    # multi-select comparison mechanism (overlay + side-by-side)
+    assert 'id="comparison"' in html
+    assert "add-comparison" in html
+    assert 'data-remove=' in html
+    assert 'class="sbs-grid"' in html
+    assert "renderSideBySide" in html
+    assert "procrustesRotation" in html
     assert html.index('<select id="geometry">') < html.index('<select id="target">')
     assert "all geometries" in html
     plot_data_path = Path(visualizations["plot_data_json"])

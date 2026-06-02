@@ -65,8 +65,13 @@ This writes `results/manifold_calibration/<run-id>/index.html` plus per-target
 `metrics.json` and `plot_data_json` artifacts. The run `index.html` is an Apache
 ECharts review page loaded from a static HTTP server; it reads the stored JSON
 artifacts directly, shows axis labels and metric tooltips, and is not loaded by
-the main benchmark dashboard. In a git worktree without the model `.venv-*`
-directories, add `--env-root /path/to/checkout/with/model/envs`.
+the main benchmark dashboard. Centroid manifolds render in 2D or 3D PCA
+(`echarts-gl`), and a comparison bar lets you pin up to four selections: the
+"Metrics across layers" panel overlays them as coloured per-(model, target)
+curves, while Centroid path / Distance scatter / Distance heatmap show one
+side-by-side panel per pinned selection (same-target centroids are
+Procrustes-aligned to a shared frame). In a git worktree without the model
+`.venv-*` directories, add `--env-root /path/to/checkout/with/model/envs`.
 
 ## Benchmark Identity
 

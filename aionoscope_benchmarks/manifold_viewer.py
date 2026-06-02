@@ -335,6 +335,53 @@ _VIEWER_TEMPLATE = """<!doctype html>
     }
     .collapsible[open] > summary .chev { transform: rotate(0deg); }
     .collapsible:not([open]) > summary { margin-bottom: 0; }
+    .comparison {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 16px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+    }
+    .comparison-label { font-size: 12px; font-weight: 720; color: var(--muted); }
+    .comparison button {
+      font: inherit;
+      font-size: 12px;
+      font-weight: 650;
+      padding: 5px 11px;
+      border: 1px solid #c8d0d9;
+      border-radius: 7px;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+    }
+    .comparison button.ghost { background: #fff; color: #334155; }
+    .comparison button[disabled] { opacity: 0.45; cursor: not-allowed; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 auto; min-width: 0; }
+    .chips-empty { color: var(--muted); font-size: 12px; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 3px 6px 3px 9px;
+      border: 1px solid var(--panel-border);
+      border-radius: 999px;
+      background: #fff;
+      font-size: 12px;
+    }
+    .chip-dot { width: 10px; height: 10px; border-radius: 999px; background: var(--chip, #0f766e); flex: 0 0 auto; }
+    .chip-label { color: #334155; }
+    .chip-x { border: 0; background: transparent; color: #64748b; cursor: pointer; font-size: 15px; line-height: 1; padding: 0 2px; }
+    .chip-x:hover { color: var(--red); }
+    .comparison-hint { color: var(--muted); font-size: 11px; }
+    .sbs-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .sbs-grid.heatmap-grid { grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); }
+    .sbs-cell { border: 1px solid #edf1f5; border-radius: 8px; padding: 8px 8px 4px; background: #fbfdff; min-width: 0; }
+    .sbs-title { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 650; color: #334155; margin-bottom: 4px; }
+    .sbs-chart { height: 330px; border-top: 0; }
     .chart {
       width: 100%;
       height: 430px;
@@ -380,6 +427,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       <label>Target<select id="target"></select></label>
       <label>Layer<select id="layer"></select></label>
     </div>
+    <div id="comparison" class="comparison"></div>
     <div id="content"></div>
   </main>
   <script>
@@ -394,11 +442,71 @@ _VIEWER_TEMPLATE = """<!doctype html>
     const chartInstances = {};
     let renderToken = 0;
     let centroidMode = "3d";
-    let centroidCache = null;
+    let sideCache = null;
     let metricsCollapsed = false;
+
+    const PALETTE = ["#0f766e", "#2563eb", "#d97706", "#db2777"];
+    const MAX_ITEMS = 4;
+    const selection = [];
+    const plotDataCache = new Map();
 
     function glReady() {
       return !!window.echarts && !window.__glLoadFailed;
+    }
+
+    function recordKey(r) {
+      return `${r.run}|${r.model}|${r.target}|${r.layer}`;
+    }
+    function itemColor(idx) {
+      return PALETTE[idx % PALETTE.length];
+    }
+    function activeCandidate() {
+      const matches = filtered();
+      return matches.length ? matches[0] : null;
+    }
+    function effectiveItems() {
+      if (selection.length) return selection.slice();
+      const candidate = activeCandidate();
+      return candidate ? [candidate] : [];
+    }
+    function trackLabel(model, target) {
+      return `${model} / ${target}`;
+    }
+    function tracksOf(items) {
+      const seen = new Map();
+      items.forEach((it, idx) => {
+        const tkey = `${it.run}|${it.model}|${it.target}`;
+        if (!seen.has(tkey)) {
+          seen.set(tkey, { tkey, color: itemColor(idx), record: it, model: it.model, target: it.target, layers: [] });
+        }
+        seen.get(tkey).layers.push(it.layer);
+      });
+      return [...seen.values()];
+    }
+
+    function renderComparison() {
+      const host = document.getElementById("comparison");
+      if (!host) return;
+      const candidate = activeCandidate();
+      const candKey = candidate ? recordKey(candidate) : null;
+      const inSel = candKey && selection.some((it) => recordKey(it) === candKey);
+      const full = selection.length >= MAX_ITEMS;
+      const addDisabled = !candidate || inSel || full;
+      const addTitle = !candidate
+        ? "Nothing selected"
+        : inSel ? "Already in comparison" : full ? `At most ${MAX_ITEMS} items` : "Add the current selection";
+      const chips = selection.map((it, idx) => `
+        <span class="chip">
+          <span class="chip-dot" style="--chip:${itemColor(idx)}"></span>
+          <span class="chip-label">${escapeHtml(it.model)} / ${escapeHtml(it.target)} &middot; L${escapeHtml(it.layer)}</span>
+          <button type="button" class="chip-x" data-remove="${escapeHtml(recordKey(it))}" aria-label="remove">&times;</button>
+        </span>`).join("");
+      host.innerHTML = `
+        <span class="comparison-label">Comparison</span>
+        <button type="button" id="add-comparison"${addDisabled ? " disabled" : ""} title="${escapeHtml(addTitle)}">+ Add current</button>
+        <div class="chips">${chips || '<span class="chips-empty">empty &mdash; showing the current selection</span>'}</div>
+        ${selection.length ? '<button type="button" id="clear-comparison" class="ghost">Clear</button>' : ""}
+        <span class="comparison-hint">up to ${MAX_ITEMS}; overlaid on metrics, side-by-side on plots</span>`;
     }
 
     const metricSpecs = {
@@ -697,8 +805,16 @@ _VIEWER_TEMPLATE = """<!doctype html>
       }).join("");
     }
 
-    function renderShell(record) {
-      const sweep = record.sweep || {};
+    function sbsCells(prefix, items) {
+      return items.map((it, i) => `
+        <div class="sbs-cell">
+          <div class="sbs-title"><span class="chip-dot" style="--chip:${itemColor(i)}"></span>${escapeHtml(it.model)} / ${escapeHtml(it.target)} &middot; L${escapeHtml(it.layer)}</div>
+          <div class="chart sbs-chart" id="${prefix}-${i}"></div>
+        </div>`).join("");
+    }
+
+    function renderShell(candidate, items) {
+      const sweep = candidate.sweep || {};
       const sweepParts = [];
       if (sweep.range_policy) sweepParts.push(sweep.range_policy);
       if (sweep.grid_mode) sweepParts.push(`grid=${sweep.grid_mode}`);
@@ -706,16 +822,18 @@ _VIEWER_TEMPLATE = """<!doctype html>
         sweepParts.push(`range=[${fmt(sweep.physical_low)}, ${fmt(sweep.physical_high)}]`);
       }
       const sweepText = sweepParts.length ? sweepParts.join(", ") : "n/a";
-      const metricsLink = record.metrics_json ? `<a href="${escapeHtml(record.metrics_json)}">metrics JSON</a>` : "";
-      const plotDataLink = record.paths && record.paths.plot_data_json ? `<a href="${escapeHtml(record.paths.plot_data_json)}">plot data JSON</a>` : "";
+      const metricsLink = candidate.metrics_json ? `<a href="${escapeHtml(candidate.metrics_json)}">metrics JSON</a>` : "";
+      const plotDataLink = candidate.paths && candidate.paths.plot_data_json ? `<a href="${escapeHtml(candidate.paths.plot_data_json)}">plot data JSON</a>` : "";
+      const trackCount = tracksOf(items).length;
+      const overlayNote = `${escapeHtml(candidate.model)} / ${escapeHtml(candidate.target)}${items.length > 1 ? ` &middot; ${trackCount} track${trackCount === 1 ? "" : "s"}` : ""}`;
       return `
         <div class="layout">
           <section class="panel summary-panel">
-            <h2 class="record-title">${escapeHtml(record.model)} / ${escapeHtml(record.target)} / layer ${escapeHtml(record.layer)}</h2>
+            <h2 class="record-title">${escapeHtml(candidate.model)} / ${escapeHtml(candidate.target)} / layer ${escapeHtml(candidate.layer)}</h2>
             <div class="record-meta">
-              <div class="meta-row"><span>Geometry</span><span>${escapeHtml(record.geometry || "n/a")}</span></div>
+              <div class="meta-row"><span>Geometry</span><span>${escapeHtml(candidate.geometry || "n/a")}</span></div>
               <div class="meta-row"><span>Sweep</span><span>${escapeHtml(sweepText)}</span></div>
-              <div class="meta-row"><span>Selected geodesic k</span><span>${escapeHtml(fmt(record.metrics && record.metrics.selected_geodesic_k))}</span></div>
+              <div class="meta-row"><span>Selected geodesic k</span><span>${escapeHtml(fmt(candidate.metrics && candidate.metrics.selected_geodesic_k))}</span></div>
             </div>
             <div class="links">${metricsLink}${plotDataLink}</div>
           </section>
@@ -724,10 +842,10 @@ _VIEWER_TEMPLATE = """<!doctype html>
               <details class="collapsible"${metricsCollapsed ? "" : " open"}>
                 <summary class="chart-header">
                   <h3><span class="chev"></span>Metrics across layers</h3>
-                  <p class="chart-note">${escapeHtml(record.model)} / ${escapeHtml(record.target)}</p>
-                  <p class="chart-copy">Each panel plots one manifold metric against layer depth, computed in Python over all stored grid points. The dashed line marks the selected layer; the number on each panel is that layer's value. Panels auto-scale independently.</p>
+                  <p class="chart-note">${overlayNote}</p>
+                  <p class="chart-copy">Each panel plots one manifold metric against layer depth, computed in Python over all stored grid points. With several items selected, one coloured curve is drawn per (model, target) track; markers sit on each track's selected layers. The headline number is the active selection's value. Panels auto-scale independently.</p>
                 </summary>
-                <div class="layer-metrics">${renderLayerMetricPanels(record)}</div>
+                <div class="layer-metrics">${renderLayerMetricPanels(candidate)}</div>
               </details>
             </section>
             <section class="panel chart-card">
@@ -740,25 +858,25 @@ _VIEWER_TEMPLATE = """<!doctype html>
                   </div>
                   <p class="chart-note" id="centroid-note"></p>
                 </div>
-                <p class="chart-copy">Centroids are ordered by the controlled target value and projected onto their top principal components with browser-side PCA. Axes are PCA components of the layer centroids; color is the latent target coordinate; the line is the ordered path (closed for circle targets). In 3D, drag to rotate and scroll to zoom.</p>
+                <p class="chart-copy">Centroids ordered by the controlled target value, projected with browser-side PCA. Panels of the same target share a Procrustes-aligned frame (rotation/reflection only) so shapes are directly comparable; different targets are projected independently and badged. Color is the latent target coordinate; in 3D, drag to rotate and scroll to zoom.</p>
               </div>
-              <div class="chart" id="centroid-chart"></div>
+              <div class="sbs-grid" id="centroid-grid">${sbsCells("centroid-chart", items)}</div>
             </section>
             <section class="panel chart-card">
               <div class="chart-header">
                 <h3>Distance scatter</h3>
                 <p class="chart-note" id="scatter-note"></p>
-                <p class="chart-copy">Each point is a pair of grid points. X is true target-space distance; Y is representation distance. Blue uses direct Euclidean distance between centroids, red uses shortest-path distance on the kNN graph.</p>
+                <p class="chart-copy">Each point is a pair of grid points. X is true target-space distance; Y is representation distance (blue = direct Euclidean, red = graph geodesic). Axes share a common range across panels.</p>
               </div>
-              <div class="chart" id="scatter-chart"></div>
+              <div class="sbs-grid" id="scatter-grid">${sbsCells("scatter-chart", items)}</div>
             </section>
             <section class="panel chart-card">
               <div class="chart-header">
                 <h3>Distance heatmap</h3>
                 <p class="chart-note" id="heatmap-note"></p>
-                <p class="chart-copy">Pairwise distance matrices for the same grid subset: latent target distance, direct representation distance, and graph/geodesic distance. Good interval geometry has a dark diagonal and smoothly increasing values away from it.</p>
+                <p class="chart-copy">Pairwise distance matrices (latent / direct / geodesic) per panel, sharing one color scale so panels are directly comparable.</p>
               </div>
-              <div class="chart" id="heatmap-chart"></div>
+              <div class="sbs-grid heatmap-grid" id="heatmap-grid">${sbsCells("heatmap-chart", items)}</div>
             </section>
           </section>
         </div>`;
@@ -936,342 +1054,351 @@ _VIEWER_TEMPLATE = """<!doctype html>
       }
     }
 
-    function renderCentroidChart(record, plotData) {
-      centroidCache = { record, plotData };
-      drawCentroid();
-    }
-
-    function drawCentroid() {
-      if (!centroidCache) return;
-      const { record, plotData } = centroidCache;
-      const centroids = plotData.path_centroids || plotData.centroids || [];
-      const coords = plotData.path_centroid_coordinates || plotData.centroid_coordinates || [];
-      const counts = plotData.path_centroid_counts || plotData.centroid_counts || [];
-      // Mode switches alternate a 2D cartesian grid and a 3D WebGL scene on the
-      // same container, so start each draw from a fresh chart instance.
-      const existing = chartInstances["centroid-chart"];
-      if (existing && !existing.isDisposed()) existing.dispose();
-      chartInstances["centroid-chart"] = null;
-      const element = document.getElementById("centroid-chart");
-      if (element) element.innerHTML = "";
-      if (!window.echarts) {
-        setChartStatus("centroid-chart", "Apache ECharts did not load. Check network access to the CDN and refresh.", "status warning");
-        return;
-      }
-      if (!centroids.length || !coords.length) {
-        setChartStatus("centroid-chart", "No centroid path data available for this layer.");
-        return;
-      }
-      if (centroidMode === "3d") {
-        if (!glReady()) {
-          centroidMode = "2d";
-          updateCentroidToggle();
-        } else {
-          renderCentroid3D(record, centroids, coords, counts);
-          return;
+    // --- small linear algebra for shared-frame (Procrustes) centroid alignment ---
+    function jacobiEigSym(input, n) {
+      const S = input.map((row) => row.slice());
+      const V = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => (i === j ? 1 : 0)));
+      for (let sweep = 0; sweep < 60; sweep += 1) {
+        let off = 0;
+        for (let p = 0; p < n; p += 1) for (let q = p + 1; q < n; q += 1) off += S[p][q] * S[p][q];
+        if (off < 1e-22) break;
+        for (let p = 0; p < n; p += 1) {
+          for (let q = p + 1; q < n; q += 1) {
+            if (Math.abs(S[p][q]) < 1e-18) continue;
+            const phi = 0.5 * Math.atan2(2 * S[p][q], S[q][q] - S[p][p]);
+            const c = Math.cos(phi);
+            const s = Math.sin(phi);
+            for (let i = 0; i < n; i += 1) {
+              const sip = S[i][p];
+              const siq = S[i][q];
+              S[i][p] = c * sip - s * siq;
+              S[i][q] = s * sip + c * siq;
+            }
+            for (let i = 0; i < n; i += 1) {
+              const spi = S[p][i];
+              const sqi = S[q][i];
+              S[p][i] = c * spi - s * sqi;
+              S[q][i] = s * spi + c * sqi;
+            }
+            for (let i = 0; i < n; i += 1) {
+              const vip = V[i][p];
+              const viq = V[i][q];
+              V[i][p] = c * vip - s * viq;
+              V[i][q] = s * vip + c * viq;
+            }
+          }
         }
       }
-      renderCentroid2D(record, centroids, coords, counts);
+      return { values: Array.from({ length: n }, (_, i) => S[i][i]), vectors: V };
     }
 
-    function renderCentroid2D(record, centroids, coords, counts) {
-      const chart = getChart("centroid-chart");
+    function procrustesRotation(A, B) {
+      // k x k rotation/reflection R minimizing ||A R - B|| over matched centered rows
+      const k = A[0] ? A[0].length : 0;
+      if (!k || A.length < 2) return null;
+      const M = Array.from({ length: k }, () => new Array(k).fill(0));
+      for (let p = 0; p < A.length; p += 1) {
+        for (let i = 0; i < k; i += 1) for (let j = 0; j < k; j += 1) M[i][j] += A[p][i] * B[p][j];
+      }
+      const MtM = Array.from({ length: k }, () => new Array(k).fill(0));
+      for (let i = 0; i < k; i += 1) for (let j = 0; j < k; j += 1) {
+        let acc = 0;
+        for (let t = 0; t < k; t += 1) acc += M[t][i] * M[t][j];
+        MtM[i][j] = acc;
+      }
+      const { values, vectors: V } = jacobiEigSym(MtM, k);
+      const sigma = values.map((v) => Math.sqrt(Math.max(v, 0)));
+      const U = Array.from({ length: k }, () => new Array(k).fill(0));
+      for (let c = 0; c < k; c += 1) {
+        const s = sigma[c] > 1e-9 ? sigma[c] : 1e-9;
+        for (let r = 0; r < k; r += 1) {
+          let acc = 0;
+          for (let t = 0; t < k; t += 1) acc += M[r][t] * V[t][c];
+          U[r][c] = acc / s;
+        }
+      }
+      const R = Array.from({ length: k }, () => new Array(k).fill(0));
+      for (let i = 0; i < k; i += 1) for (let j = 0; j < k; j += 1) {
+        let acc = 0;
+        for (let c = 0; c < k; c += 1) acc += U[i][c] * V[j][c];
+        R[i][j] = acc;
+      }
+      return R;
+    }
+
+    function meanRows(rows, k) {
+      const m = new Array(k).fill(0);
+      for (const r of rows) for (let i = 0; i < k; i += 1) m[i] += r[i];
+      return m.map((v) => v / Math.max(rows.length, 1));
+    }
+
+    function applyRotation(points, R, aMean, bMean) {
+      const k = R.length;
+      return points.map((p) => {
+        const out = new Array(k).fill(0);
+        for (let j = 0; j < k; j += 1) {
+          let acc = 0;
+          for (let i = 0; i < k; i += 1) acc += (p[i] - aMean[i]) * R[i][j];
+          out[j] = acc + bMean[j];
+        }
+        return out;
+      });
+    }
+
+    function centroidEmbedding(plotData, k) {
+      const centroids = plotData && (plotData.path_centroids || plotData.centroids);
+      if (!centroids || !centroids.length) return null;
+      const emb = k === 3 ? project3d(centroids) : project2d(centroids);
+      const coords = (plotData.path_centroid_coordinates || plotData.centroid_coordinates || []).map(Number);
+      const counts = plotData.path_centroid_counts || plotData.centroid_counts || [];
+      return { emb: emb.map((p) => p.slice()), coords, counts };
+    }
+
+    function alignEmbeddings(items, plotDatas, k) {
+      const out = items.map((it, i) => {
+        const pd = plotDatas[i];
+        if (!pd || pd.__error) return null;
+        const e = centroidEmbedding(pd, k);
+        if (!e) return null;
+        return { item: it, emb: e.emb, coords: e.coords, counts: e.counts, aligned: false };
+      });
+      const refByTarget = new Map();
+      out.forEach((o) => {
+        if (o && !refByTarget.has(o.item.target_name)) refByTarget.set(o.item.target_name, o);
+      });
+      out.forEach((o) => {
+        if (!o) return;
+        const ref = refByTarget.get(o.item.target_name);
+        if (ref === o) { o.aligned = true; return; }
+        const refIndex = new Map();
+        ref.coords.forEach((c, idx) => { if (Number.isFinite(c)) refIndex.set(c.toFixed(6), idx); });
+        const A = [];
+        const B = [];
+        o.coords.forEach((c, idx) => {
+          const ri = Number.isFinite(c) ? refIndex.get(c.toFixed(6)) : undefined;
+          if (ri !== undefined) { A.push(o.emb[idx].slice()); B.push(ref.emb[ri].slice()); }
+        });
+        if (A.length < 2) { o.aligned = false; return; }
+        const aMean = meanRows(A, k);
+        const bMean = meanRows(B, k);
+        const Ac = A.map((r) => r.map((v, j) => v - aMean[j]));
+        const Bc = B.map((r) => r.map((v, j) => v - bMean[j]));
+        const R = procrustesRotation(Ac, Bc);
+        if (!R) { o.aligned = false; return; }
+        o.emb = applyRotation(o.emb, R, aMean, bMean);
+        o.aligned = true;
+      });
+      return out;
+    }
+
+    function renderCentroidPanels(items, plotDatas) {
+      // Mode switches alternate a 2D cartesian grid and a 3D WebGL scene on the
+      // same containers, so start each centroid panel from a fresh instance.
+      items.forEach((_, i) => {
+        const cid = `centroid-chart-${i}`;
+        const existing = chartInstances[cid];
+        if (existing && !existing.isDisposed()) existing.dispose();
+        chartInstances[cid] = null;
+        const element = document.getElementById(cid);
+        if (element) element.innerHTML = "";
+      });
+      if (centroidMode === "3d" && !glReady()) { centroidMode = "2d"; updateCentroidToggle(); }
+      const use3d = centroidMode === "3d" && glReady();
+      const k = use3d ? 3 : 2;
+      const aligned = alignEmbeddings(items, plotDatas, k);
+      const lo = [Infinity, Infinity, Infinity];
+      const hi = [-Infinity, -Infinity, -Infinity];
+      aligned.forEach((o) => {
+        if (!o) return;
+        o.emb.forEach((p) => { for (let j = 0; j < k; j += 1) { lo[j] = Math.min(lo[j], p[j]); hi[j] = Math.max(hi[j], p[j]); } });
+      });
+      const range = (j) => (Number.isFinite(lo[j]) && Number.isFinite(hi[j]) && hi[j] > lo[j]) ? { min: lo[j], max: hi[j] } : {};
+      const primaryTarget = items.length ? items[0].target_name : null;
+      items.forEach((it, i) => {
+        const id = `centroid-chart-${i}`;
+        const pd = plotDatas[i];
+        if (pd && pd.__error) { setChartStatus(id, `Could not load plot data. Serve this directory over a static HTTP server. ${pd.__error}`, "status warning"); return; }
+        const o = aligned[i];
+        if (!o) { setChartStatus(id, "No centroid path data available for this layer."); return; }
+        const badge = it.target_name !== primaryTarget ? "independent frame" : (o.aligned ? "" : "unaligned");
+        if (use3d) renderCentroid3DPanel(id, it, o, range, badge);
+        else renderCentroid2DPanel(id, it, o, range, badge);
+      });
+    }
+
+    function renderCentroid2DPanel(id, item, o, range, badge) {
+      const chart = getChart(id);
       if (!chart) return;
-      const points2d = project2d(centroids);
-      const data = points2d.map((point, idx) => [point[0], point[1], Number(coords[idx]), idx, counts[idx] || 0]);
-      const lineData = record.geometry === "circle" && data.length > 2 ? [...data, data[0]] : data;
-      const coordValues = finiteValues(data.map((item) => item[2]));
-      const low = coordValues.length ? Math.min(...coordValues) : 0;
-      const high = coordValues.length ? Math.max(...coordValues) : 1;
+      const data = o.emb.map((p, idx) => [p[0], p[1], Number(o.coords[idx]), idx, o.counts[idx] || 0]);
+      const lineData = item.geometry === "circle" && data.length > 2 ? [...data, data[0]] : data;
+      const cv = finiteValues(data.map((d) => d[2]));
+      const low = cv.length ? Math.min(...cv) : 0;
+      const high = cv.length ? Math.max(...cv) : 1;
       chart.setOption({
         animation: false,
-        grid: { left: 64, right: 28, top: 42, bottom: 60 },
+        grid: { left: 52, right: 16, top: 28, bottom: 52 },
         tooltip: {
           trigger: "item",
           formatter: (params) => {
-            const value = params.value || [];
-            return [
-              `<strong>Grid point ${value[3]}</strong>`,
-              `latent coordinate: ${fmt(value[2])}`,
-              `centroid count: ${fmt(value[4])}`,
-              `PCA-1: ${fmt(value[0])}`,
-              `PCA-2: ${fmt(value[1])}`,
-            ].join("<br>");
+            const v = params.value || [];
+            return [`<strong>grid ${v[3]}</strong>`, `latent coordinate: ${fmt(v[2])}`, `count: ${fmt(v[4])}`].join("<br>");
           },
         },
         visualMap: {
-          type: "continuous",
-          min: low,
-          max: high,
-          dimension: 2,
-          orient: "horizontal",
-          left: "center",
-          bottom: 8,
-          text: ["high latent", "low latent"],
-          inRange: { color: ["#2563eb", "#14b8a6", "#f59e0b", "#dc2626"] },
+          type: "continuous", min: low, max: high, dimension: 2,
+          orient: "horizontal", left: "center", bottom: 4,
+          text: ["high", "low"], inRange: { color: ["#2563eb", "#14b8a6", "#f59e0b", "#dc2626"] },
         },
-        xAxis: {
-          type: "value",
-          name: "centroid PCA component 1",
-          nameLocation: "middle",
-          nameGap: 34,
-          axisLine: { lineStyle: { color: "#94a3b8" } },
-          splitLine: { lineStyle: { color: "#edf2f7" } },
-        },
-        yAxis: {
-          type: "value",
-          name: "centroid PCA component 2",
-          nameLocation: "middle",
-          nameGap: 46,
-          axisLine: { lineStyle: { color: "#94a3b8" } },
-          splitLine: { lineStyle: { color: "#edf2f7" } },
-        },
+        xAxis: { type: "value", name: "PCA 1", nameLocation: "middle", nameGap: 22, ...range(0), axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#edf2f7" } } },
+        yAxis: { type: "value", name: "PCA 2", nameLocation: "middle", nameGap: 36, ...range(1), axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#edf2f7" } } },
         series: [
-          {
-            name: "ordered centroid path",
-            type: "line",
-            data: lineData,
-            showSymbol: false,
-            lineStyle: { width: 2.2, color: "#0f766e" },
-            emphasis: { disabled: true },
-          },
-          {
-            name: "centroids",
-            type: "scatter",
-            data,
-            symbolSize: 7,
-          },
+          { type: "line", data: lineData, showSymbol: false, lineStyle: { width: 2, color: "#0f766e" }, emphasis: { disabled: true } },
+          { type: "scatter", data, symbolSize: 6 },
         ],
+        graphic: badge ? [{ type: "text", right: 8, top: 4, style: { text: badge, fill: "#9a6700", font: "600 11px IBM Plex Sans, sans-serif" } }] : [],
       }, true);
     }
 
-    function renderCentroid3D(record, centroids, coords, counts) {
-      const chart = getChart("centroid-chart");
+    function renderCentroid3DPanel(id, item, o, range, badge) {
+      const chart = getChart(id);
       if (!chart) return;
-      const points3d = project3d(centroids);
-      const data = points3d.map((point, idx) => [point[0], point[1], point[2], Number(coords[idx]), idx, counts[idx] || 0]);
-      const lineData = (record.geometry === "circle" && data.length > 2 ? [...data, data[0]] : data)
-        .map((item) => [item[0], item[1], item[2]]);
-      const coordValues = finiteValues(data.map((item) => item[3]));
-      const low = coordValues.length ? Math.min(...coordValues) : 0;
-      const high = coordValues.length ? Math.max(...coordValues) : 1;
+      const data = o.emb.map((p, idx) => [p[0], p[1], p[2], Number(o.coords[idx]), idx, o.counts[idx] || 0]);
+      const lineData = (item.geometry === "circle" && data.length > 2 ? [...data, data[0]] : data).map((d) => [d[0], d[1], d[2]]);
+      const cv = finiteValues(data.map((d) => d[3]));
+      const low = cv.length ? Math.min(...cv) : 0;
+      const high = cv.length ? Math.max(...cv) : 1;
       try {
         chart.setOption({
           animation: false,
           tooltip: {
             formatter: (params) => {
-              const value = params.value || [];
-              return [
-                `<strong>Grid point ${value[4]}</strong>`,
-                `latent coordinate: ${fmt(value[3])}`,
-                `centroid count: ${fmt(value[5])}`,
-                `PCA-1: ${fmt(value[0])}`,
-                `PCA-2: ${fmt(value[1])}`,
-                `PCA-3: ${fmt(value[2])}`,
-              ].join("<br>");
+              const v = params.value || [];
+              return [`<strong>grid ${v[4]}</strong>`, `latent coordinate: ${fmt(v[3])}`, `count: ${fmt(v[5])}`].join("<br>");
             },
           },
           visualMap: {
-            type: "continuous",
-            min: low,
-            max: high,
-            dimension: 3,
-            orient: "horizontal",
-            left: "center",
-            bottom: 4,
-            text: ["high latent", "low latent"],
-            inRange: { color: ["#2563eb", "#14b8a6", "#f59e0b", "#dc2626"] },
+            type: "continuous", min: low, max: high, dimension: 3,
+            orient: "horizontal", left: "center", bottom: 2,
+            text: ["high", "low"], inRange: { color: ["#2563eb", "#14b8a6", "#f59e0b", "#dc2626"] },
           },
-          xAxis3D: { type: "value", name: "PCA 1", axisLine: { lineStyle: { color: "#94a3b8" } } },
-          yAxis3D: { type: "value", name: "PCA 2", axisLine: { lineStyle: { color: "#94a3b8" } } },
-          zAxis3D: { type: "value", name: "PCA 3", axisLine: { lineStyle: { color: "#94a3b8" } } },
+          xAxis3D: { type: "value", name: "PCA 1", ...range(0) },
+          yAxis3D: { type: "value", name: "PCA 2", ...range(1) },
+          zAxis3D: { type: "value", name: "PCA 3", ...range(2) },
           grid3D: {
-            boxWidth: 100,
-            boxDepth: 100,
-            boxHeight: 78,
-            top: -10,
+            boxWidth: 90, boxDepth: 90, boxHeight: 68, top: -20,
             axisLine: { lineStyle: { color: "#94a3b8" } },
             splitLine: { lineStyle: { color: "#e2e8f0" } },
-            axisPointer: { lineStyle: { color: "#64748b" } },
-            viewControl: { autoRotate: false, distance: 200, rotateSensitivity: 1.4 },
+            viewControl: { autoRotate: false, distance: 210 },
           },
           series: [
-            {
-              name: "ordered centroid path",
-              type: "line3D",
-              data: lineData,
-              lineStyle: { width: 3.2, color: "#0f766e", opacity: 0.85 },
-            },
-            {
-              name: "centroids",
-              type: "scatter3D",
-              data,
-              symbolSize: 9,
-              itemStyle: { opacity: 0.95 },
-              emphasis: { itemStyle: { borderColor: "#0f172a", borderWidth: 1 } },
-            },
+            { type: "line3D", data: lineData, lineStyle: { width: 3, color: "#0f766e", opacity: 0.85 } },
+            { type: "scatter3D", data, symbolSize: 8, itemStyle: { opacity: 0.95 } },
           ],
+          graphic: badge ? [{ type: "text", right: 8, top: 4, style: { text: badge, fill: "#9a6700", font: "600 11px IBM Plex Sans, sans-serif" } }] : [],
         }, true);
       } catch (error) {
-        // echarts-gl unavailable or incompatible: degrade to the 2D projection.
         centroidMode = "2d";
         updateCentroidToggle();
-        renderCentroid2D(record, centroids, coords, counts);
+        renderCentroid2DPanel(id, item, o, range, badge);
       }
     }
 
-    function renderScatterChart(plotData, metrics) {
-      const chart = getChart("scatter-chart");
-      if (!chart) {
-        setChartStatus("scatter-chart", "Apache ECharts did not load. Check network access to the CDN and refresh.", "status warning");
-        return;
-      }
-      const latent = numericMatrix(plotData.latent_distance);
-      const linear = numericMatrix(plotData.linear_distance);
-      const geodesic = plotData.geodesic_distance ? numericMatrix(plotData.geodesic_distance) : [];
-      const linearData = upperTriangularPairs(latent, linear);
-      const graphData = geodesic.length ? upperTriangularPairs(latent, geodesic) : [];
-      chart.setOption({
-        animation: false,
-        grid: { left: 72, right: 28, top: 42, bottom: 62 },
-        tooltip: {
-          trigger: "item",
-          formatter: (params) => {
-            const value = params.value || [];
-            return [
-              `<strong>${escapeHtml(params.seriesName)}</strong>`,
-              `target-space distance: ${fmt(value[0])}`,
-              `representation distance: ${fmt(value[1])}`,
-            ].join("<br>");
-          },
-        },
-        legend: { top: 8, right: 18 },
-        xAxis: {
-          type: "value",
-          name: "target-space pairwise distance",
-          nameLocation: "middle",
-          nameGap: 36,
-          splitLine: { lineStyle: { color: "#edf2f7" } },
-        },
-        yAxis: {
-          type: "value",
-          name: "representation pairwise distance",
-          nameLocation: "middle",
-          nameGap: 52,
-          splitLine: { lineStyle: { color: "#edf2f7" } },
-        },
-        series: [
-          {
-            name: `direct linear distance; rho=${fmt(metrics.spearman_latent_vs_linear)}`,
-            type: "scatter",
-            data: linearData,
-            symbolSize: 3,
-            large: linearData.length > 2000,
-            itemStyle: { color: "#2563eb", opacity: 0.45 },
-          },
-          {
-            name: `graph geodesic distance; rho=${fmt(metrics.spearman_latent_vs_geodesic)}`,
-            type: "scatter",
-            data: graphData,
-            symbolSize: 3,
-            large: graphData.length > 2000,
-            itemStyle: { color: "#dc2626", opacity: 0.45 },
-          },
-        ],
-      }, true);
+    function drawCentroids() {
+      if (sideCache) renderCentroidPanels(sideCache.items, sideCache.plotDatas);
     }
 
-    function renderHeatmapChart(plotData) {
-      const chart = getChart("heatmap-chart");
-      if (!chart) {
-        setChartStatus("heatmap-chart", "Apache ECharts did not load. Check network access to the CDN and refresh.", "status warning");
-        return;
-      }
-      const matrices = [
-        { name: "latent", matrix: numericMatrix(plotData.latent_distance) },
-        { name: "linear", matrix: numericMatrix(plotData.linear_distance) },
-      ];
-      if (plotData.geodesic_distance) matrices.push({ name: "graph", matrix: numericMatrix(plotData.geodesic_distance) });
-      const [low, high] = matrixMinMax(matrices.map((item) => item.matrix));
-      const count = matrices.length;
-      const gap = 4;
-      const width = (86 - gap * (count - 1)) / count;
-      const grids = matrices.map((_, idx) => ({
-        left: `${7 + idx * (width + gap)}%`,
-        top: 54,
-        width: `${width}%`,
-        height: 255,
-      }));
-      const axes = matrices.map((item, idx) => {
-        const n = item.matrix.length;
-        return {
-          xAxis: {
-            type: "category",
-            gridIndex: idx,
-            name: `${item.name} col index`,
-            nameLocation: "middle",
-            nameGap: 28,
-            data: Array.from({ length: n }, (_, i) => i),
-            axisLabel: { hideOverlap: true },
-          },
-          yAxis: {
-            type: "category",
-            gridIndex: idx,
-            name: "row index",
-            nameLocation: "middle",
-            nameGap: 40,
-            inverse: true,
-            data: Array.from({ length: n }, (_, i) => i),
-            axisLabel: { hideOverlap: true },
-          },
-        };
+    function renderScatterPanels(items, plotDatas) {
+      let xmax = 0;
+      let ymax = 0;
+      const prepared = items.map((it, i) => {
+        const pd = plotDatas[i];
+        if (!pd || pd.__error) return null;
+        const latent = numericMatrix(pd.latent_distance);
+        const linearData = upperTriangularPairs(latent, numericMatrix(pd.linear_distance));
+        const graphData = pd.geodesic_distance ? upperTriangularPairs(latent, numericMatrix(pd.geodesic_distance)) : [];
+        for (const p of linearData) { if (p[0] > xmax) xmax = p[0]; if (p[1] > ymax) ymax = p[1]; }
+        for (const p of graphData) { if (p[0] > xmax) xmax = p[0]; if (p[1] > ymax) ymax = p[1]; }
+        return { linearData, graphData, metrics: it.metrics || {} };
       });
-      chart.setOption({
-        animation: false,
-        tooltip: {
-          position: "top",
-          formatter: (params) => {
-            const value = params.value || [];
-            return [
-              `<strong>${escapeHtml(params.seriesName)}</strong>`,
-              `row: ${value[1]}`,
-              `col: ${value[0]}`,
-              `distance: ${fmt(value[2])}`,
-            ].join("<br>");
+      items.forEach((it, i) => {
+        const id = `scatter-chart-${i}`;
+        const pd = plotDatas[i];
+        if (pd && pd.__error) { setChartStatus(id, `Could not load plot data. ${pd.__error}`, "status warning"); return; }
+        const pr = prepared[i];
+        if (!pr) { setChartStatus(id, "No distance data available for this layer."); return; }
+        const chart = getChart(id);
+        if (!chart) return;
+        chart.setOption({
+          animation: false,
+          grid: { left: 58, right: 16, top: 30, bottom: 46 },
+          legend: { top: 2, right: 6, textStyle: { fontSize: 10 } },
+          tooltip: {
+            trigger: "item",
+            formatter: (params) => {
+              const v = params.value || [];
+              return [`<strong>${escapeHtml(params.seriesName)}</strong>`, `target-space distance: ${fmt(v[0])}`, `representation distance: ${fmt(v[1])}`].join("<br>");
+            },
           },
-        },
-        visualMap: {
-          min: low,
-          max: high,
-          calculable: true,
-          orient: "horizontal",
-          left: "center",
-          bottom: 0,
-          inRange: { color: ["#f8fafc", "#bfdbfe", "#14b8a6", "#f59e0b", "#dc2626"] },
-        },
-        grid: grids,
-        xAxis: axes.map((item) => item.xAxis),
-        yAxis: axes.map((item) => item.yAxis),
-        series: matrices.map((item, idx) => ({
-          name: item.name,
-          type: "heatmap",
-          xAxisIndex: idx,
-          yAxisIndex: idx,
-          data: heatmapData(item.matrix),
-          progressive: 8000,
-          emphasis: { itemStyle: { borderColor: "#0f172a", borderWidth: 1 } },
-        })),
-        graphic: matrices.map((item, idx) => ({
-          type: "text",
-          left: `${7 + idx * (width + gap)}%`,
-          top: 22,
-          style: {
-            text: item.name,
-            fill: "#334155",
-            font: "600 13px IBM Plex Sans, Segoe UI, sans-serif",
+          xAxis: { type: "value", name: "target-space distance", nameLocation: "middle", nameGap: 26, max: xmax || null, splitLine: { lineStyle: { color: "#edf2f7" } } },
+          yAxis: { type: "value", name: "repr distance", nameLocation: "middle", nameGap: 40, max: ymax || null, splitLine: { lineStyle: { color: "#edf2f7" } } },
+          series: [
+            { name: `linear rho=${fmt(pr.metrics.spearman_latent_vs_linear)}`, type: "scatter", data: pr.linearData, symbolSize: 3, large: pr.linearData.length > 2000, itemStyle: { color: "#2563eb", opacity: 0.45 } },
+            { name: `geodesic rho=${fmt(pr.metrics.spearman_latent_vs_geodesic)}`, type: "scatter", data: pr.graphData, symbolSize: 3, large: pr.graphData.length > 2000, itemStyle: { color: "#dc2626", opacity: 0.45 } },
+          ],
+        }, true);
+      });
+    }
+
+    function renderHeatmapPanels(items, plotDatas) {
+      const allMatrices = [];
+      const prep = items.map((it, i) => {
+        const pd = plotDatas[i];
+        if (!pd || pd.__error) return null;
+        const matrices = [
+          { name: "latent", matrix: numericMatrix(pd.latent_distance) },
+          { name: "linear", matrix: numericMatrix(pd.linear_distance) },
+        ];
+        if (pd.geodesic_distance) matrices.push({ name: "graph", matrix: numericMatrix(pd.geodesic_distance) });
+        matrices.forEach((m) => allMatrices.push(m.matrix));
+        return matrices;
+      });
+      const [low, high] = matrixMinMax(allMatrices);
+      items.forEach((it, i) => {
+        const id = `heatmap-chart-${i}`;
+        const pd = plotDatas[i];
+        if (pd && pd.__error) { setChartStatus(id, `Could not load plot data. ${pd.__error}`, "status warning"); return; }
+        const matrices = prep[i];
+        if (!matrices) { setChartStatus(id, "No distance data available for this layer."); return; }
+        const chart = getChart(id);
+        if (!chart) return;
+        const count = matrices.length;
+        const gap = 4;
+        const width = (86 - gap * (count - 1)) / count;
+        const grids = matrices.map((_, idx) => ({ left: `${7 + idx * (width + gap)}%`, top: 40, width: `${width}%`, height: 195 }));
+        const axes = matrices.map((m, idx) => {
+          const n = m.matrix.length;
+          return {
+            xAxis: { type: "category", gridIndex: idx, data: Array.from({ length: n }, (_, j) => j), axisLabel: { hideOverlap: true, fontSize: 9 } },
+            yAxis: { type: "category", gridIndex: idx, inverse: true, data: Array.from({ length: n }, (_, j) => j), axisLabel: { hideOverlap: true, fontSize: 9 } },
+          };
+        });
+        chart.setOption({
+          animation: false,
+          tooltip: {
+            position: "top",
+            formatter: (params) => {
+              const v = params.value || [];
+              return [`<strong>${escapeHtml(params.seriesName)}</strong>`, `row ${v[1]} col ${v[0]}`, `distance ${fmt(v[2])}`].join("<br>");
+            },
           },
-        })),
-      }, true);
+          visualMap: { min: low, max: high, calculable: true, orient: "horizontal", left: "center", bottom: 0, itemHeight: 60, inRange: { color: ["#f8fafc", "#bfdbfe", "#14b8a6", "#f59e0b", "#dc2626"] } },
+          grid: grids,
+          xAxis: axes.map((a) => a.xAxis),
+          yAxis: axes.map((a) => a.yAxis),
+          series: matrices.map((m, idx) => ({ name: m.name, type: "heatmap", xAxisIndex: idx, yAxisIndex: idx, data: heatmapData(m.matrix), progressive: 8000 })),
+          graphic: matrices.map((m, idx) => ({ type: "text", left: `${7 + idx * (width + gap)}%`, top: 20, style: { text: m.name, fill: "#334155", font: "600 11px IBM Plex Sans, sans-serif" } })),
+        }, true);
+      });
     }
 
     function layerRecords(record) {
@@ -1294,44 +1421,60 @@ _VIEWER_TEMPLATE = """<!doctype html>
         });
     }
 
-    function renderLayerMetricsCharts(record) {
-      const rows = layerRecords(record);
-      const numeric = rows.length > 0 && rows.every((row) => Number.isFinite(row.layerNum));
-      const selectedLayer = Number(record.layer);
+    function renderLayerMetricsCharts(items) {
+      const trackList = tracksOf(items);
+      const trackRows = trackList.map((t) => ({ track: t, rows: layerRecords(t.record) }));
+      const numeric = trackRows.every((tr) => tr.rows.every((r) => Number.isFinite(r.layerNum)));
+      const categories = numeric
+        ? null
+        : [...new Set(trackRows.flatMap((tr) => tr.rows.map((r) => r.layer)))].sort((a, b) => String(a).localeCompare(String(b)));
+      const xOf = (row) => (numeric ? row.layerNum : categories.indexOf(row.layer));
       for (const key of metricOrder) {
         const id = `metric-chart-${key}`;
-        const points = rows.map((row, idx) => {
-          const value = finiteNumber(row.metrics[key]);
-          return [numeric ? row.layerNum : idx, Number.isFinite(value) ? value : null];
+        let anyFinite = false;
+        const series = trackRows.map(({ track, rows }) => {
+          const points = rows.map((row) => {
+            const v = finiteNumber(row.metrics[key]);
+            return [xOf(row), Number.isFinite(v) ? v : null];
+          });
+          if (points.some((p) => p[1] !== null)) anyFinite = true;
+          const markPts = track.layers.map((L) => {
+            const row = rows.find((r) => String(r.layer) === String(L));
+            if (!row) return null;
+            const v = finiteNumber(row.metrics[key]);
+            return Number.isFinite(v) ? { coord: [xOf(row), v] } : null;
+          }).filter(Boolean);
+          return {
+            name: trackLabel(track.model, track.target),
+            type: "line",
+            data: points,
+            color: track.color,
+            showSymbol: true,
+            symbolSize: 3,
+            connectNulls: false,
+            lineStyle: { width: 1.8, color: track.color },
+            itemStyle: { color: track.color },
+            markPoint: markPts.length ? { symbol: "circle", symbolSize: 9, data: markPts, label: { show: false }, itemStyle: { color: track.color, borderColor: "#0f172a", borderWidth: 1 } } : undefined,
+          };
         });
-        if (!points.some((point) => point[1] !== null)) {
-          setChartStatus(id, "Not available for this target.");
-          continue;
-        }
+        if (!anyFinite) { setChartStatus(id, "Not available for this target."); continue; }
         const chart = getChart(id);
         if (!chart) {
           setChartStatus(id, "Apache ECharts did not load. Check network access to the CDN and refresh.", "status warning");
           continue;
         }
-        const markLine = numeric && Number.isFinite(selectedLayer)
-          ? {
-              silent: true,
-              symbol: "none",
-              label: { show: false },
-              lineStyle: { color: "#dc2626", type: "dashed", width: 1.2 },
-              data: [{ xAxis: selectedLayer }],
-            }
-          : undefined;
         chart.setOption({
           animation: false,
           grid: { left: 56, right: 12, top: 12, bottom: 30 },
           tooltip: {
             trigger: "axis",
             formatter: (params) => {
-              const point = Array.isArray(params) && params.length ? params[0] : null;
-              if (!point) return "";
-              const value = point.value || [];
-              return `layer ${fmt(value[0])}<br>${escapeHtml(specFor(key).label)}: ${fmt(value[1])}`;
+              if (!Array.isArray(params) || !params.length) return "";
+              const head = `layer ${fmt(params[0].value[0])}`;
+              const lines = params
+                .filter((p) => p.value && p.value[1] !== null && p.value[1] !== undefined)
+                .map((p) => `<span style="color:${p.color}">●</span> ${escapeHtml(p.seriesName)}: ${fmt(p.value[1])}`);
+              return [head, ...lines].join("<br>");
             },
           },
           xAxis: {
@@ -1340,7 +1483,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
             nameLocation: "middle",
             nameGap: 19,
             minInterval: 1,
-            data: numeric ? undefined : rows.map((row) => row.layer),
+            data: numeric ? undefined : categories,
             axisLine: { lineStyle: { color: "#94a3b8" } },
             splitLine: { show: false },
           },
@@ -1351,90 +1494,68 @@ _VIEWER_TEMPLATE = """<!doctype html>
             splitLine: { lineStyle: { color: "#edf2f7" } },
             axisLabel: { fontSize: 10, formatter: (value) => fmt(value) },
           },
-          series: [
-            {
-              type: "line",
-              data: points,
-              showSymbol: true,
-              symbolSize: 4,
-              connectNulls: false,
-              lineStyle: { width: 1.8, color: "#0f766e" },
-              itemStyle: { color: "#0f766e" },
-              markLine,
-            },
-          ],
+          series,
         }, true);
       }
     }
 
-    function updateNotes(plotData) {
-      const source = Number(plotData.source_grid_points || 0);
-      const plot = Number(plotData.plot_grid_points || 0);
-      const path = Number(plotData.path_grid_points || plot || 0);
-      const pathNote = path && source && path < source
-        ? `path shows ${path} stored points; source grid has ${source}`
-        : `path shows ${path || "n/a"} grid points`;
-      const distanceNote = source && plot && plot < source
-        ? `distance charts show ${plot} of ${source}; metrics use all ${source}`
-        : `distance charts show ${plot || "n/a"} grid points`;
-      const centroidNote = document.getElementById("centroid-note");
-      const scatterNote = document.getElementById("scatter-note");
-      const heatmapNote = document.getElementById("heatmap-note");
-      if (centroidNote) centroidNote.textContent = pathNote;
-      if (scatterNote) scatterNote.textContent = distanceNote;
-      if (heatmapNote) heatmapNote.textContent = distanceNote;
+    function updateNotes(items) {
+      const n = items.length;
+      const note = `${n} panel${n === 1 ? "" : "s"}`;
+      for (const nid of ["centroid-note", "scatter-note", "heatmap-note"]) {
+        const el = document.getElementById(nid);
+        if (el) el.textContent = note;
+      }
     }
 
-    async function renderPlotData(record, token) {
+    function loadPlotData(path) {
+      if (!path) return Promise.resolve(null);
+      if (plotDataCache.has(path)) return plotDataCache.get(path);
+      const promise = fetch(path)
+        .then((response) => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); })
+        .catch((error) => ({ __error: String(error) }));
+      plotDataCache.set(path, promise);
+      return promise;
+    }
+
+    async function renderSideBySide(items, token) {
       if (!window.echarts) {
-        for (const id of ["centroid-chart", "scatter-chart", "heatmap-chart"]) {
-          setChartStatus(id, "Apache ECharts did not load. Check network access to the CDN and refresh.", "status warning");
-        }
+        items.forEach((_, i) => {
+          for (const pre of ["centroid-chart", "scatter-chart", "heatmap-chart"]) {
+            setChartStatus(`${pre}-${i}`, "Apache ECharts did not load. Check network access to the CDN and refresh.", "status warning");
+          }
+        });
         return;
       }
-      const path = record.paths && record.paths.plot_data_json;
-      if (!path) {
-        for (const id of ["centroid-chart", "scatter-chart", "heatmap-chart"]) {
-          setChartStatus(id, "No plot data JSON was recorded for this layer.");
-        }
-        return;
-      }
-      try {
-        const response = await fetch(path);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const plotData = await response.json();
-        if (token !== renderToken) return;
-        updateNotes(plotData);
-        renderCentroidChart(record, plotData);
-        renderScatterChart(plotData, record.metrics || {});
-        renderHeatmapChart(plotData);
-      } catch (error) {
-        const message = `Could not load plot data JSON (${path}). Serve this run directory over a static HTTP server if the browser blocks local file fetches. ${error}`;
-        for (const id of ["centroid-chart", "scatter-chart", "heatmap-chart"]) {
-          setChartStatus(id, message, "status warning");
-        }
-      }
+      const plotDatas = await Promise.all(items.map((it) => loadPlotData(it.paths && it.paths.plot_data_json)));
+      if (token !== renderToken) return;
+      sideCache = { items, plotDatas };
+      updateNotes(items);
+      renderCentroidPanels(items, plotDatas);
+      renderScatterPanels(items, plotDatas);
+      renderHeatmapPanels(items, plotDatas);
     }
 
     function render() {
       refreshOptions();
+      renderComparison();
       disposeCharts();
       const content = document.getElementById("content");
       if (!records.length) {
         content.innerHTML = '<div class="empty panel">No calibration metrics found.</div>';
         return;
       }
-      const matches = filtered();
-      if (!matches.length) {
+      const candidate = activeCandidate();
+      const items = effectiveItems();
+      if (!items.length) {
         content.innerHTML = '<div class="empty panel">No records match the current filters.</div>';
         return;
       }
-      const record = matches[0];
-      content.innerHTML = renderShell(record);
-      renderLayerMetricsCharts(record);
+      content.innerHTML = renderShell(candidate || items[0], items);
+      renderLayerMetricsCharts(items);
       updateCentroidToggle();
       const token = ++renderToken;
-      renderPlotData(record, token);
+      renderSideBySide(items, token);
     }
 
     const tip = document.createElement("div");
@@ -1489,13 +1610,36 @@ _VIEWER_TEMPLATE = """<!doctype html>
     window.addEventListener("scroll", hideTip, true);
 
     document.addEventListener("click", (event) => {
-      const button = event.target.closest ? event.target.closest("[data-centroid-mode]") : null;
-      if (!button) return;
-      const mode = button.getAttribute("data-centroid-mode");
-      if (mode !== "2d" && mode !== "3d") return;
-      centroidMode = mode;
-      updateCentroidToggle();
-      drawCentroid();
+      if (!event.target.closest) return;
+      const modeButton = event.target.closest("[data-centroid-mode]");
+      if (modeButton) {
+        const mode = modeButton.getAttribute("data-centroid-mode");
+        if (mode === "2d" || mode === "3d") {
+          centroidMode = mode;
+          updateCentroidToggle();
+          drawCentroids();
+        }
+        return;
+      }
+      if (event.target.closest("#add-comparison")) {
+        const candidate = activeCandidate();
+        if (candidate && selection.length < MAX_ITEMS && !selection.some((it) => recordKey(it) === recordKey(candidate))) {
+          selection.push(candidate);
+          render();
+        }
+        return;
+      }
+      if (event.target.closest("#clear-comparison")) {
+        selection.length = 0;
+        render();
+        return;
+      }
+      const removeButton = event.target.closest("[data-remove]");
+      if (removeButton) {
+        const key = removeButton.getAttribute("data-remove");
+        const idx = selection.findIndex((it) => recordKey(it) === key);
+        if (idx >= 0) { selection.splice(idx, 1); render(); }
+      }
     });
 
     // Charts hidden inside a collapsed <details> can be resized to zero by the
