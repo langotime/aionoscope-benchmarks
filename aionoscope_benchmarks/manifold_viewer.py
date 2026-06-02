@@ -316,6 +316,25 @@ _VIEWER_TEMPLATE = """<!doctype html>
     }
     .seg-toggle button + button { border-left: 1px solid #c8d0d9; }
     .seg-toggle button.active { background: var(--accent); color: #fff; }
+    .collapsible > summary {
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    .collapsible > summary::-webkit-details-marker { display: none; }
+    .collapsible > summary h3 { display: inline-flex; align-items: center; gap: 9px; }
+    .chev {
+      flex: 0 0 auto;
+      width: 0;
+      height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid #475569;
+      transform: rotate(-90deg);
+      transition: transform 0.15s ease;
+    }
+    .collapsible[open] > summary .chev { transform: rotate(0deg); }
+    .collapsible:not([open]) > summary { margin-bottom: 0; }
     .chart {
       width: 100%;
       height: 430px;
@@ -376,6 +395,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
     let renderToken = 0;
     let centroidMode = "3d";
     let centroidCache = null;
+    let metricsCollapsed = false;
 
     function glReady() {
       return !!window.echarts && !window.__glLoadFailed;
@@ -701,12 +721,14 @@ _VIEWER_TEMPLATE = """<!doctype html>
           </section>
           <section class="charts">
             <section class="panel chart-card">
-              <div class="chart-header">
-                <h3>Metrics across layers</h3>
-                <p class="chart-note">${escapeHtml(record.model)} / ${escapeHtml(record.target)}</p>
-                <p class="chart-copy">Each panel plots one manifold metric against layer depth, computed in Python over all stored grid points. The dashed line marks the selected layer; the number on each panel is that layer's value. Panels auto-scale independently.</p>
-              </div>
-              <div class="layer-metrics">${renderLayerMetricPanels(record)}</div>
+              <details class="collapsible"${metricsCollapsed ? "" : " open"}>
+                <summary class="chart-header">
+                  <h3><span class="chev"></span>Metrics across layers</h3>
+                  <p class="chart-note">${escapeHtml(record.model)} / ${escapeHtml(record.target)}</p>
+                  <p class="chart-copy">Each panel plots one manifold metric against layer depth, computed in Python over all stored grid points. The dashed line marks the selected layer; the number on each panel is that layer's value. Panels auto-scale independently.</p>
+                </summary>
+                <div class="layer-metrics">${renderLayerMetricPanels(record)}</div>
+              </details>
             </section>
             <section class="panel chart-card">
               <div class="chart-header">
@@ -1475,6 +1497,19 @@ _VIEWER_TEMPLATE = """<!doctype html>
       updateCentroidToggle();
       drawCentroid();
     });
+
+    // Charts hidden inside a collapsed <details> can be resized to zero by the
+    // window resize handler; re-fit them when the section is expanded.
+    document.addEventListener("toggle", (event) => {
+      const target = event.target;
+      if (!target || !target.matches || !target.matches("details.collapsible")) return;
+      // Remember the collapse state so it survives shell re-renders on selection.
+      metricsCollapsed = !target.open;
+      if (!target.open) return;
+      for (const chart of Object.values(chartInstances)) {
+        if (chart && !chart.isDisposed()) chart.resize();
+      }
+    }, true);
 
     for (const select of Object.values(selects)) select.addEventListener("change", render);
     window.addEventListener("resize", () => {
