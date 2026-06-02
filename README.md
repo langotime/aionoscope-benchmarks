@@ -103,7 +103,7 @@ Current exact lengths:
 - `3072`: `TempoPFN-38M`
 - `2880`: `Timer-Base-84M`, `Sundial-Base-128M`
 - `2048`: `TiRex`, `Kairos-10M`, `Kairos-23M`, `Kairos-50M`, `Reverso-Small-550K`
-- `512`: `EIDOS`, `Mantis-8M`, `MantisPlus`, `MantisV2`, `Mantis-UTICA-8M`, `MOMENT-1-Large`, `TTM-r2`, `Moirai-1.0-R-Small`, `Moirai-1.0-R-Base`, `Moirai-1.0-R-Large`, `Moirai-1.1-R-Small`, `Moirai-1.1-R-Base`, `Moirai-1.1-R-Large`, `Moirai-2.0-R-Small`, `Moirai-MoE-1.0-R-Small`, `Moirai-MoE-1.0-R-Base`, `UniShape-ZeroShot`, `UniShape-FineTune`
+- `512`: `EIDOS`, `Mantis-8M`, `MantisPlus`, `MantisV2`, `Mantis-UTICA-8M`, `MOMENT-1-Large`, `TTM-r2`, `Moirai-1.0-R-Small`, `Moirai-1.0-R-Base`, `Moirai-1.0-R-Large`, `Moirai-1.1-R-Small`, `Moirai-1.1-R-Base`, `Moirai-1.1-R-Large`, `Moirai-2.0-R-Small`, `Moirai-MoE-1.0-R-Small`, `Moirai-MoE-1.0-R-Base`, `UniShape-ZeroShot`, `UniShape-FineTune`, `Toto-2.0-4M`, `Toto-2.0-22M`, `Toto-2.0-313M`, `Toto-2.0-1B`, `Toto-2.0-2.5B`
 - `176`: `NuTime-Bias9`
 - `128`: `TabPFN-v2`, `TabICL-v1`
 

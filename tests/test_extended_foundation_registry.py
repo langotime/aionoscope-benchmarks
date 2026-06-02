@@ -48,6 +48,11 @@ def test_registry_contains_explicit_versions_and_sizes_for_extended_families() -
         ),
         "TiViT-H-14-B79K": ("laion/CLIP-ViT-H-14-laion2B-s32B-b79K", "tivit"),
         "Toto-Open-Base-1.0": ("Datadog/Toto-Open-Base-1.0", "toto"),
+        "Toto-2.0-4M": ("Datadog/Toto-2.0-4m", "toto"),
+        "Toto-2.0-22M": ("Datadog/Toto-2.0-22m", "toto"),
+        "Toto-2.0-313M": ("Datadog/Toto-2.0-313m", "toto"),
+        "Toto-2.0-1B": ("Datadog/Toto-2.0-1B", "toto"),
+        "Toto-2.0-2.5B": ("Datadog/Toto-2.0-2.5B", "toto"),
         "UniShape-ZeroShot": ("pretrained_model_ckpt/unishape_checkpoint_zeroshot.pth", "core"),
         "UniShape-FineTune": ("pretrained_model_ckpt/unishape_checkpoint_finetune.pth", "core"),
     }
@@ -126,6 +131,12 @@ def test_model_taxonomy_exposes_family_checkpoint_architecture_and_training_grou
     moirai2 = model_taxonomy("Moirai-2.0-R-Small")
     assert moirai2.architecture_backbone == "transformer_causal"
     assert moirai2.training_paradigm == "forecasting"
+
+    toto2 = model_taxonomy("Toto-2.0-313M")
+    assert toto2.family == "Toto"
+    assert toto2.checkpoint_name == "2.0-313M"
+    assert toto2.architecture_backbone == "transformer_causal"
+    assert toto2.training_paradigm == "forecasting"
 
     tivit = model_taxonomy("TiConvNext-XXLarge-AugReg")
     assert tivit.family == "TiViT"

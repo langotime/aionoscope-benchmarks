@@ -10,6 +10,12 @@ The dashboard is a static site rooted at `results/`.
 
 When published with `results/` as the site root, the page first tries `/models/list.txt` and only then falls back to directory listing. `results/models/list.txt` is deployment-only and should not exist in the dev checkout.
 
+`results/dashboard-v2.html` is an optional comparison snapshot for the copied
+`results/models-v2/*.json` corpus. It uses the same static dashboard code, but
+discovers files through `/models-v2/list.txt` or the `results/models-v2/`
+directory listing so `dashboard.html` can keep showing the git-restored
+`results/models/` corpus.
+
 ## What The Dashboard Is Allowed To Do
 
 - load result JSON files

@@ -242,7 +242,7 @@ square `duty_cycle`.
 Canonical benchmark names must include the exact official version and size whenever a
 family publishes multiple checkpoints. The sweep therefore uses names such as
 `TimesFM-2.5-200M`, `Moirai-1.1-R-Small`, `Moirai-MoE-1.0-R-Base`,
-`Toto-Open-Base-1.0`, `Mantis-8M`, `MantisPlus`, and `Mantis-UTICA-8M` instead of ambiguous family-only
+`Toto-Open-Base-1.0`, `Toto-2.0-1B`, `Mantis-8M`, `MantisPlus`, and `Mantis-UTICA-8M` instead of ambiguous family-only
 labels. When the only official published artifact is identified by a stable
 variant token rather than a size marker, that token stays in the canonical name,
 for example `NuTime-Bias9` or `T-Loss-CricketX`.
@@ -352,6 +352,11 @@ The current exact benchmark lengths are:
 - `Reverso-Small-550K`: `2048`
 - `UniShape-ZeroShot`: `512`
 - `UniShape-FineTune`: `512`
+- `Toto-2.0-4M`: `512`
+- `Toto-2.0-22M`: `512`
+- `Toto-2.0-313M`: `512`
+- `Toto-2.0-1B`: `512`
+- `Toto-2.0-2.5B`: `512`
 - `TabICL-v1`: `128`
 - `TabPFN-v2`: `128`
 - `TiConvNext-XXLarge-AugReg`: `5000`
@@ -422,7 +427,7 @@ actually exposes and pools.
 Architecture classes:
 
 - `transformer_full_attention`: time-series transformer path whose pooled states come from full-context self-attention over the benchmark context. Padding or group masks are allowed, but there is no causal time mask on the pooled token stream. Use this for encoder-style paths such as `Chronos-2`, `Kairos-*`, `MOMENT-1-Large`, `Moirai-1.x-*`, `NuTime-Bias9`, `Toto-Open-Base-1.0`, `Mantis-8M`, `MantisPlus`, `MantisV2`, `Mantis-UTICA-8M`, and `UniShape-*`.
-- `transformer_causal`: time-series transformer path whose pooled states come from causal masking or a decoder-only token stream. Use this for `LeNEPA-*`, `EIDOS`, `Timer-Base-84M`, `Sundial-Base-128M`, `TimesFM-2.5-200M`, and `Moirai-2.0-R-Small`.
+- `transformer_causal`: time-series transformer path whose pooled states come from causal masking or a decoder-only token stream. Use this for `LeNEPA-*`, `EIDOS`, `Timer-Base-84M`, `Sundial-Base-128M`, `TimesFM-2.5-200M`, `Toto-2.0-*`, and `Moirai-2.0-R-Small`.
 - `transformer_moe_causal`: causal transformer path with sparse mixture-of-experts routing. Use this for `Time-MoE-*` and `Moirai-MoE-*`.
 - `tabular_transformer`: transformer-style tabular classifier operating on flattened benchmark features.
 - `vision_transformer`: image-first ViT-style backbone reused as a frozen benchmark encoder.

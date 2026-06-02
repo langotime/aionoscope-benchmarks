@@ -1,0 +1,4296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aionoscope Benchmarks Dashboard v2</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/v4-shims.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --panel: #ffffff;
+      --panel-border: #d8dee8;
+      --panel-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+      --text: #152033;
+      --muted: #5c6a82;
+      --accent: #0f766e;
+      --accent-soft: #dff5f2;
+      --danger-bg: #fff1f1;
+      --danger-border: #f1b5b5;
+      --danger-text: #9f1239;
+      --chip-bg: #f8fafc;
+      --chip-border: #d6deea;
+      --chip-selected: #e9f6f4;
+      --chip-selected-border: #89d6cd;
+      --grid-gap: 18px;
+      --sidebar-width: 340px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100%;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(15, 118, 110, 0.10), transparent 28%),
+        linear-gradient(180deg, #eef4f6 0%, #f5f6f8 18%, #f5f6f8 100%);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+      gap: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .sidebar-shell {
+      min-width: 0;
+      height: 100%;
+      position: relative;
+      z-index: 20;
+      overflow-y: auto;
+    }
+
+    .sidebar-panel {
+      min-height: 100%;
+      padding: 20px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .sidebar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .sidebar-kicker {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .sidebar-title {
+      margin: 0;
+      font-size: 1.2rem;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+
+    .sidebar-close {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      min-width: 34px;
+      min-height: 34px;
+      padding: 0;
+      font-size: 0.92rem;
+      line-height: 1;
+    }
+
+    .sidebar-body {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .sidebar-disclosure {
+      border: 1px solid #e1e8f0;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.72);
+      overflow: hidden;
+      transition: border-color 120ms ease, box-shadow 120ms ease, background 120ms ease;
+    }
+
+    .sidebar-disclosure[open] {
+      background: #fff;
+      border-color: #d3dde9;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+    }
+
+    .sidebar-disclosure-summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .sidebar-disclosure-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .sidebar-disclosure-summary::marker {
+      content: "";
+    }
+
+    .sidebar-disclosure-summary:hover {
+      background: rgba(240, 244, 248, 0.72);
+    }
+
+    .sidebar-disclosure-summary:focus-visible {
+      outline: 2px solid rgba(15, 118, 110, 0.32);
+      outline-offset: -2px;
+    }
+
+    .sidebar-disclosure-title {
+      font-size: 0.83rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .sidebar-disclosure-icon {
+      color: #708198;
+      transition: transform 120ms ease, color 120ms ease;
+    }
+
+    .sidebar-disclosure[open] .sidebar-disclosure-icon {
+      transform: rotate(180deg);
+      color: var(--accent);
+    }
+
+    .sidebar-disclosure-body {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 14px 16px 16px;
+      border-top: 1px solid #e6edf5;
+    }
+
+    .sidebar-models {
+      display: block;
+    }
+
+    .sidebar-section .help-text {
+      margin-bottom: 0;
+    }
+
+    .sidebar-open-button {
+      display: none;
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 30;
+      width: 34px;
+      min-width: 34px;
+      min-height: 34px;
+      padding: 0;
+      font-size: 0.92rem;
+      line-height: 1;
+      box-shadow: var(--panel-shadow);
+    }
+
+    .sidebar-backdrop {
+      display: none;
+    }
+
+    .sidebar-open-button .fa,
+    .sidebar-close .fa {
+      pointer-events: none;
+    }
+
+    .main-pane {
+      min-width: 0;
+      height: 100%;
+      overflow-y: auto;
+      padding: 0 18px 24px 18px;
+    }
+
+    .page {
+      max-width: none;
+      margin: 0;
+      padding: 4px 0 48px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 18px;
+      box-shadow: var(--panel-shadow);
+    }
+
+    .panel.sidebar-panel {
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .hero-card {
+      padding: 22px 24px;
+    }
+
+    .hero h1 {
+      margin: 0 0 10px;
+      font-size: 2rem;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .summary-card {
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #fbfcfd 0%, #f5f8fb 100%);
+      border: 1px solid #e1e8f0;
+    }
+
+    .summary-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+
+    .summary-value {
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .info-panel {
+      padding: 18px 20px 20px;
+      margin-bottom: 20px;
+    }
+
+    .control-block {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-label {
+      font-size: 0.83rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .control-sublabel {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #4f5d74;
+      margin-top: 4px;
+    }
+
+    select,
+    input[type="search"] {
+      width: 100%;
+      min-height: 42px;
+      border-radius: 12px;
+      border: 1px solid #c9d4e2;
+      padding: 0 14px;
+      font: inherit;
+      color: var(--text);
+      background: #fff;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button {
+      min-height: 40px;
+      border: 1px solid #c9d4e2;
+      border-radius: 999px;
+      padding: 0 14px;
+      font: inherit;
+      font-weight: 600;
+      color: var(--text);
+      background: #fff;
+      cursor: pointer;
+      transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      border-color: #9fadc0;
+    }
+
+    .button-primary {
+      background: var(--accent-soft);
+      border-color: #8ed6cf;
+      color: #0d5e57;
+    }
+
+    .help-text {
+      margin: 0 0 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .color-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid #e1e8f0;
+      background: linear-gradient(180deg, #fbfcfd 0%, #f6f9fc 100%);
+    }
+
+    .color-legend-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .color-legend-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .color-legend-mode {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #4f5d74;
+    }
+
+    .color-legend-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 180px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .color-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid #e1e8f0;
+      background: #fff;
+      transition: border-color 120ms ease, background 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+    }
+
+    .color-legend-item:hover,
+    .color-legend-item.hover-linked {
+      transform: translateY(-1px);
+      border-color: #afbecf;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .color-legend-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+    }
+
+    .color-legend-label {
+      min-width: 0;
+      flex: 1 1 auto;
+      font-size: 0.88rem;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .color-legend-count {
+      flex: 0 0 auto;
+      font-size: 0.74rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .color-legend-empty {
+      font-size: 0.84rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .selection-group-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
+    .selection-group-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 42px;
+      justify-content: flex-start;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #e1e8f0;
+      background: #fff;
+      text-align: left;
+      font-weight: 600;
+      box-shadow: none;
+    }
+
+    .selection-group-item.active {
+      background: var(--chip-selected);
+      border-color: var(--chip-selected-border);
+      color: #0d5e57;
+    }
+
+    .selection-group-item.partial {
+      background: #f5fbfa;
+      border-color: #afd8d2;
+      color: #0d5e57;
+    }
+
+    .selection-group-item:focus-visible {
+      outline: 3px solid rgba(18, 126, 118, 0.18);
+      outline-offset: 2px;
+    }
+
+    .selection-group-item:hover,
+    .selection-group-item.hover-linked {
+      transform: translateY(-1px);
+      border-color: #afbecf;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .selection-group-item.active.hover-linked,
+    .selection-group-item.partial.hover-linked {
+      border-color: #62b9ae;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.10);
+    }
+
+    button:disabled {
+      cursor: default;
+      opacity: 0.58;
+    }
+
+    button:disabled:hover {
+      transform: none;
+      border-color: #c9d4e2;
+    }
+
+    .status-banner {
+      border-radius: 14px;
+      padding: 12px 14px;
+      border: 1px solid #d5e0ee;
+      background: #f7fafc;
+      color: var(--muted);
+      margin-bottom: 14px;
+      line-height: 1.45;
+    }
+
+    .status-banner.warning {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+      color: var(--danger-text);
+    }
+
+    .model-picker {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      padding-right: 6px;
+    }
+
+    .model-chip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--chip-border);
+      background: var(--chip-bg);
+      transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+    }
+
+    .model-chip:hover {
+      transform: translateY(-1px);
+      border-color: #afbecf;
+    }
+
+    .model-chip.hover-linked {
+      transform: translateY(-1px);
+      border-color: #afbecf;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .model-chip.selected {
+      background: var(--chip-selected);
+      border-color: var(--chip-selected-border);
+    }
+
+    .model-chip.hidden {
+      display: none;
+    }
+
+    .model-chip input {
+      margin: 0;
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+
+    .model-swatch {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+    }
+
+    .model-name {
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .section {
+      margin-top: 20px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .section-header h2 {
+      margin: 0;
+      font-size: 1.18rem;
+      letter-spacing: -0.02em;
+    }
+
+    .section-header p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .chart-grid-radar {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--grid-gap);
+    }
+
+    .chart-grid-line {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--grid-gap);
+    }
+
+    .chart-card {
+      overflow: hidden;
+    }
+
+    .chart-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      padding: 16px 18px 0;
+    }
+
+    .chart-card-title {
+      font-weight: 700;
+    }
+
+    .chart-card-note {
+      font-size: 0.86rem;
+      color: var(--muted);
+    }
+
+    .chart {
+      width: 100%;
+      height: 430px;
+    }
+
+    .chart.line {
+      height: 390px;
+    }
+
+    .chart.bubble {
+      height: 480px;
+    }
+
+    .footer-note {
+      margin-top: 20px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    code {
+      padding: 0.08rem 0.3rem;
+      border-radius: 6px;
+      background: #f0f4f8;
+      font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    @media (max-width: 1360px) {
+      .chart-grid-radar {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 1180px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .chart-grid-line {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    body.sidebar-collapsed .app-shell {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    body.sidebar-collapsed .sidebar-shell {
+      display: none;
+    }
+
+    body.sidebar-collapsed .sidebar-open-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    body.sidebar-collapsed .page {
+      padding-top: 52px;
+    }
+
+    @media (max-width: 960px) {
+      .app-shell {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+      }
+
+      .sidebar-shell {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: min(86vw, 360px);
+        padding: 0;
+        transform: translateX(-100%);
+        transition: transform 180ms ease;
+      }
+
+      body.sidebar-open .sidebar-shell {
+        transform: translateX(0);
+      }
+
+      .sidebar-open-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      body.sidebar-open .sidebar-open-button {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .sidebar-backdrop {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.32);
+        backdrop-filter: blur(1px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease;
+        z-index: 15;
+      }
+
+      body.sidebar-open .sidebar-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .main-pane {
+        height: 100vh;
+        padding: 18px 14px 32px;
+      }
+
+      .page {
+        padding: 42px 0 0;
+      }
+    }
+
+    @media (max-width: 680px) {
+      .chart-grid-radar,
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <button
+    id="sidebar-open-button"
+    class="sidebar-open-button button-primary"
+    type="button"
+    aria-controls="dashboard-sidebar"
+    aria-expanded="false"
+    aria-label="Show filters"
+    title="Show filters"
+  >
+    <i class="fa fa-angle-double-right" aria-hidden="true"></i>
+  </button>
+  <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+  <div class="app-shell">
+    <aside id="dashboard-sidebar" class="sidebar-shell" aria-label="Dashboard controls">
+      <section class="panel sidebar-panel">
+        <div class="sidebar-header">
+          <div>
+            <span class="sidebar-kicker">Controls</span>
+            <h2 class="sidebar-title">Model comparison</h2>
+          </div>
+          <button
+            id="sidebar-close"
+            class="sidebar-close"
+            type="button"
+            aria-controls="dashboard-sidebar"
+            aria-expanded="true"
+            aria-label="Hide filters"
+            title="Hide filters"
+          >
+            <i class="fa fa-angle-double-left" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <div class="sidebar-body">
+          <details class="sidebar-disclosure">
+            <summary class="sidebar-disclosure-summary">
+              <span class="sidebar-disclosure-title">Best layer selector</span>
+              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
+            </summary>
+            <div class="sidebar-disclosure-body">
+              <div class="sidebar-section control-block">
+                <select id="best-layer-selector" aria-label="Best layer selector">
+                  <option value="auroc">Best AUROC layer</option>
+                  <option value="auprc">Best AUPRC layer</option>
+                  <option value="r2">Best R2 layer</option>
+                  <option value="pearson">Best Pearson layer</option>
+                </select>
+              </div>
+            </div>
+          </details>
+
+          <details class="sidebar-disclosure">
+            <summary class="sidebar-disclosure-summary">
+              <span class="sidebar-disclosure-title">Color palette</span>
+              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
+            </summary>
+            <div class="sidebar-disclosure-body">
+              <div class="sidebar-section control-block">
+                <select id="color-mode-selector" aria-label="Color palette">
+                  <option value="model">By model checkpoint</option>
+                  <option value="family" selected>By model family</option>
+                  <option value="architecture_backbone">By architecture type</option>
+                  <option value="training">By training paradigm</option>
+                </select>
+                <p class="help-text">
+                  One shared palette for model chips, bubble chart, radar panels, and layer curves.
+                </p>
+                <div id="color-legend" class="color-legend" aria-live="polite">
+                  <div class="color-legend-header">
+                    <span class="color-legend-title">Palette legend</span>
+                    <span id="color-legend-mode" class="color-legend-mode">Loading…</span>
+                  </div>
+                  <div id="color-legend-list" class="color-legend-list">
+                    <div class="color-legend-empty">Loading color groups…</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="sidebar-disclosure">
+            <summary class="sidebar-disclosure-summary">
+              <span class="sidebar-disclosure-title">Bubble chart</span>
+              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
+            </summary>
+            <div class="sidebar-disclosure-body">
+              <div class="sidebar-section control-block">
+                <label class="control-sublabel" for="bubble-x-selector">X axis</label>
+                <select id="bubble-x-selector">
+                  <option value="auroc">Macro AUROC</option>
+                  <option value="auprc" selected>Macro AUPRC</option>
+                  <option value="r2">Macro R2</option>
+                  <option value="pearson">Macro Pearson</option>
+                  <option value="inference">Encoder forward time</option>
+                  <option value="parameters">Model parameters</option>
+                </select>
+                <label class="control-sublabel" for="bubble-y-selector">Y axis</label>
+                <select id="bubble-y-selector">
+                  <option value="auroc">Macro AUROC</option>
+                  <option value="auprc">Macro AUPRC</option>
+                  <option value="r2" selected>Macro R2</option>
+                  <option value="pearson">Macro Pearson</option>
+                  <option value="inference">Encoder forward time</option>
+                  <option value="parameters">Model parameters</option>
+                </select>
+                <label class="control-sublabel" for="bubble-size-selector">Bubble size</label>
+                <select id="bubble-size-selector">
+                  <option value="auroc">Macro AUROC</option>
+                  <option value="auprc">Macro AUPRC</option>
+                  <option value="r2">Macro R2</option>
+                  <option value="pearson">Macro Pearson</option>
+                  <option value="inference">Encoder forward time</option>
+                  <option value="parameters" selected>Model parameters</option>
+                </select>
+                <label class="control-sublabel" for="bubble-parameter-scope-selector">Parameter scope</label>
+                <select id="bubble-parameter-scope-selector">
+                  <option value="total" selected>Total registered model</option>
+                  <option value="best_layer">Through plotted best layer</option>
+                </select>
+              </div>
+            </div>
+          </details>
+
+          <details class="sidebar-disclosure">
+            <summary class="sidebar-disclosure-summary">
+              <span class="sidebar-disclosure-title">Run type</span>
+              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
+            </summary>
+            <div class="sidebar-disclosure-body">
+              <div class="sidebar-section control-block">
+                <span class="control-label">Visible artifacts</span>
+                <div id="run-type-filter-list" class="selection-group-list">
+                  <div class="color-legend-empty">Loading run-type filters…</div>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="sidebar-disclosure">
+            <summary class="sidebar-disclosure-summary">
+              <span class="sidebar-disclosure-title">Enabled components</span>
+              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
+            </summary>
+            <div class="sidebar-disclosure-body">
+              <div class="sidebar-section control-block">
+                <span class="control-label">Visible runs</span>
+                <div id="num-enabled-filter-list" class="selection-group-list">
+                  <div class="color-legend-empty">Loading enabled-component filters…</div>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="sidebar-disclosure" open>
+            <summary class="sidebar-disclosure-summary">
+              <span class="sidebar-disclosure-title">Model selector</span>
+              <i class="fa fa-angle-down sidebar-disclosure-icon" aria-hidden="true"></i>
+            </summary>
+            <div class="sidebar-disclosure-body">
+              <div class="sidebar-section control-block">
+                <span class="control-label">Selection</span>
+                <div class="button-row">
+                  <button id="select-all" class="button-primary" type="button">Select all</button>
+                  <button id="select-none" type="button">Clear all</button>
+                </div>
+                <input
+                  id="model-search"
+                  type="search"
+                  placeholder="Search by model or run label"
+                  aria-label="Search models by name"
+                >
+              </div>
+
+              <div class="sidebar-section control-block">
+                <label class="control-sublabel" for="model-selection-mode-selector">Select by class</label>
+                <select id="model-selection-mode-selector" aria-label="Select models by class">
+                  <option value="family">Model family</option>
+                  <option value="architecture_backbone" selected>Architecture type</option>
+                  <option value="training">Training paradigm</option>
+                  <option value="baseline_length">Baseline length</option>
+                </select>
+                <div class="color-legend" aria-live="polite">
+                  <div class="color-legend-header">
+                    <span class="color-legend-title">Selection classes</span>
+                    <span id="model-selection-mode" class="color-legend-mode">Loading…</span>
+                  </div>
+                  <div id="model-selection-group-list" class="selection-group-list">
+                    <div class="color-legend-empty">Loading selection classes…</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sidebar-section sidebar-models">
+                <div id="model-picker" class="model-picker"></div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </section>
+    </aside>
+
+    <main class="main-pane">
+      <div class="page">
+        <section class="hero">
+          <div class="panel hero-card">
+            <h1>Aionoscope Foundational Benchmark Dashboard v2</h1>
+            <div id="status-banner" class="status-banner">
+              Loading JSON results…
+            </div>
+          </div>
+          <div class="panel hero-card">
+            <div class="summary-grid">
+              <div class="summary-card">
+                <span class="summary-label">Visible runs</span>
+                <span class="summary-value" id="summary-loaded">Loading...</span>
+              </div>
+              <div class="summary-card">
+                <span class="summary-label">Selected runs</span>
+                <span class="summary-value" id="summary-selected">0</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-header">
+            <h2>Model Bubble Map</h2>
+            <p>Selected models only, with any supported metric on X, Y, or bubble size</p>
+          </div>
+          <div class="panel chart-card">
+            <div class="chart-card-header">
+              <div class="chart-card-title">Model Metric Bubble Map</div>
+              <div id="bubble-chart-note" class="chart-card-note">Loading bubble chart settings…</div>
+            </div>
+            <div id="chart-bubble-overview" class="chart bubble"></div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-header">
+            <h2>Radar Panels</h2>
+            <p>Absolute median values at the current best layer for each selected model</p>
+          </div>
+          <div class="chart-grid-radar">
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Categorical Signal AUROC</div>
+                <div class="chart-card-note">Per-class median AUROC, excluding <code>constant</code></div>
+              </div>
+              <div id="chart-radar-auroc" class="chart"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Regression By Component Type (R2)</div>
+                <div class="chart-card-note">Median across targets per component type</div>
+              </div>
+              <div id="chart-radar-r2-signal" class="chart"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Regression By Parameter Type (R2)</div>
+                <div class="chart-card-note">Median across targets per parameter type</div>
+              </div>
+              <div id="chart-radar-r2-metric" class="chart"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Categorical Signal AUPRC</div>
+                <div class="chart-card-note">Per-class median AUPRC, excluding <code>constant</code></div>
+              </div>
+              <div id="chart-radar-auprc" class="chart"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Regression By Component Type (Pearson)</div>
+                <div class="chart-card-note">Median across targets per component type</div>
+              </div>
+              <div id="chart-radar-pearson-signal" class="chart"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Regression By Parameter Type (Pearson)</div>
+                <div class="chart-card-note">Median across targets per parameter type</div>
+              </div>
+              <div id="chart-radar-pearson-metric" class="chart"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-header">
+            <h2>Layer Curves</h2>
+            <p>Median macro metrics across all evaluated layers, with shaded <code>± std</code></p>
+          </div>
+          <div class="chart-grid-line">
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Macro AUROC By Layer</div>
+                <div class="chart-card-note">Categorical probe summary, median line + std band, <code>num_enabled</code>: 1 solid / 2 dashed / 3 dotted</div>
+              </div>
+              <div id="chart-line-auroc" class="chart line"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Macro AUPRC By Layer</div>
+                <div class="chart-card-note">Categorical probe summary, median line + std band, <code>num_enabled</code>: 1 solid / 2 dashed / 3 dotted</div>
+              </div>
+              <div id="chart-line-auprc" class="chart line"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Macro Pearson By Layer</div>
+                <div class="chart-card-note">Dense probe summary, median line + std band, <code>num_enabled</code>: 1 solid / 2 dashed / 3 dotted</div>
+              </div>
+              <div id="chart-line-pearson" class="chart line"></div>
+            </div>
+            <div class="panel chart-card">
+              <div class="chart-card-header">
+                <div class="chart-card-title">Macro R2 By Layer</div>
+                <div class="chart-card-note">Dense probe summary, median line + std band, clipped at <code>0</code> for plotting, <code>num_enabled</code>: 1 solid / 2 dashed / 3 dotted</div>
+              </div>
+              <div id="chart-line-r2" class="chart line"></div>
+            </div>
+          </div>
+        </section>
+
+        <p class="footer-note">
+          Tip: launch a local static server from the repo root with
+          <code>python -m http.server 8000</code>, then open
+          <code>http://localhost:8000/results/dashboard-v2.html</code>.
+        </p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const MODELS_DIR = "models-v2/";
+    const MODELS_LIST_PATH = "/models-v2/list.txt";
+    const TARGET_SIGNAL_ORDER = [
+      "gaussian_noise",
+      "uniform_noise",
+      "random_walk_noise",
+      "linear_trend",
+      "quadratic_trend",
+      "log_trend",
+      "sigmoid_trend",
+      "level_change",
+      "spike",
+      "gaussian",
+      "sine",
+      "sawtooth",
+      "square"
+    ];
+    const TARGET_METRIC_ORDER = [
+      "time_frac",
+      "magnitude",
+      "std",
+      "slope",
+      "intercept",
+      "a",
+      "center",
+      "sharpness",
+      "offset",
+      "frequency_hz",
+      "phase",
+      "duty_cycle",
+      "sigma_sec"
+    ];
+    const COLOR_PALETTE = [
+      "#0f766e",
+      "#2563eb",
+      "#ea580c",
+      "#7c3aed",
+      "#b91c1c",
+      "#0891b2",
+      "#65a30d",
+      "#db2777",
+      "#4f46e5",
+      "#16a34a",
+      "#d97706",
+      "#7f1d1d",
+      "#475569",
+      "#be123c",
+      "#0d9488",
+      "#9333ea"
+    ];
+    const GROUP_MODE_LABELS = {
+      model: "Model checkpoint",
+      family: "Model family",
+      architecture_backbone: "Architecture type",
+      training: "Training paradigm",
+      baseline_length: "Baseline length"
+    };
+    const ARCHITECTURE_BACKBONE_LABELS = {
+      transformer_full_attention: "Transformer (full attention)",
+      transformer_causal: "Transformer (causal)",
+      transformer_moe_causal: "Transformer + MoE (causal)",
+      transformer: "Transformer (legacy / unspecified attention)",
+      transformer_moe: "Transformer + MoE (legacy / unspecified attention)",
+      tabular_transformer: "Tabular transformer",
+      slstm: "sLSTM",
+      linear_rnn: "Linear RNN",
+      mlp_mixer: "MLP-Mixer",
+      hybrid_sequence_model: "Hybrid sequence model",
+	      vision_transformer: "Vision Transformer",
+	      vision_convnet: "Vision ConvNet",
+	      causal_cnn: "Causal CNN",
+	      fixed_feature_extractor: "Fixed feature extractor",
+	      metric_floor: "Metric floor"
+	    };
+    // Training groups follow backbone pretraining, not downstream checkpoint packaging.
+    const TRAINING_PARADIGM_LABELS = {
+      forecasting: "Forecasting",
+	      representation_ssl: "Representation / SSL",
+	      cross_modal_transfer: "Cross-modal transfer",
+	      tabular_supervised: "Tabular supervised",
+	      none: "None"
+	    };
+
+    const CHART_IDS = {
+      bubbleOverview: "chart-bubble-overview",
+      radarAuroc: "chart-radar-auroc",
+      radarAuprc: "chart-radar-auprc",
+      radarR2Signal: "chart-radar-r2-signal",
+      radarR2Metric: "chart-radar-r2-metric",
+      radarPearsonSignal: "chart-radar-pearson-signal",
+      radarPearsonMetric: "chart-radar-pearson-metric",
+      lineAuroc: "chart-line-auroc",
+      lineAuprc: "chart-line-auprc",
+      linePearson: "chart-line-pearson",
+      lineR2: "chart-line-r2"
+	    };
+	    const SIDEBAR_OVERLAY_MEDIA = window.matchMedia("(max-width: 960px)");
+	    const DEFAULT_NUM_ENABLED_FILTER_VALUE = 2;
+	    const DEFAULT_RUN_TYPE_FILTER_VALUE = "foundational";
+	    const RUN_TYPE_LABELS = {
+	      foundational: "Models",
+	      baseline: "Baselines"
+	    };
+	    const RESULT_FETCH_TIMEOUT_MS = 30000;
+    const RESULT_FETCH_CONCURRENCY = 2;
+    const RESULT_FETCH_MAX_ATTEMPTS = 3;
+    const RESULT_FETCH_RETRY_DELAY_MS = 500;
+    const RADAR_CENTER_X = 0.50;
+    const RADAR_CENTER_Y = 0.56;
+    const RADAR_RADIUS_RATIO = 0.66;
+    const RADAR_SPLIT_NUMBER = 5;
+    const LAYER_ANCHORED_BUBBLE_METRICS = new Set(["auroc", "auprc", "r2", "pearson"]);
+
+    const state = {
+	      allResults: [],
+	      selectedRunKeys: new Set(),
+	      runTypeFilterValues: new Set(),
+	      runTypeFilterInitialized: false,
+	      numEnabledFilterValues: new Set(),
+	      numEnabledFilterInitialized: false,
+      charts: {},
+      chartHoverTargets: {},
+      discoverySource: "loading",
+      discoveryWarning: "",
+      isLoadingResults: false,
+      loadingTotalFiles: 0,
+      loadingCompletedFiles: 0,
+      loadingLoadedFiles: 0,
+      hoveredRunKeys: [],
+      sidebarDesktopCollapsed: false,
+      sidebarOverlayOpen: false,
+      layoutRefreshTimer: null
+    };
+
+    function basename(path) {
+      return String(path).split("/").pop();
+    }
+
+    function slugFromPath(path) {
+      return basename(path).replace(/\.json$/i, "");
+    }
+
+    function canonicalModelName(result) {
+      return String(result.model.name);
+    }
+
+    function modelName(result) {
+      return runLabel(result);
+    }
+
+    function resultBenchmarkFamily(result) {
+      const dataset = result && result.dataset ? result.dataset : null;
+      return dataset && typeof dataset.benchmark_family === "string" && dataset.benchmark_family
+        ? dataset.benchmark_family
+        : "unknown_benchmark_family";
+    }
+
+    function resultBenchmarkVersion(result) {
+      const dataset = result && result.dataset ? result.dataset : null;
+      return dataset && typeof dataset.benchmark_version === "string" && dataset.benchmark_version
+        ? dataset.benchmark_version
+        : "unknown_benchmark_version";
+    }
+
+	    function resultNumEnabled(result) {
+	      const dataset = result && result.dataset ? result.dataset : null;
+	      const numeric = dataset ? Number(dataset.num_enabled) : NaN;
+	      return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+	    }
+
+    function resultRunType(result) {
+      const model = result && result.model ? result.model : null;
+      const type = model && typeof model.type === "string" && model.type ? model.type : "foundational";
+      return type === "baseline" ? "baseline" : "foundational";
+    }
+
+    function resultChannelSize(result) {
+      const dataset = result && result.dataset ? result.dataset : null;
+      const numeric = dataset ? Number(dataset.channel_size) : NaN;
+      return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+    }
+
+    function runKey(result) {
+      return [
+        result && result.model ? String(result.model.slug || canonicalModelName(result)) : "unknown_model",
+        resultBenchmarkFamily(result),
+        resultBenchmarkVersion(result),
+        `num_enabled_${resultNumEnabled(result) === null ? "unknown" : resultNumEnabled(result)}`
+      ].join("::");
+    }
+
+    function runLabel(result) {
+      const numEnabled = resultNumEnabled(result);
+      return `${canonicalModelName(result)} · num_enabled=${numEnabled === null ? "?" : numEnabled}`;
+    }
+
+    function plotLabel(result) {
+      return canonicalModelName(result);
+    }
+
+    function numEnabledLineStyleType(result) {
+      const numEnabled = resultNumEnabled(result);
+      if (numEnabled === 2) {
+        return "dashed";
+      }
+      if (numEnabled === 3) {
+        return "dotted";
+      }
+      return "solid";
+    }
+
+    function numEnabledBubbleDecal(result) {
+      const numEnabled = resultNumEnabled(result);
+      if (numEnabled === 2) {
+        return {
+          symbol: "rect",
+          symbolSize: 0.9,
+          color: "rgba(255, 255, 255, 0.50)",
+          dashArrayX: [1, 0],
+          dashArrayY: [7, 5],
+          rotation: -Math.PI / 4
+        };
+      }
+      if (numEnabled === 3) {
+        return {
+          symbol: "circle",
+          symbolSize: 0.5,
+          color: "rgba(255, 255, 255, 0.58)",
+          dashArrayX: [0, 6],
+          dashArrayY: [0, 6]
+        };
+      }
+      return null;
+    }
+
+    function numEnabledVisualSummary() {
+      return "num_enabled: lines 1 solid / 2 dashed / 3 dotted; bubbles 1 plain / 2 striped / 3 dotted fill";
+    }
+
+	    function visibleResults() {
+	      return state.allResults.filter(
+	        (result) => resultMatchesRunTypeFilter(result) && resultMatchesNumEnabledFilter(result)
+	      );
+	    }
+
+    function resultByRunKey(runKeyValue) {
+      return visibleResults().find((result) => runKey(result) === String(runKeyValue)) || null;
+    }
+
+    function availableNumEnabledValues() {
+      return Array.from(
+        new Set(
+          state.allResults
+            .map((result) => resultNumEnabled(result))
+            .filter((value) => Number.isInteger(value))
+        )
+      ).sort((left, right) => Number(left) - Number(right));
+    }
+
+	    function normalizeNumEnabledFilterState() {
+      const availableValues = new Set(availableNumEnabledValues());
+      if (!availableValues.size) {
+        state.numEnabledFilterValues = new Set();
+        state.numEnabledFilterInitialized = false;
+        return;
+      }
+      if (!state.numEnabledFilterInitialized) {
+        state.numEnabledFilterValues = availableValues.has(DEFAULT_NUM_ENABLED_FILTER_VALUE)
+          ? new Set([DEFAULT_NUM_ENABLED_FILTER_VALUE])
+          : new Set();
+        state.numEnabledFilterInitialized = true;
+        return;
+      }
+      const retainedValues = Array.from(state.numEnabledFilterValues).filter((value) => availableValues.has(value));
+      state.numEnabledFilterValues = new Set(retainedValues);
+    }
+
+	    function resultMatchesNumEnabledFilter(result) {
+	      const numEnabled = resultNumEnabled(result);
+	      if (numEnabled === null) {
+	        return false;
+	      }
+	      return state.numEnabledFilterValues.has(numEnabled);
+	    }
+
+	    function availableRunTypes() {
+	      return Array.from(new Set(state.allResults.map((result) => resultRunType(result)))).sort();
+	    }
+
+	    function normalizeRunTypeFilterState() {
+	      const availableValues = new Set(availableRunTypes());
+	      if (!availableValues.size) {
+	        state.runTypeFilterValues = new Set();
+	        state.runTypeFilterInitialized = false;
+	        return;
+	      }
+	      if (!state.runTypeFilterInitialized) {
+	        state.runTypeFilterValues = availableValues.has(DEFAULT_RUN_TYPE_FILTER_VALUE)
+	          ? new Set([DEFAULT_RUN_TYPE_FILTER_VALUE])
+	          : new Set(Array.from(availableValues));
+	        state.runTypeFilterInitialized = true;
+	        return;
+	      }
+	      const retainedValues = Array.from(state.runTypeFilterValues).filter((value) => availableValues.has(value));
+	      state.runTypeFilterValues = new Set(retainedValues);
+	    }
+
+	    function resultMatchesRunTypeFilter(result) {
+	      return state.runTypeFilterValues.has(resultRunType(result));
+	    }
+
+    function modelFamily(result) {
+      const family = result && result.model ? result.model.family : null;
+      return typeof family === "string" && family ? family : "Unknown family";
+    }
+
+    function modelCheckpointName(result) {
+      const checkpointName = result && result.model ? result.model.checkpoint_name : null;
+      return typeof checkpointName === "string" && checkpointName ? checkpointName : canonicalModelName(result);
+    }
+
+    function modelArchitectureBackbone(result) {
+      const backbone =
+        result && result.model && result.model.architecture ? result.model.architecture.backbone : null;
+      return typeof backbone === "string" && backbone ? backbone : "unknown";
+    }
+
+    function modelTrainingParadigm(result) {
+      const paradigm =
+        result && result.model && result.model.training ? result.model.training.paradigm : null;
+      return typeof paradigm === "string" && paradigm ? paradigm : "unknown";
+    }
+
+    function baselineLengthGroupValue(result) {
+      if (resultRunType(result) !== "baseline") {
+        return "non_baseline";
+      }
+      const channelSize = resultChannelSize(result);
+      return channelSize === null ? "L=unknown" : `L=${channelSize}`;
+    }
+
+    function baselineLengthGroupSortKey(groupValue) {
+      const match = /^L=(\d+)$/.exec(String(groupValue));
+      if (match) {
+        return Number(match[1]);
+      }
+      return Number.POSITIVE_INFINITY;
+    }
+
+    function groupModeLabel(mode) {
+      return GROUP_MODE_LABELS[String(mode)] || humanizeToken(mode);
+    }
+
+    function architectureBackboneLabel(backbone) {
+      return ARCHITECTURE_BACKBONE_LABELS[String(backbone)] || humanizeToken(backbone);
+    }
+
+    function trainingParadigmLabel(paradigm) {
+      return TRAINING_PARADIGM_LABELS[String(paradigm)] || humanizeToken(paradigm);
+    }
+
+    function groupValueLabel(value, mode = getColorMode()) {
+      if (mode === "architecture_backbone") {
+        return architectureBackboneLabel(value);
+      }
+      if (mode === "training") {
+        return trainingParadigmLabel(value);
+      }
+      if (mode === "baseline_length" && value === "non_baseline") {
+        return "Model runs";
+      }
+      return value;
+    }
+
+    function groupValueForResult(result, mode = getColorMode()) {
+      if (mode === "family") {
+        return modelFamily(result);
+      }
+      if (mode === "architecture_backbone") {
+        return modelArchitectureBackbone(result);
+      }
+      if (mode === "training") {
+        return modelTrainingParadigm(result);
+      }
+      if (mode === "baseline_length") {
+        return baselineLengthGroupValue(result);
+      }
+      return canonicalModelName(result);
+    }
+
+    function groupLabelForResult(result, mode = getColorMode()) {
+      return groupValueLabel(groupValueForResult(result, mode), mode);
+    }
+
+    function orderedGroupValues(mode = getColorMode()) {
+      const values = Array.from(new Set(visibleResults().map((result) => groupValueForResult(result, mode))));
+      if (mode !== "baseline_length") {
+        return values;
+      }
+      return values.sort((left, right) => {
+        const leftIsLength = String(left).startsWith("L=");
+        const rightIsLength = String(right).startsWith("L=");
+        if (leftIsLength !== rightIsLength) {
+          return leftIsLength ? -1 : 1;
+        }
+        const lengthDelta = baselineLengthGroupSortKey(left) - baselineLengthGroupSortKey(right);
+        if (lengthDelta !== 0) {
+          return lengthDelta;
+        }
+        return String(left).localeCompare(String(right));
+      });
+    }
+
+    function colorForGroupValue(groupValue, mode = getColorMode()) {
+      const orderedGroups = orderedGroupValues(mode);
+      const index = orderedGroups.indexOf(groupValue);
+      const safeIndex = index >= 0 ? index : 0;
+      return COLOR_PALETTE[safeIndex % COLOR_PALETTE.length];
+    }
+
+    function colorForResult(result, mode = getColorMode()) {
+      return colorForGroupValue(groupValueForResult(result, mode), mode);
+    }
+
+    function groupEntries(mode = getColorMode()) {
+      return orderedGroupValues(mode).map((groupValue) => ({
+        groupValue,
+        label: groupValueLabel(groupValue, mode),
+        color: colorForGroupValue(groupValue, mode),
+        count: visibleResults().filter((result) => groupValueForResult(result, mode) === groupValue).length,
+      }));
+    }
+
+    function runKeysForGroup(groupValue, mode = getColorMode()) {
+      return visibleResults()
+        .filter((result) => groupValueForResult(result, mode) === groupValue)
+        .map((result) => runKey(result));
+    }
+
+    function hoveredModelSet() {
+      return new Set(state.hoveredRunKeys);
+    }
+
+    function normalizeHoveredState() {
+      state.hoveredRunKeys = Array.from(
+        new Set(
+          state.hoveredRunKeys
+            .map((runKeyValue) => String(runKeyValue))
+            .filter((runKeyValue) => resultByRunKey(runKeyValue))
+        )
+      );
+    }
+
+    function hoveredGroupValue(mode) {
+      if (!state.hoveredRunKeys.length) {
+        return null;
+      }
+      const hoveredGroups = Array.from(
+        new Set(
+          state.hoveredRunKeys
+            .map((runKeyValue) => {
+              const result = resultByRunKey(runKeyValue);
+              return result ? groupValueForResult(result, mode) : null;
+            })
+            .filter((groupValue) => groupValue !== null)
+        )
+      );
+      return hoveredGroups.length === 1 ? hoveredGroups[0] : null;
+    }
+
+    function isHoveredGroupEntry(groupValue, mode = getColorMode()) {
+      return hoveredGroupValue(mode) === groupValue;
+    }
+
+    function setHoveredModels(modelNames) {
+      const nextRunKeys = Array.from(
+        new Set((modelNames || []).map((runKeyValue) => String(runKeyValue)).filter(Boolean))
+      );
+      const previousSignature = state.hoveredRunKeys.join("\u0001");
+      state.hoveredRunKeys = nextRunKeys;
+      normalizeHoveredState();
+      const nextSignature = state.hoveredRunKeys.join("\u0001");
+      if (previousSignature === nextSignature) {
+        return;
+      }
+      syncHoverDecorations();
+      syncChartHoverState();
+    }
+
+    function clearHoveredModels() {
+      if (!state.hoveredRunKeys.length) {
+        return;
+      }
+      state.hoveredRunKeys = [];
+      syncHoverDecorations();
+      syncChartHoverState();
+    }
+
+    function setChartHoverTarget(chartId, target) {
+      state.chartHoverTargets[chartId] = target;
+    }
+
+    function syncHoverDecorations() {
+      const hoveredModels = hoveredModelSet();
+      document.querySelectorAll("#model-picker .model-chip").forEach((chip) => {
+        chip.classList.toggle("hover-linked", hoveredModels.has(String(chip.dataset.model || "")));
+      });
+      document.querySelectorAll("#color-legend-list .color-legend-item").forEach((item) => {
+        item.classList.toggle(
+          "hover-linked",
+          isHoveredGroupEntry(String(item.dataset.groupValue || ""), String(item.dataset.groupMode || getColorMode()))
+        );
+      });
+      document.querySelectorAll("#model-selection-group-list .selection-group-item").forEach((item) => {
+        item.classList.toggle(
+          "hover-linked",
+          isHoveredGroupEntry(
+            String(item.dataset.groupValue || ""),
+            String(item.dataset.groupMode || getModelSelectionMode())
+          )
+        );
+      });
+    }
+
+    function applyChartHoverTarget(chart, target, modelNames) {
+      if (!chart || !target || !modelNames.length) {
+        return;
+      }
+      if (target.type === "series") {
+        const seriesIndices = modelNames
+          .map((name) => target.seriesIndexByModel.get(name))
+          .filter((seriesIndex) => Number.isInteger(seriesIndex));
+        if (seriesIndices.length) {
+          chart.dispatchAction({ type: "highlight", seriesIndex: seriesIndices });
+        }
+        return;
+      }
+      if (target.type === "data") {
+        const dataIndices = modelNames
+          .map((name) => target.dataIndexByModel.get(name))
+          .filter((dataIndex) => Number.isInteger(dataIndex));
+        if (dataIndices.length) {
+          chart.dispatchAction({
+            type: "highlight",
+            seriesIndex: target.seriesIndex,
+            dataIndex: dataIndices
+          });
+        }
+      }
+    }
+
+    function syncChartHoverState() {
+      const modelNames = state.hoveredRunKeys;
+      Object.entries(state.charts).forEach(([chartId, chart]) => {
+        if (!chart) {
+          return;
+        }
+        chart.dispatchAction({ type: "downplay" });
+        chart.dispatchAction({ type: "hideTip" });
+        applyChartHoverTarget(chart, state.chartHoverTargets[chartId], modelNames);
+      });
+    }
+
+    function modelMetadataLines(result, { includeNumEnabled = true } = {}) {
+      const lines = [
+        `Model: ${canonicalModelName(result)}`,
+        `Family: ${modelFamily(result)}`,
+        `Checkpoint: ${modelCheckpointName(result)}`,
+        `Architecture type: ${architectureBackboneLabel(modelArchitectureBackbone(result))}`,
+        `Training: ${trainingParadigmLabel(modelTrainingParadigm(result))}`,
+        `Benchmark: ${resultBenchmarkFamily(result)}/${resultBenchmarkVersion(result)}`
+      ];
+      if (includeNumEnabled) {
+        lines.push(`num_enabled: ${resultNumEnabled(result) === null ? "N/A" : resultNumEnabled(result)}`);
+      }
+      return lines;
+    }
+
+    function orderedCategories(categories, preferredOrder) {
+      const present = new Set(categories.map(String));
+      const ordered = preferredOrder.filter((category) => present.has(category));
+      const extras = Array.from(present).filter((category) => !ordered.includes(category)).sort();
+      return ordered.concat(extras);
+    }
+
+    function median(values) {
+      const ordered = values.slice().sort((a, b) => a - b);
+      const middle = Math.floor(ordered.length / 2);
+      if (ordered.length % 2 === 0) {
+        return 0.5 * (ordered[middle - 1] + ordered[middle]);
+      }
+      return ordered[middle];
+    }
+
+    function sampleStd(values) {
+      if (values.length <= 1) {
+        return 0;
+      }
+      const mean = values.reduce((sum, value) => sum + Number(value), 0) / values.length;
+      const variance =
+        values.reduce((sum, value) => sum + Math.pow(Number(value) - mean, 2), 0) / (values.length - 1);
+      return Math.sqrt(Math.max(variance, 0));
+    }
+
+    function isStatPayload(value) {
+      return Boolean(
+        value &&
+          typeof value === "object" &&
+          !Array.isArray(value) &&
+          Array.isArray(value.values) &&
+          Object.prototype.hasOwnProperty.call(value, "median") &&
+          Object.prototype.hasOwnProperty.call(value, "std")
+      );
+    }
+
+    function statValues(value) {
+      if (isStatPayload(value)) {
+        return value.values.map((item) => {
+          if (item === null || item === undefined) {
+            return null;
+          }
+          const numeric = Number(item);
+          return Number.isFinite(numeric) ? numeric : null;
+        });
+      }
+      if (value === null || value === undefined) {
+        return [null];
+      }
+      const numeric = Number(value);
+      return [Number.isFinite(numeric) ? numeric : null];
+    }
+
+    function statMedian(value) {
+      if (isStatPayload(value)) {
+        if (value.median === null || value.median === undefined) {
+          return null;
+        }
+        const numeric = Number(value.median);
+        return Number.isFinite(numeric) ? numeric : null;
+      }
+      if (value === null || value === undefined) {
+        return null;
+      }
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric : null;
+    }
+
+    function statStd(value) {
+      if (isStatPayload(value)) {
+        if (value.std === null || value.std === undefined) {
+          return null;
+        }
+        const numeric = Number(value.std);
+        return Number.isFinite(numeric) ? numeric : null;
+      }
+      return value === null || value === undefined ? null : 0;
+    }
+
+    function makeSeedStatsFromValues(values) {
+      const numeric = values.map((value) => {
+        if (value === null || value === undefined) {
+          return null;
+        }
+        const cast = Number(value);
+        return Number.isFinite(cast) ? cast : null;
+      });
+      const finite = numeric.filter((value) => Number.isFinite(value));
+      return {
+        values: numeric,
+        median: finite.length ? median(finite) : null,
+        std: finite.length ? sampleStd(finite) : null,
+        n: numeric.length,
+        n_finite: finite.length
+      };
+    }
+
+    function formatStatSummary(value) {
+      const medianValue = statMedian(value);
+      const stdValue = statStd(value);
+      if (medianValue === null) {
+        return "N/A";
+      }
+      if (stdValue === null) {
+        return formatMetricValue(medianValue);
+      }
+      return `${formatMetricValue(medianValue)} ± ${formatMetricValue(stdValue)}`;
+    }
+
+    function formatMetricValue(value) {
+      if (value === null || value === undefined) {
+        return "N/A";
+      }
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric.toFixed(4) : "N/A";
+    }
+
+    function finiteNumber(value) {
+      if (value === null || value === undefined) {
+        return null;
+      }
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric : null;
+    }
+
+    function formatRadarGridValue(value) {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? numeric.toFixed(2) : "N/A";
+    }
+
+    function formatDurationSeconds(value) {
+      const numeric = finiteNumber(value);
+      if (numeric === null) {
+        return "N/A";
+      }
+      if (numeric >= 3600) {
+        const hours = Math.floor(numeric / 3600);
+        const minutes = Math.floor((numeric % 3600) / 60);
+        return `${hours}h ${minutes}m`;
+      }
+      if (numeric >= 60) {
+        const minutes = Math.floor(numeric / 60);
+        const seconds = Math.round(numeric % 60);
+        return `${minutes}m ${seconds}s`;
+      }
+      return `${numeric.toFixed(1)}s`;
+    }
+
+    function formatDurationAxisValue(value) {
+      const numeric = finiteNumber(value);
+      if (numeric === null) {
+        return "N/A";
+      }
+      const abs = Math.abs(numeric);
+      if (abs >= 3600) {
+        return `${(numeric / 3600).toFixed(abs >= 36000 ? 0 : 1)}h`;
+      }
+      if (abs >= 60) {
+        return `${(numeric / 60).toFixed(abs >= 600 ? 0 : 1)}m`;
+      }
+      return `${numeric.toFixed(abs >= 10 ? 0 : 1)}s`;
+    }
+
+    function formatIntegerValue(value) {
+      const numeric = finiteNumber(value);
+      if (numeric === null) {
+        return "N/A";
+      }
+      return Math.round(numeric).toLocaleString("en-US");
+    }
+
+    function formatCompactInteger(value) {
+      const numeric = finiteNumber(value);
+      if (numeric === null) {
+        return "N/A";
+      }
+      const abs = Math.abs(numeric);
+      if (abs >= 1.0e9) {
+        return `${(numeric / 1.0e9).toFixed(abs >= 10.0e9 ? 0 : 1)}B`;
+      }
+      if (abs >= 1.0e6) {
+        return `${(numeric / 1.0e6).toFixed(abs >= 10.0e6 ? 0 : 1)}M`;
+      }
+      if (abs >= 1.0e3) {
+        return `${(numeric / 1.0e3).toFixed(abs >= 10.0e3 ? 0 : 1)}K`;
+      }
+      return formatIntegerValue(numeric);
+    }
+
+    function humanizeToken(value) {
+      return String(value).replace(/_/g, " ");
+    }
+
+    function wrapCategoryLabel(value) {
+      return String(value).replace(/_/g, "\n");
+    }
+
+    function rgbaWithAlpha(hexColor, alpha) {
+      const hex = String(hexColor).replace("#", "");
+      const expanded = hex.length === 3 ? hex.split("").map((ch) => ch + ch).join("") : hex;
+      const red = parseInt(expanded.slice(0, 2), 16);
+      const green = parseInt(expanded.slice(2, 4), 16);
+      const blue = parseInt(expanded.slice(4, 6), 16);
+      return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+    }
+
+    function getBestLayerSelector() {
+      return document.getElementById("best-layer-selector").value;
+    }
+
+    function getColorMode() {
+      return document.getElementById("color-mode-selector").value;
+    }
+
+    function getModelSelectionMode() {
+      return document.getElementById("model-selection-mode-selector").value;
+    }
+
+    function getSearchTerm() {
+      return document.getElementById("model-search").value.trim().toLowerCase();
+    }
+
+	    function modelMatchesPickerFilters(result) {
+	      const searchTerm = getSearchTerm();
+	      if (!resultMatchesRunTypeFilter(result)) {
+	        return false;
+	      }
+	      if (!resultMatchesNumEnabledFilter(result)) {
+	        return false;
+	      }
+      if (!searchTerm) {
+        return true;
+      }
+      return [modelName(result), canonicalModelName(result)]
+        .some((value) => String(value).toLowerCase().includes(searchTerm));
+    }
+
+    function getBubbleXMetric() {
+      return document.getElementById("bubble-x-selector").value;
+    }
+
+    function getBubbleYMetric() {
+      return document.getElementById("bubble-y-selector").value;
+    }
+
+    function getBubbleSizeMetric() {
+      return document.getElementById("bubble-size-selector").value;
+    }
+
+    function getBubbleParameterScope() {
+      return document.getElementById("bubble-parameter-scope-selector").value;
+    }
+
+    function setStatus(message, level = "info") {
+      const banner = document.getElementById("status-banner");
+      banner.textContent = message;
+      banner.classList.toggle("warning", level === "warning");
+    }
+
+    function updateLoadingStatus() {
+      if (!state.isLoadingResults || state.loadingTotalFiles <= 0) {
+        return;
+      }
+      document.getElementById("summary-loaded").textContent =
+        `Loading... ${state.loadingLoadedFiles}/${state.loadingTotalFiles}`;
+      const failedFiles = state.loadingCompletedFiles - state.loadingLoadedFiles;
+      const fragments = [`Loading JSON files... ${state.loadingLoadedFiles}/${state.loadingTotalFiles}`];
+      if (failedFiles > 0) {
+        fragments.push(`(${failedFiles} failed so far)`);
+      }
+      fragments.push(`via ${state.discoverySource}.`);
+      setStatus(fragments.join(" "), failedFiles > 0 ? "warning" : "info");
+    }
+
+    function setLoadingProgress({ isLoading, totalFiles = 0, completedFiles = 0, loadedFiles = 0 }) {
+      state.isLoadingResults = Boolean(isLoading);
+      state.loadingTotalFiles = Number(totalFiles);
+      state.loadingCompletedFiles = Number(completedFiles);
+      state.loadingLoadedFiles = Number(loadedFiles);
+      if (!state.isLoadingResults) {
+        return;
+      }
+      updateLoadingStatus();
+    }
+
+    function isSidebarOverlay() {
+      return SIDEBAR_OVERLAY_MEDIA.matches;
+    }
+
+    function isSidebarVisible() {
+      return isSidebarOverlay() ? state.sidebarOverlayOpen : !state.sidebarDesktopCollapsed;
+    }
+
+    function scheduleLayoutRefresh(delay = 210) {
+      if (!Object.keys(state.charts).length) {
+        return;
+      }
+      window.clearTimeout(state.layoutRefreshTimer);
+      state.layoutRefreshTimer = window.setTimeout(() => {
+        Object.values(state.charts).forEach((chart) => chart.resize());
+        renderAll();
+      }, delay);
+    }
+
+    function applySidebarState({ refresh = true } = {}) {
+      const visible = isSidebarVisible();
+      document.body.classList.toggle("sidebar-open", isSidebarOverlay() && visible);
+      document.body.classList.toggle("sidebar-collapsed", !isSidebarOverlay() && !visible);
+      document.getElementById("sidebar-open-button").setAttribute("aria-expanded", String(visible));
+      document.getElementById("sidebar-close").setAttribute("aria-expanded", String(visible));
+      if (refresh) {
+        scheduleLayoutRefresh();
+      }
+    }
+
+    function setSidebarVisible(visible, { refresh = true } = {}) {
+      if (isSidebarOverlay()) {
+        state.sidebarOverlayOpen = Boolean(visible);
+      } else {
+        state.sidebarDesktopCollapsed = !Boolean(visible);
+      }
+      applySidebarState({ refresh });
+    }
+
+    function syncSidebarMode({ refresh = true } = {}) {
+      applySidebarState({ refresh });
+    }
+
+    function syncSelectedRunsToVisibleResults() {
+      const visibleRunKeys = new Set(visibleResults().map((result) => runKey(result)));
+      state.selectedRunKeys = new Set(
+        Array.from(state.selectedRunKeys).filter((runKeyValue) => visibleRunKeys.has(runKeyValue))
+      );
+      state.hoveredRunKeys = state.hoveredRunKeys.filter((runKeyValue) => visibleRunKeys.has(runKeyValue));
+    }
+
+	    function toggleNumEnabledFilterValue(numEnabled) {
+      const numeric = Number(numEnabled);
+      if (!Number.isInteger(numeric) || numeric <= 0) {
+        return;
+      }
+      if (state.numEnabledFilterValues.has(numeric)) {
+        state.numEnabledFilterValues.delete(numeric);
+      } else {
+        state.numEnabledFilterValues.add(numeric);
+      }
+      syncSelectedRunsToVisibleResults();
+	      normalizeHoveredState();
+	    }
+
+	    function toggleRunTypeFilterValue(runType) {
+	      const value = String(runType);
+	      if (!value) {
+	        return;
+	      }
+	      if (state.runTypeFilterValues.has(value)) {
+	        state.runTypeFilterValues.delete(value);
+	      } else {
+	        state.runTypeFilterValues.add(value);
+	      }
+	      syncSelectedRunsToVisibleResults();
+	      normalizeHoveredState();
+	    }
+
+	    function renderRunTypeFilter() {
+	      const listNode = document.getElementById("run-type-filter-list");
+	      const values = availableRunTypes();
+	      listNode.innerHTML = "";
+
+	      if (!values.length) {
+	        const empty = document.createElement("div");
+	        empty.className = "color-legend-empty";
+	        empty.textContent = "Load benchmark JSON files to populate run-type filters.";
+	        listNode.appendChild(empty);
+	        return;
+	      }
+
+	      values.forEach((value) => {
+	        const visibleCount = state.allResults.filter((result) => resultRunType(result) === value).length;
+	        const label = document.createElement("label");
+	        label.className = "model-chip";
+	        label.title = `Show ${RUN_TYPE_LABELS[value] || humanizeToken(value)}`;
+
+	        const checkbox = document.createElement("input");
+	        checkbox.type = "checkbox";
+	        checkbox.checked = state.runTypeFilterValues.has(value);
+	        checkbox.addEventListener("change", () => {
+	          toggleRunTypeFilterValue(value);
+	          renderAll();
+	        });
+
+	        const text = document.createElement("span");
+	        text.className = "model-name";
+	        text.textContent = `${RUN_TYPE_LABELS[value] || humanizeToken(value)} (${visibleCount})`;
+
+	        label.appendChild(checkbox);
+	        label.appendChild(text);
+	        listNode.appendChild(label);
+	      });
+	    }
+
+	    function renderNumEnabledFilter() {
+      const listNode = document.getElementById("num-enabled-filter-list");
+      const values = availableNumEnabledValues();
+      listNode.innerHTML = "";
+
+      if (!values.length) {
+        const empty = document.createElement("div");
+        empty.className = "color-legend-empty";
+        empty.textContent = "Load benchmark JSON files to populate enabled-component filters.";
+        listNode.appendChild(empty);
+        return;
+      }
+
+      values.forEach((value) => {
+        const numeric = Number(value);
+        const visibleCount = state.allResults.filter((result) => resultNumEnabled(result) === numeric).length;
+        const label = document.createElement("label");
+        label.className = "model-chip";
+        label.title = `Show only runs with num_enabled=${numeric}`;
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = state.numEnabledFilterValues.has(numeric);
+        checkbox.addEventListener("change", () => {
+          toggleNumEnabledFilterValue(numeric);
+          renderAll();
+        });
+
+        const text = document.createElement("span");
+        text.className = "model-name";
+        text.textContent = `num_enabled=${numeric} (${visibleCount})`;
+
+        label.appendChild(checkbox);
+        label.appendChild(text);
+        listNode.appendChild(label);
+      });
+    }
+
+    function updateSummaries() {
+      if (state.isLoadingResults && state.loadingTotalFiles > 0) {
+        document.getElementById("summary-loaded").textContent =
+          `Loading... ${state.loadingLoadedFiles}/${state.loadingTotalFiles}`;
+      } else {
+        document.getElementById("summary-loaded").textContent = String(visibleResults().length);
+      }
+      document.getElementById("summary-selected").textContent = String(getSelectedResults().length);
+    }
+
+    function selectedLayerForResult(result, selectorKey) {
+      const summary = result.results.summary;
+      if (selectorKey === "auroc") {
+        return Number(summary.best_auc.layer);
+      }
+      if (selectorKey === "auprc") {
+        return Number(summary.best_auprc.layer);
+      }
+      if (selectorKey === "r2") {
+        return summary.macro_best_layers.r2.layer === null ? null : Number(summary.macro_best_layers.r2.layer);
+      }
+      if (selectorKey === "pearson") {
+        return summary.macro_best_layers.pearson.layer === null
+          ? null
+          : Number(summary.macro_best_layers.pearson.layer);
+      }
+      throw new Error("Unsupported selector: " + selectorKey);
+    }
+
+    function selectedCategoricalRows(result, layer) {
+      const payload = result.results.categorical[String(layer)];
+      return result.dataset.class_names
+        .filter((signal) => String(signal) !== "constant")
+        .map((signal) => ({
+          signal: String(signal),
+          auroc: payload.best_auc.per_class_auc[signal],
+          auprc: payload.best_auprc.per_class_auprc[signal],
+          layer: Number(layer)
+        }));
+    }
+
+    function denseRowsAtLayer(result, layer) {
+      const payload = result.results.dense[String(layer)];
+      return result.dataset.dense_targets.map((spec) => {
+        const target = String(spec.name);
+        return {
+          target,
+          target_signal: String(spec.signal),
+          target_metric: String(spec.metric),
+          r2: payload.per_target_r2[target],
+          pearson: payload.per_target_pearson[target],
+          layer: Number(layer)
+        };
+      });
+    }
+
+    function aggregateDenseStatsByGroup(rows, metricName, groupKey, categories) {
+      return categories.map((category) => {
+        const stats = rows
+          .filter((row) => String(row[groupKey]) === String(category))
+          .map((row) => row[metricName]);
+        if (!stats.length) {
+          throw new Error(`Missing dense rows for ${groupKey}=${category} and metric=${metricName}`);
+        }
+        const seedCount = Math.max(...stats.map((value) => statValues(value).length));
+        const perSeedGroupValues = [];
+        for (let index = 0; index < seedCount; index += 1) {
+          const valuesAtSeed = stats
+            .map((value) => {
+              const values = statValues(value);
+              if (values.length === 1 && seedCount > 1) {
+                return values[0];
+              }
+              if (values.length !== seedCount) {
+                throw new Error(
+                  `Inconsistent validation-run counts while aggregating ${metricName} for ${groupKey}=${category}`
+                );
+              }
+              return values[index];
+            })
+            .filter((value) => Number.isFinite(value));
+          perSeedGroupValues.push(valuesAtSeed.length ? median(valuesAtSeed) : null);
+        }
+        return makeSeedStatsFromValues(perSeedGroupValues);
+      });
+    }
+
+    function clippedValue(value, minValue) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) {
+        return null;
+      }
+      return Math.max(numeric, Number(minValue));
+    }
+
+    function paddedMetricRange(values, { lowerBound = null, upperBound = null, fallback = [0, 1] } = {}) {
+      const finiteValues = values.map(finiteNumber).filter((value) => value !== null);
+      if (!finiteValues.length) {
+        return { min: fallback[0], max: fallback[1] };
+      }
+
+      let min = Math.min(...finiteValues);
+      let max = Math.max(...finiteValues);
+      const span = max - min;
+      const padding = span > 0 ? span * 0.08 : Math.max(Math.abs(min) * 0.08, 0.02);
+      min -= padding;
+      max += padding;
+
+      if (lowerBound !== null) {
+        min = Math.max(Number(lowerBound), min);
+      }
+      if (upperBound !== null) {
+        max = Math.min(Number(upperBound), max);
+      }
+      if (max <= min) {
+        const center = 0.5 * (min + max);
+        const fallbackPadding = span > 0 ? span * 0.5 : 0.02;
+        min = center - fallbackPadding;
+        max = center + fallbackPadding;
+        if (lowerBound !== null) {
+          min = Math.max(Number(lowerBound), min);
+        }
+        if (upperBound !== null) {
+          max = Math.min(Number(upperBound), max);
+        }
+        if (max <= min) {
+          max = min + 0.02;
+        }
+      }
+
+      return { min, max };
+    }
+
+    function paddedLogMetricRange(values, { lowerBound = null, upperBound = null, fallback = [1, 10] } = {}) {
+      const positiveValues = values.map(finiteNumber).filter((value) => value !== null && value > 0);
+      if (!positiveValues.length) {
+        return { min: fallback[0], max: fallback[1] };
+      }
+
+      const rawMin = Math.min(...positiveValues);
+      const rawMax = Math.max(...positiveValues);
+      const logMin = Math.log10(rawMin);
+      const logMax = Math.log10(rawMax);
+      const logSpan = logMax - logMin;
+      const padding = logSpan > 0 ? logSpan * 0.08 : 0.25;
+
+      let min = Math.pow(10, logMin - padding);
+      let max = Math.pow(10, logMax + padding);
+
+      if (lowerBound !== null) {
+        min = Math.max(Number(lowerBound), min);
+      }
+      if (upperBound !== null) {
+        max = Math.min(Number(upperBound), max);
+      }
+      if (min <= 0) {
+        min = lowerBound !== null ? Number(lowerBound) : rawMin;
+      }
+      if (max <= min) {
+        const center = logSpan > 0 ? 0.5 * (logMin + logMax) : Math.log10(rawMin);
+        min = Math.pow(10, center - 0.25);
+        max = Math.pow(10, center + 0.25);
+        if (lowerBound !== null) {
+          min = Math.max(Number(lowerBound), min);
+        }
+        if (upperBound !== null) {
+          max = Math.min(Number(upperBound), max);
+        }
+        if (max <= min) {
+          max = min * 10;
+        }
+      }
+
+      return { min, max };
+    }
+
+    function inferenceForwardBreakdown(result) {
+      const runtime = result.runtime || {};
+      const explicitTotal = finiteNumber(runtime.encoder_forward_total_s);
+      if (explicitTotal !== null) {
+        const trainForward = finiteNumber(runtime.encoder_forward_train_s);
+        const valForwardTotal = finiteNumber(runtime.encoder_forward_val_total_s);
+        const bySeed =
+          runtime.encoder_forward_by_validation_seed_s &&
+          typeof runtime.encoder_forward_by_validation_seed_s === "object" &&
+          !Array.isArray(runtime.encoder_forward_by_validation_seed_s)
+            ? Object.values(runtime.encoder_forward_by_validation_seed_s)
+                .map(finiteNumber)
+                .filter((value) => value !== null)
+            : [];
+        const validationRuns =
+          bySeed.length ||
+          finiteNumber(runtime.validation_seed_count) ||
+          finiteNumber(result.results.shared && result.results.shared.n_validation_runs);
+        return {
+          trainForward,
+          valForwardTotal: valForwardTotal !== null ? valForwardTotal : null,
+          validationRuns: validationRuns === null ? null : Number(validationRuns),
+          totalForward: explicitTotal,
+          source: "runtime"
+        };
+      }
+
+      const sharedTimings = result.results.shared && result.results.shared.timings;
+      if (
+        !sharedTimings ||
+        !sharedTimings.collect_train ||
+        !sharedTimings.collect_val ||
+        !sharedTimings.collect_train.forward_s ||
+        !sharedTimings.collect_val.forward_s
+      ) {
+        return null;
+      }
+      const trainForward = statMedian(sharedTimings.collect_train.forward_s);
+      const valForwardValues = statValues(sharedTimings.collect_val.forward_s).filter((value) => Number.isFinite(value));
+      const valForwardTotal = valForwardValues.reduce((sum, value) => sum + Number(value), 0);
+      if (!Number.isFinite(trainForward) || !valForwardValues.length) {
+        return null;
+      }
+      return {
+        trainForward,
+        valForwardTotal,
+        validationRuns: valForwardValues.length,
+        totalForward: trainForward + valForwardTotal,
+        source: "shared.timings"
+      };
+    }
+
+    function bubbleSelectionContext() {
+      return {
+        xKey: getBubbleXMetric(),
+        yKey: getBubbleYMetric(),
+        sizeKey: getBubbleSizeMetric(),
+        parameterScope: getBubbleParameterScope()
+      };
+    }
+
+    function bubbleUsesParameterMetric(selection) {
+      return [selection.xKey, selection.yKey, selection.sizeKey].includes("parameters");
+    }
+
+    function bubbleLayerAnchorMetricKeys(selection) {
+      return Array.from(
+        new Set(
+          [selection.xKey, selection.yKey, selection.sizeKey].filter((metricKey) =>
+            LAYER_ANCHORED_BUBBLE_METRICS.has(metricKey)
+          )
+        )
+      );
+    }
+
+    function bubbleMetricDisplayLabel(metricKey) {
+      if (metricKey === "auroc") {
+        return "Macro AUROC";
+      }
+      if (metricKey === "auprc") {
+        return "Macro AUPRC";
+      }
+      if (metricKey === "r2") {
+        return "Macro R2";
+      }
+      if (metricKey === "pearson") {
+        return "Macro Pearson";
+      }
+      if (metricKey === "inference") {
+        return "Encoder forward time";
+      }
+      if (metricKey === "parameters") {
+        return "Model parameters";
+      }
+      throw new Error("Unsupported bubble metric key: " + metricKey);
+    }
+
+    function parameterCountSummary(result, selection) {
+      const adapterMetadata =
+        result.model && result.model.adapter && typeof result.model.adapter === "object"
+          ? result.model.adapter
+          : {};
+      const total =
+        finiteNumber(adapterMetadata.parameter_count_total) ??
+        finiteNumber(adapterMetadata.parameter_count);
+      if (total === null || total <= 0) {
+        return null;
+      }
+      if (!selection || selection.parameterScope !== "best_layer") {
+        const trainable = finiteNumber(adapterMetadata.trainable_parameter_count);
+        return {
+          value: total,
+          total,
+          trainable,
+          scope: "total",
+          source: adapterMetadata.parameter_count_source ? String(adapterMetadata.parameter_count_source) : null
+        };
+      }
+      const prefixByLayer =
+        adapterMetadata.parameter_count_prefix_by_layer &&
+        typeof adapterMetadata.parameter_count_prefix_by_layer === "object"
+          ? adapterMetadata.parameter_count_prefix_by_layer
+          : null;
+      if (!prefixByLayer) {
+        return null;
+      }
+      const anchorEntries = bubbleLayerAnchorMetricKeys(selection)
+        .map((metricKey) => ({
+          key: metricKey,
+          label: bubbleMetricDisplayLabel(metricKey),
+          layer: selectedLayerForResult(result, metricKey)
+        }))
+        .filter((entry) => Number.isFinite(entry.layer));
+      if (!anchorEntries.length) {
+        return null;
+      }
+      const furthestLayer = Math.max(...anchorEntries.map((entry) => Number(entry.layer)));
+      const value =
+        finiteNumber(prefixByLayer[String(furthestLayer)]) ??
+        finiteNumber(prefixByLayer[furthestLayer]);
+      if (value === null || value <= 0) {
+        return null;
+      }
+      return {
+        value,
+        total,
+        scope: "best_layer",
+        furthestLayer,
+        anchorEntries,
+        source: adapterMetadata.parameter_count_prefix_source
+          ? String(adapterMetadata.parameter_count_prefix_source)
+          : null
+      };
+    }
+
+    function bubbleMetricConfig(metricKey, selection) {
+      if (metricKey === "auroc") {
+        return {
+          key: "auroc",
+          label: "Macro AUROC",
+          axisType: "value",
+          missingHint: "macro AUROC summaries",
+          range: { lowerBound: 0.0, upperBound: 1.0, fallback: [0, 1] },
+          axisTickFormatter: (value) => Number(value).toFixed(2),
+          sizeTransform: (value) => Number(value),
+          summary: (result) => {
+            const value = statMedian(result.results.summary.best_auc.macro_auc);
+            const layer = finiteNumber(result.results.summary.best_auc.layer);
+            if (!Number.isFinite(value)) {
+              return null;
+            }
+            return {
+              value,
+              detailLines: [
+                `Macro AUROC: ${formatMetricValue(value)} (best layer ${layer === null ? "N/A" : Number(layer)})`
+              ]
+            };
+          }
+        };
+      }
+      if (metricKey === "auprc") {
+        return {
+          key: "auprc",
+          label: "Macro AUPRC",
+          axisType: "value",
+          missingHint: "macro AUPRC summaries",
+          range: { lowerBound: 0.0, upperBound: 1.0, fallback: [0, 1] },
+          axisTickFormatter: (value) => Number(value).toFixed(2),
+          sizeTransform: (value) => Number(value),
+          summary: (result) => {
+            const value = statMedian(result.results.summary.best_auprc.macro_auprc);
+            const layer = finiteNumber(result.results.summary.best_auprc.layer);
+            if (!Number.isFinite(value)) {
+              return null;
+            }
+            return {
+              value,
+              detailLines: [
+                `Macro AUPRC: ${formatMetricValue(value)} (best layer ${layer === null ? "N/A" : Number(layer)})`
+              ]
+            };
+          }
+        };
+      }
+      if (metricKey === "r2") {
+        return {
+          key: "r2",
+          label: "Macro R2",
+          axisType: "value",
+          missingHint: "macro R2 summaries",
+          range: { upperBound: 1.0, fallback: [0, 1] },
+          axisTickFormatter: (value) => Number(value).toFixed(2),
+          sizeTransform: (value) => Number(value),
+          summary: (result) => {
+            const payload = result.results.summary.macro_best_layers.r2;
+            const value = payload && payload.value ? statMedian(payload.value) : null;
+            const layer = payload && payload.layer !== null ? Number(payload.layer) : null;
+            if (!Number.isFinite(value)) {
+              return null;
+            }
+            return {
+              value,
+              detailLines: [`Macro R2: ${formatMetricValue(value)} (best layer ${layer === null ? "N/A" : layer})`]
+            };
+          }
+        };
+      }
+      if (metricKey === "pearson") {
+        return {
+          key: "pearson",
+          label: "Macro Pearson",
+          axisType: "value",
+          missingHint: "macro Pearson summaries",
+          range: { lowerBound: -1.0, upperBound: 1.0, fallback: [-1, 1] },
+          axisTickFormatter: (value) => Number(value).toFixed(2),
+          sizeTransform: (value) => Number(value),
+          summary: (result) => {
+            const payload = result.results.summary.macro_best_layers.pearson;
+            const value = payload && payload.value ? statMedian(payload.value) : null;
+            const layer = payload && payload.layer !== null ? Number(payload.layer) : null;
+            if (!Number.isFinite(value)) {
+              return null;
+            }
+            return {
+              value,
+              detailLines: [
+                `Macro Pearson: ${formatMetricValue(value)} (best layer ${layer === null ? "N/A" : layer})`
+              ]
+            };
+          }
+        };
+      }
+      if (metricKey === "inference") {
+        return {
+          key: "inference",
+          label: "Encoder forward time",
+          axisType: "value",
+          missingHint: "encoder forward timing metadata",
+          range: { lowerBound: 0.0, fallback: [0, 1] },
+          axisTickFormatter: formatDurationAxisValue,
+          sizeTransform: (value) => Math.sqrt(Math.max(0, Number(value))),
+          summary: (result) => {
+            const inference = inferenceForwardBreakdown(result);
+            if (!inference || !Number.isFinite(inference.totalForward)) {
+              return null;
+            }
+            const lines = [`Encoder forward time: ${formatDurationSeconds(inference.totalForward)}`];
+            if (inference.trainForward !== null) {
+              lines.push(`Train forward: ${formatDurationSeconds(inference.trainForward)}`);
+            }
+            if (inference.valForwardTotal !== null) {
+              const seedSuffix =
+                inference.validationRuns !== null ? ` (${Number(inference.validationRuns)} seeds)` : "";
+              lines.push(
+                `Validation forward total: ${formatDurationSeconds(inference.valForwardTotal)}${seedSuffix}`
+              );
+            }
+            if (inference.source) {
+              lines.push(`Timing source: ${humanizeToken(inference.source)}`);
+            }
+            return {
+              value: inference.totalForward,
+              detailLines: lines
+            };
+          }
+        };
+      }
+      if (metricKey === "parameters") {
+        return {
+          key: "parameters",
+          label:
+            selection && selection.parameterScope === "best_layer"
+              ? "Parameters Through Plotted Best Layer"
+              : "Model parameters",
+          axisType: "log",
+          missingHint:
+            selection && selection.parameterScope === "best_layer"
+              ? "through-best-layer parameter counts"
+              : "stored model parameter counts",
+          range: { lowerBound: 1.0, fallback: [1, 10] },
+          axisTickFormatter: formatCompactInteger,
+          sizeTransform: (value) => Math.sqrt(Math.max(0, Number(value))),
+          summary: (result) => {
+            const summary = parameterCountSummary(result, selection);
+            if (!summary) {
+              return null;
+            }
+            if (summary.scope === "best_layer") {
+              return {
+                value: summary.value,
+                detailLines: [
+                  `Parameters through plotted best layer: ${formatIntegerValue(summary.value)} (${formatCompactInteger(summary.value)})`,
+                  `Furthest plotted best layer: ${summary.furthestLayer}`,
+                  `Anchor metrics: ${summary.anchorEntries
+                    .map((entry) => `${entry.label} -> layer ${entry.layer}`)
+                    .join("; ")}`,
+                  `Total registered model parameters: ${formatIntegerValue(summary.total)} (${formatCompactInteger(summary.total)})`,
+                  summary.source ? `Count source: ${humanizeToken(summary.source)}` : null
+                ].filter(Boolean)
+              };
+            }
+            const lines = [
+              `Model parameters: ${formatIntegerValue(summary.total)} (${formatCompactInteger(summary.total)})`
+            ];
+            if (summary.trainable !== null) {
+              lines.push(`Trainable parameters: ${formatIntegerValue(summary.trainable)}`);
+            }
+            if (summary.source) {
+              lines.push(`Count source: ${humanizeToken(summary.source)}`);
+            }
+            return {
+              value: summary.value,
+              detailLines: lines
+            };
+          }
+        };
+      }
+      throw new Error("Unsupported bubble metric: " + metricKey);
+    }
+
+    function bubbleAxisLabel(metricConfig) {
+      return metricConfig.axisType === "log" ? `${metricConfig.label} (log scale)` : metricConfig.label;
+    }
+
+    function bubbleAxisRange(values, metricConfig) {
+      return metricConfig.axisType === "log"
+        ? paddedLogMetricRange(values, metricConfig.range)
+        : paddedMetricRange(values, metricConfig.range);
+    }
+
+    function bubbleSymbolSize(metricValue, metricConfig, allValues) {
+      const numeric = finiteNumber(metricValue);
+      if (numeric === null) {
+        return 28;
+      }
+      const transformedValues = allValues
+        .map((value) => finiteNumber(value))
+        .filter((value) => value !== null)
+        .map((value) => metricConfig.sizeTransform(value));
+      if (!transformedValues.length) {
+        return 28;
+      }
+      const transformedCurrent = metricConfig.sizeTransform(numeric);
+      const minValue = Math.min(...transformedValues);
+      const maxValue = Math.max(...transformedValues);
+      if (!Number.isFinite(minValue) || !Number.isFinite(maxValue) || maxValue <= minValue) {
+        return 28;
+      }
+      const normalized = (transformedCurrent - minValue) / (maxValue - minValue);
+      return 18 + Math.max(0, Math.min(1, normalized)) * 44;
+    }
+
+    function getSelectedResults() {
+      return visibleResults().filter((result) => state.selectedRunKeys.has(runKey(result)));
+    }
+
+    function emptyOption(title, message) {
+      return {
+        animation: false,
+        title: {
+          text: title,
+          left: "center",
+          top: "center",
+          textStyle: {
+            color: "#5c6a82",
+            fontSize: 15,
+            fontWeight: 600
+          },
+          subtext: message,
+          subtextStyle: {
+            color: "#76849a",
+            fontSize: 13,
+            lineHeight: 20
+          }
+        }
+      };
+    }
+
+    function radarRange(modelToValues, forcedMin) {
+      const flat = Object.values(modelToValues)
+        .flat()
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value));
+      let min = forcedMin !== null ? Number(forcedMin) : Math.min(...flat);
+      let max = Math.max(...flat);
+      if (!Number.isFinite(min)) {
+        min = 0;
+      }
+      if (!Number.isFinite(max)) {
+        max = 1;
+      }
+      if (max <= min) {
+        max = min + 1e-6;
+      }
+      return { min, max };
+    }
+
+    function radarGridLabelGraphics(chart, range, splitNumber) {
+      const width = chart.getWidth();
+      const height = chart.getHeight();
+      const centerX = width * RADAR_CENTER_X;
+      const centerY = height * RADAR_CENTER_Y;
+      const radius = (Math.min(width, height) * RADAR_RADIUS_RATIO) / 2;
+      const step = (Number(range.max) - Number(range.min)) / Number(splitNumber);
+      const labels = [];
+
+      for (let index = 0; index <= splitNumber; index += 1) {
+        const value = Number(range.min) + step * index;
+        const fraction = index / splitNumber;
+        labels.push({
+          type: "text",
+          silent: true,
+          z: 100,
+          left: centerX + 10,
+          top: centerY - radius * fraction,
+          style: {
+            text: formatRadarGridValue(value),
+            fill: "#607089",
+            font: '11px "IBM Plex Sans", "Segoe UI", sans-serif',
+            backgroundColor: "rgba(255, 255, 255, 0.84)",
+            borderRadius: 8,
+            padding: [2, 4],
+            align: "left",
+            verticalAlign: "middle"
+          }
+        });
+      }
+
+      return labels;
+    }
+
+    function buildRadarOption({ chart, title, results, selectorKey, categories, seriesBuilder, forcedMin = null }) {
+      if (!results.length) {
+        return {
+          option: emptyOption(title, "No models selected"),
+          hoverTarget: null
+        };
+      }
+
+      const dataByModel = {};
+      const statsByModel = {};
+      const layerByModel = {};
+
+      results.forEach((result) => {
+        const key = runKey(result);
+        const layer = selectedLayerForResult(result, selectorKey);
+        if (layer === null) {
+          return;
+        }
+        const { plottedValues, stats } = seriesBuilder(result, layer, categories);
+        dataByModel[key] = plottedValues;
+        statsByModel[key] = stats;
+        layerByModel[key] = layer;
+      });
+
+      if (!Object.keys(dataByModel).length) {
+        return {
+          option: emptyOption(title, "Selected best-layer rule produced no finite layers"),
+          hoverTarget: null
+        };
+      }
+
+      const range = radarRange(dataByModel, forcedMin);
+      const indicator = categories.map((category) => ({
+        name: wrapCategoryLabel(category),
+        min: range.min,
+        max: range.max
+      }));
+      const radarRows = results
+        .map((result) => {
+          const key = runKey(result);
+          if (!Object.prototype.hasOwnProperty.call(dataByModel, key)) {
+            return null;
+          }
+          return {
+            name: plotLabel(result),
+            runKey: key,
+            value: dataByModel[key]
+          };
+        })
+        .filter(Boolean);
+
+      return {
+        option: {
+          animationDuration: 250,
+          color: results.map((result) => colorForResult(result)),
+          tooltip: {
+            trigger: "item",
+            confine: true,
+            formatter: (param) => {
+              const rowRunKey =
+                param && param.data && typeof param.data.runKey === "string" ? param.data.runKey : null;
+              const result = rowRunKey ? resultByRunKey(rowRunKey) : null;
+              const label = result ? plotLabel(result) : param.name || param.seriesName;
+              const stats = rowRunKey ? statsByModel[rowRunKey] || [] : [];
+              const plottedValues = rowRunKey ? dataByModel[rowRunKey] || param.value : param.value;
+              const layer = rowRunKey ? layerByModel[rowRunKey] : null;
+              const rows = categories.map((category, index) => {
+                const raw = statMedian(stats[index]);
+                const rawStd = statStd(stats[index]);
+                const plotted = plottedValues[index];
+                const clipped =
+                  Number.isFinite(raw) && Number.isFinite(plotted) && Math.abs(raw - plotted) > 1e-12;
+                return `${category}: ${formatMetricValue(raw)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plotted)})` : ""}`;
+              });
+              return [
+                `<strong>${label}</strong>`,
+                `Color group: ${result ? groupLabelForResult(result) : label}`,
+                `Selected layer: ${layer === null ? "N/A" : layer}`,
+                rows.join("<br>")
+              ].join("<br>");
+            }
+          },
+          toolbox: {
+            right: 14,
+            feature: {
+              saveAsImage: {
+                pixelRatio: 2
+              }
+            }
+          },
+          radar: {
+            center: [`${RADAR_CENTER_X * 100}%`, `${RADAR_CENTER_Y * 100}%`],
+            radius: `${RADAR_RADIUS_RATIO * 100}%`,
+            splitNumber: RADAR_SPLIT_NUMBER,
+            shape: "polygon",
+            axisName: {
+              color: "#324055",
+              fontSize: 12
+            },
+            axisLine: {
+              lineStyle: {
+                color: "#ccd7e3"
+              }
+            },
+            splitLine: {
+              lineStyle: {
+                color: "#d7e1eb"
+              }
+            },
+            splitArea: {
+              areaStyle: {
+                color: ["rgba(241, 245, 249, 0.45)", "rgba(255, 255, 255, 0.70)"]
+              }
+            },
+            indicator
+          },
+          graphic: radarGridLabelGraphics(chart, range, RADAR_SPLIT_NUMBER),
+          series: [
+            {
+              type: "radar",
+              symbol: "circle",
+              symbolSize: 6,
+              lineStyle: {
+                width: 2.2
+              },
+              areaStyle: {
+                opacity: 0.08
+              },
+              emphasis: {
+                focus: "self",
+                lineStyle: {
+                  width: 3.2
+                },
+                areaStyle: {
+                  opacity: 0.16
+                }
+              },
+              blur: {
+                lineStyle: {
+                  opacity: 0.18
+                },
+                areaStyle: {
+                  opacity: 0.03
+                }
+              },
+              data: radarRows
+            }
+          ]
+        },
+        hoverTarget: {
+          type: "data",
+          seriesIndex: 0,
+          dataIndexByModel: new Map(radarRows.map((row, index) => [row.runKey, index]))
+        }
+      };
+    }
+
+    function metricStatsByLayer(result, metricKey) {
+      let layers = [];
+      let stats = [];
+
+      if (metricKey === "auroc") {
+        const categorical = result.results.categorical;
+        layers = Object.keys(categorical).map(Number).sort((a, b) => a - b);
+        stats = layers.map((layer) => categorical[String(layer)].best_auc.macro_auc);
+      } else if (metricKey === "auprc") {
+        const categorical = result.results.categorical;
+        layers = Object.keys(categorical).map(Number).sort((a, b) => a - b);
+        stats = layers.map((layer) => categorical[String(layer)].best_auprc.macro_auprc);
+      } else if (metricKey === "macro_pearson") {
+        const dense = result.results.dense;
+        layers = Object.keys(dense).map(Number).sort((a, b) => a - b);
+        stats = layers.map((layer) => dense[String(layer)].macro_pearson);
+      } else if (metricKey === "macro_r2") {
+        const dense = result.results.dense;
+        layers = Object.keys(dense).map(Number).sort((a, b) => a - b);
+        stats = layers.map((layer) => dense[String(layer)].macro_r2);
+      } else {
+        throw new Error("Unsupported line metric: " + metricKey);
+      }
+
+      return { layers, stats };
+    }
+
+    function lineLayerCategories(results, metricKey) {
+      return Array.from(
+        new Set(
+          results.flatMap((result) => metricStatsByLayer(result, metricKey).layers.map((layer) => String(layer)))
+        )
+      ).sort((left, right) => Number(left) - Number(right));
+    }
+
+    function lineSeriesGroup(result, metricKey, selectorKey, layerCategories) {
+      const key = runKey(result);
+      const name = plotLabel(result);
+      const color = colorForResult(result);
+      const lineStyleType = numEnabledLineStyleType(result);
+      const selectedLayer = selectedLayerForResult(result, selectorKey);
+      const { layers, stats } = metricStatsByLayer(result, metricKey);
+      const medians = stats.map((value) => statMedian(value));
+      const stds = stats.map((value) => statStd(value));
+      const clippedMetric = metricKey === "macro_r2";
+      const plottedMedians = medians.map((value) => (clippedMetric ? clippedValue(value, 0.0) : value));
+      const plottedLowers = medians.map((value, index) => {
+        if (!Number.isFinite(value) || !Number.isFinite(stds[index])) {
+          return null;
+        }
+        const lower = value - stds[index];
+        return clippedMetric ? clippedValue(lower, 0.0) : lower;
+      });
+      const plottedUppers = medians.map((value, index) => {
+        if (!Number.isFinite(value) || !Number.isFinite(stds[index])) {
+          return null;
+        }
+        const upper = value + stds[index];
+        return clippedMetric ? clippedValue(upper, 0.0) : upper;
+      });
+      const bandDelta = plottedUppers.map((value, index) => {
+        if (!Number.isFinite(value) || !Number.isFinite(plottedLowers[index])) {
+          return null;
+        }
+        return Math.max(0, value - plottedLowers[index]);
+      });
+      const stackName = `band:${name}:${metricKey}`;
+      const layerPayloadByKey = new Map(
+        layers.map((layer, index) => [
+          String(layer),
+          {
+            stat: stats[index],
+            rawValue: medians[index],
+            rawStd: stds[index],
+            plottedValue: plottedMedians[index],
+            plottedLower: plottedLowers[index],
+            bandDelta: bandDelta[index],
+            isSelected: Number(layer) === Number(selectedLayer)
+          }
+        ])
+      );
+
+      return [
+        {
+          name: `${name} lower`,
+          id: `${key}::${metricKey}::lower`,
+          type: "line",
+          stack: stackName,
+          stackStrategy: "all",
+          symbol: "none",
+          silent: true,
+          z: 1,
+          lineStyle: {
+            opacity: 0
+          },
+          areaStyle: {
+            opacity: 0
+          },
+          tooltip: {
+            show: false
+          },
+          data: layerCategories.map((layerKey) => {
+            const payload = layerPayloadByKey.get(layerKey);
+            return payload ? payload.plottedLower : null;
+          })
+        },
+        {
+          name: `${name} std`,
+          id: `${key}::${metricKey}::std`,
+          type: "line",
+          stack: stackName,
+          stackStrategy: "all",
+          symbol: "none",
+          silent: true,
+          z: 1,
+          lineStyle: {
+            opacity: 0
+          },
+          areaStyle: {
+            color: rgbaWithAlpha(color, 0.16)
+          },
+          tooltip: {
+            show: false
+          },
+          data: layerCategories.map((layerKey) => {
+            const payload = layerPayloadByKey.get(layerKey);
+            return payload ? payload.bandDelta : null;
+          })
+        },
+        {
+          name,
+          id: `${key}::${metricKey}::line`,
+          type: "line",
+          smooth: false,
+          showSymbol: true,
+          symbolSize: 6,
+          z: 2,
+          emphasis: {
+            focus: "series"
+          },
+          blur: {
+            lineStyle: {
+              opacity: 0.18
+            },
+            itemStyle: {
+              opacity: 0.18
+            }
+          },
+          lineStyle: {
+            width: 2.2,
+            color,
+            type: lineStyleType
+          },
+          itemStyle: {
+            color
+          },
+          data: layerCategories.map((layerKey) => {
+            const payload = layerPayloadByKey.get(layerKey);
+            if (!payload) {
+              return null;
+            }
+            return {
+              value: payload.plottedValue,
+              runKey: key,
+              rawValue: payload.rawValue,
+              rawStd: payload.rawStd,
+              rawStat: payload.stat,
+              selectedLayer,
+              symbolSize: payload.isSelected ? 11 : 5,
+              itemStyle: {
+                color,
+                borderColor: "#ffffff",
+                borderWidth: payload.isSelected ? 2 : 0
+              }
+            };
+          })
+        }
+      ];
+    }
+
+    function buildLineOption({ title, yName, results, selectorKey, metricKey, yMin, yMax, clippedNote = false }) {
+      if (!results.length) {
+        return {
+          option: emptyOption(title, "No models selected"),
+          hoverTarget: null
+        };
+      }
+      const layerCategories = lineLayerCategories(results, metricKey);
+      const series = [];
+      const seriesIndexByModel = new Map();
+      results.forEach((result) => {
+        const groupSeries = lineSeriesGroup(result, metricKey, selectorKey, layerCategories);
+        series.push(...groupSeries);
+        seriesIndexByModel.set(runKey(result), series.length - 1);
+      });
+
+      return {
+        option: {
+          animationDuration: 250,
+          color: results.map((result) => colorForResult(result)),
+          grid: {
+            top: 42,
+            left: 54,
+            right: 24,
+            bottom: 42
+          },
+          tooltip: {
+            trigger: "axis",
+            confine: true,
+            formatter: (params) => {
+              const axisValue = params.length ? params[0].axisValue : "?";
+              const rows = params
+                .filter((param) => param.data && param.data.rawStat)
+                .slice()
+                .sort((left, right) => {
+                  const a = statMedian(left.data.rawStat);
+                  const b = statMedian(right.data.rawStat);
+                  return b - a;
+                })
+                .map((param) => {
+                  const rawValue = Number(param.data.rawValue);
+                  const rawStd = Number(param.data.rawStd || 0);
+                  const plottedValue = Number(param.data.value);
+                  const clipped = Math.abs(rawValue - plottedValue) > 1e-12;
+                  const selectedSuffix =
+                    Number(param.data.selectedLayer) === Number(axisValue) ? " [selected layer]" : "";
+                  const result =
+                    param.data && typeof param.data.runKey === "string" ? resultByRunKey(param.data.runKey) : null;
+                  const colorGroupSuffix =
+                    result && getColorMode() !== "model" ? ` [${groupLabelForResult(result)}]` : "";
+                  return `${param.marker}${param.seriesName}${colorGroupSuffix}: ${formatMetricValue(rawValue)} ± ${formatMetricValue(rawStd)}${clipped ? ` (plot ${formatMetricValue(plottedValue)})` : ""}${selectedSuffix}`;
+                });
+              return [`<strong>Layer ${axisValue}</strong>`, ...rows].join("<br>");
+            }
+          },
+          toolbox: {
+            right: 14,
+            feature: {
+              saveAsImage: {
+                pixelRatio: 2
+              }
+            }
+          },
+          xAxis: {
+            type: "category",
+            boundaryGap: false,
+            data: layerCategories,
+            name: "Layer",
+            nameLocation: "middle",
+            nameGap: 28,
+            axisLabel: {
+              color: "#4f5d74"
+            },
+            splitLine: {
+              lineStyle: {
+                color: "#edf2f7"
+              }
+            }
+          },
+          yAxis: {
+            type: "value",
+            name: clippedNote ? `${yName} (visual clip)` : yName,
+            min: yMin,
+            max: yMax,
+            axisLabel: {
+              color: "#4f5d74"
+            },
+            splitLine: {
+              lineStyle: {
+                color: "#dfe7f0"
+              }
+            }
+          },
+          series
+        },
+        hoverTarget: {
+          type: "series",
+          seriesIndexByModel
+        }
+      };
+    }
+
+    function referenceResult(results) {
+      return results[0] || state.allResults[0] || null;
+    }
+
+    function updateBubbleChartNote(xMetric, yMetric, sizeMetric, selection) {
+      const note = document.getElementById("bubble-chart-note");
+      const parts = [
+        `color = ${groupModeLabel(getColorMode())}`,
+        `X = ${bubbleAxisLabel(xMetric)}`,
+        `Y = ${bubbleAxisLabel(yMetric)}`,
+        `bubble size = ${sizeMetric.label}`,
+        numEnabledVisualSummary()
+      ];
+      if (bubbleUsesParameterMetric(selection)) {
+        if (selection.parameterScope === "best_layer") {
+          const anchorMetricKeys = bubbleLayerAnchorMetricKeys(selection);
+          if (anchorMetricKeys.length) {
+            parts.push(
+              `parameter scope = through the furthest plotted best layer from ${anchorMetricKeys
+                .map((metricKey) => bubbleMetricDisplayLabel(metricKey))
+                .join(", ")}`
+            );
+          } else {
+            parts.push(
+              "parameter scope = through plotted best layer; requires AUROC, AUPRC, R2, or Pearson on one bubble axis or size"
+            );
+          }
+        } else {
+          parts.push("parameter scope = total registered model");
+        }
+      }
+      note.textContent = parts.join(", ");
+    }
+
+    function summarizeBubbleMissingDetails(skippedDetails) {
+      if (!skippedDetails.length) {
+        return "";
+      }
+      const maxItems = 6;
+      const preview = skippedDetails
+        .slice(0, maxItems)
+        .map((detail) => `${detail.name} (${detail.missingHints.join(", ")})`);
+      const remainder = skippedDetails.length - preview.length;
+      return `${preview.join("; ")}${remainder > 0 ? `; +${remainder} more` : ""}`;
+    }
+
+    function buildBubbleChart(results) {
+      const bubbleChart = state.charts[CHART_IDS.bubbleOverview];
+      const selection = bubbleSelectionContext();
+      const xMetric = bubbleMetricConfig(selection.xKey, selection);
+      const yMetric = bubbleMetricConfig(selection.yKey, selection);
+      const sizeMetric = bubbleMetricConfig(selection.sizeKey, selection);
+      updateBubbleChartNote(xMetric, yMetric, sizeMetric, selection);
+      if (!results.length) {
+        setChartHoverTarget(CHART_IDS.bubbleOverview, null);
+        bubbleChart.setOption(
+          emptyOption(
+            state.allResults.length ? "No models selected" : "No data",
+            state.allResults.length ? "Use the Model selector to choose at least one model" : "No JSON results loaded"
+          ),
+          true
+        );
+        return { warning: "" };
+      }
+
+      const missingHints = Array.from(
+        new Set([xMetric.missingHint, yMetric.missingHint, sizeMetric.missingHint].filter(Boolean))
+      );
+      let skippedCount = 0;
+      const skippedDetails = [];
+      const bubbleRows = results
+        .map((result) => {
+          const xSummary = xMetric.summary(result);
+          const ySummary = yMetric.summary(result);
+          const sizeSummary = sizeMetric.summary(result);
+          const xValue = xSummary ? xSummary.value : null;
+          const yValue = ySummary ? ySummary.value : null;
+          const sizeValue = sizeSummary ? sizeSummary.value : null;
+          if (
+            !Number.isFinite(xValue) ||
+            !Number.isFinite(yValue) ||
+            !Number.isFinite(sizeValue)
+          ) {
+            skippedCount += 1;
+            const resultMissingHints = [];
+            if (!Number.isFinite(xValue) && xMetric.missingHint) {
+              resultMissingHints.push(xMetric.missingHint);
+            }
+            if (!Number.isFinite(yValue) && yMetric.missingHint) {
+              resultMissingHints.push(yMetric.missingHint);
+            }
+            if (!Number.isFinite(sizeValue) && sizeMetric.missingHint) {
+              resultMissingHints.push(sizeMetric.missingHint);
+            }
+            skippedDetails.push({
+              name: plotLabel(result),
+              missingHints: Array.from(new Set(resultMissingHints))
+            });
+            return null;
+          }
+          return {
+            name: plotLabel(result),
+            runKey: runKey(result),
+            xValue,
+            yValue,
+            sizeValue,
+            xDetailLines: xSummary.detailLines,
+            yDetailLines: ySummary.detailLines,
+            sizeDetailLines: sizeSummary.detailLines
+          };
+        })
+        .filter(Boolean);
+
+      if (!bubbleRows.length) {
+        const detailsText = summarizeBubbleMissingDetails(skippedDetails);
+        const missingMessage = detailsText
+          ? `Selected models are missing required fields: ${detailsText}.`
+          : `Selected models are missing one or more of: ${missingHints.join(", ")}.`;
+        setChartHoverTarget(CHART_IDS.bubbleOverview, null);
+        bubbleChart.setOption(
+          emptyOption(
+            "No comparable models",
+            missingMessage
+          ),
+          true
+        );
+        return { warning: "" };
+      }
+
+      const sizeValues = bubbleRows.map((row) => row.sizeValue);
+      const xRange = bubbleAxisRange(
+        bubbleRows.map((row) => row.xValue),
+        xMetric
+      );
+      const yRange = bubbleAxisRange(
+        bubbleRows.map((row) => row.yValue),
+        yMetric
+      );
+
+      bubbleChart.setOption(
+        {
+          animationDuration: 250,
+          grid: {
+            top: 56,
+            left: 82,
+            right: 42,
+            bottom: 72,
+            containLabel: true
+          },
+          tooltip: {
+            trigger: "item",
+            confine: true,
+            formatter: (param) => {
+              const row = param.data;
+              const result = row && typeof row.runKey === "string" ? resultByRunKey(row.runKey) : null;
+              const uniqueDetailLines = Array.from(
+                new Set([...row.xDetailLines, ...row.yDetailLines, ...row.sizeDetailLines])
+              );
+              return [
+                `<strong>${row.name}</strong>`,
+                `Color group: ${result ? groupLabelForResult(result) : row.name}`,
+                ...(result ? modelMetadataLines(result, { includeNumEnabled: false }) : []),
+                ...uniqueDetailLines
+              ].join("<br>");
+            }
+          },
+          aria: {
+            enabled: true,
+            decal: {
+              show: true
+            }
+          },
+          toolbox: {
+            right: 14,
+            feature: {
+              saveAsImage: {
+                pixelRatio: 2
+              }
+            }
+          },
+          xAxis: {
+            type: xMetric.axisType,
+            name: bubbleAxisLabel(xMetric),
+            nameLocation: "middle",
+            nameGap: 44,
+            min: xRange.min,
+            max: xRange.max,
+            axisLabel: {
+              color: "#4f5d74",
+              formatter: xMetric.axisTickFormatter
+            },
+            splitLine: {
+              lineStyle: {
+                color: "#dfe7f0"
+              }
+            }
+          },
+          yAxis: {
+            type: yMetric.axisType,
+            name: bubbleAxisLabel(yMetric),
+            nameLocation: "middle",
+            nameGap: 58,
+            nameRotate: 90,
+            min: yRange.min,
+            max: yRange.max,
+            axisLabel: {
+              color: "#4f5d74",
+              formatter: yMetric.axisTickFormatter
+            },
+            splitLine: {
+              lineStyle: {
+                color: "#dfe7f0"
+              }
+            }
+          },
+          series: [
+            {
+              type: "scatter",
+              data: bubbleRows.map((row) => {
+                const result = resultByRunKey(row.runKey);
+                const color = result ? colorForResult(result) : COLOR_PALETTE[0];
+                return {
+                  ...row,
+                  value: [row.xValue, row.yValue, row.sizeValue],
+                  itemStyle: {
+                    color: rgbaWithAlpha(color, 0.68),
+                    borderColor: color,
+                    borderWidth: 1.5,
+                    ...(result && numEnabledBubbleDecal(result)
+                      ? { decal: numEnabledBubbleDecal(result) }
+                      : {})
+                  }
+                };
+              }),
+              symbolSize: (value) => bubbleSymbolSize(value[2], sizeMetric, sizeValues),
+              emphasis: {
+                focus: "self",
+                scale: 1.08,
+                itemStyle: {
+                  borderWidth: 2.2
+                },
+                label: {
+                  show: true
+                }
+              },
+              blur: {
+                itemStyle: {
+                  opacity: 0.18
+                },
+                label: {
+                  opacity: 0.18
+                }
+              },
+              label: {
+                show: true,
+                position: "top",
+                distance: 10,
+                color: "#324055",
+                fontSize: 11,
+                formatter: ({ data }) => data.name
+              },
+              labelLayout: {
+                hideOverlap: true,
+                moveOverlap: "shiftY"
+              }
+            }
+          ]
+        },
+        true
+      );
+      setChartHoverTarget(CHART_IDS.bubbleOverview, {
+        type: "data",
+        seriesIndex: 0,
+        dataIndexByModel: new Map(bubbleRows.map((row, index) => [row.runKey, index]))
+      });
+      return {
+        warning:
+          skippedCount > 0
+            ? (() => {
+                const detailsText = summarizeBubbleMissingDetails(skippedDetails);
+                if (detailsText) {
+                  return `Bubble chart skipped ${skippedCount} selected model${skippedCount === 1 ? "" : "s"}: ${detailsText}.`;
+                }
+                return `Bubble chart skipped ${skippedCount} selected model${skippedCount === 1 ? "" : "s"} missing one or more of: ${missingHints.join(", ")}.`;
+              })()
+            : ""
+      };
+    }
+
+    function buildRadarCharts(results, selectorKey) {
+      const reference = referenceResult(results);
+      if (!reference) {
+        Object.values(CHART_IDS)
+          .filter((id) => id.startsWith("chart-radar"))
+          .forEach((id) => {
+            setChartHoverTarget(id, null);
+            state.charts[id].setOption(emptyOption("No data", "No JSON results loaded"), true);
+          });
+        return;
+      }
+
+      const categoricalReferenceRows = selectedCategoricalRows(reference, selectedLayerForResult(reference, selectorKey));
+      const categoricalSignals = orderedCategories(
+        categoricalReferenceRows.map((row) => row.signal),
+        TARGET_SIGNAL_ORDER
+      );
+
+      const denseReferenceRows = denseRowsAtLayer(reference, selectedLayerForResult(reference, selectorKey));
+      const denseSignalCategories = orderedCategories(
+        denseReferenceRows.map((row) => row.target_signal),
+        TARGET_SIGNAL_ORDER
+      );
+      const metricCounts = {};
+      denseReferenceRows.forEach((row) => {
+        const metric = String(row.target_metric);
+        metricCounts[metric] = (metricCounts[metric] || 0) + 1;
+      });
+      const denseMetricCategories = orderedCategories(
+        Object.entries(metricCounts)
+          .filter(([, count]) => Number(count) > 1)
+          .map(([metric]) => metric),
+        TARGET_METRIC_ORDER
+      );
+
+      const radarAurocChart = state.charts[CHART_IDS.radarAuroc];
+      const radarAuroc = buildRadarOption({
+        chart: radarAurocChart,
+        title: "Categorical Signal AUROC",
+        results,
+        selectorKey,
+        categories: categoricalSignals,
+        forcedMin: Math.min(
+          0.75,
+          ...results.flatMap((result) => {
+            const layer = selectedLayerForResult(result, selectorKey);
+            return selectedCategoricalRows(result, layer).map((row) => statMedian(row.auroc));
+          })
+        ),
+        seriesBuilder: (result, layer, categories) => {
+          const bySignal = Object.fromEntries(
+            selectedCategoricalRows(result, layer).map((row) => [row.signal, row])
+          );
+          const stats = categories.map((category) => bySignal[category].auroc);
+          const plottedValues = stats.map((value) => statMedian(value));
+          return { stats, plottedValues };
+        }
+      });
+      radarAurocChart.setOption(radarAuroc.option, true);
+      setChartHoverTarget(CHART_IDS.radarAuroc, radarAuroc.hoverTarget);
+
+      const radarAuprcChart = state.charts[CHART_IDS.radarAuprc];
+      const radarAuprc = buildRadarOption({
+        chart: radarAuprcChart,
+        title: "Categorical Signal AUPRC",
+        results,
+        selectorKey,
+        categories: categoricalSignals,
+        seriesBuilder: (result, layer, categories) => {
+          const bySignal = Object.fromEntries(
+            selectedCategoricalRows(result, layer).map((row) => [row.signal, row])
+          );
+          const stats = categories.map((category) => bySignal[category].auprc);
+          const plottedValues = stats.map((value) => statMedian(value));
+          return { stats, plottedValues };
+        }
+      });
+      radarAuprcChart.setOption(radarAuprc.option, true);
+      setChartHoverTarget(CHART_IDS.radarAuprc, radarAuprc.hoverTarget);
+
+      const radarR2SignalChart = state.charts[CHART_IDS.radarR2Signal];
+      const radarR2Signal = buildRadarOption({
+        chart: radarR2SignalChart,
+        title: "Regression By Component Type (R2)",
+        results,
+        selectorKey,
+        categories: denseSignalCategories,
+        forcedMin: 0.0,
+        seriesBuilder: (result, layer, categories) => {
+          const rows = denseRowsAtLayer(result, layer);
+          const stats = aggregateDenseStatsByGroup(rows, "r2", "target_signal", categories);
+          const plottedValues = stats.map((value) => clippedValue(statMedian(value), 0.0));
+          return { stats, plottedValues };
+        }
+      });
+      radarR2SignalChart.setOption(radarR2Signal.option, true);
+      setChartHoverTarget(CHART_IDS.radarR2Signal, radarR2Signal.hoverTarget);
+
+      const radarR2MetricChart = state.charts[CHART_IDS.radarR2Metric];
+      const radarR2Metric = buildRadarOption({
+        chart: radarR2MetricChart,
+        title: "Regression By Parameter Type (R2)",
+        results,
+        selectorKey,
+        categories: denseMetricCategories,
+        forcedMin: 0.0,
+        seriesBuilder: (result, layer, categories) => {
+          const rows = denseRowsAtLayer(result, layer);
+          const stats = aggregateDenseStatsByGroup(rows, "r2", "target_metric", categories);
+          const plottedValues = stats.map((value) => clippedValue(statMedian(value), 0.0));
+          return { stats, plottedValues };
+        }
+      });
+      radarR2MetricChart.setOption(radarR2Metric.option, true);
+      setChartHoverTarget(CHART_IDS.radarR2Metric, radarR2Metric.hoverTarget);
+
+      const radarPearsonSignalChart = state.charts[CHART_IDS.radarPearsonSignal];
+      const radarPearsonSignal = buildRadarOption({
+        chart: radarPearsonSignalChart,
+        title: "Regression By Component Type (Pearson)",
+        results,
+        selectorKey,
+        categories: denseSignalCategories,
+        seriesBuilder: (result, layer, categories) => {
+          const rows = denseRowsAtLayer(result, layer);
+          const stats = aggregateDenseStatsByGroup(rows, "pearson", "target_signal", categories);
+          const plottedValues = stats.map((value) => statMedian(value));
+          return { stats, plottedValues };
+        }
+      });
+      radarPearsonSignalChart.setOption(radarPearsonSignal.option, true);
+      setChartHoverTarget(CHART_IDS.radarPearsonSignal, radarPearsonSignal.hoverTarget);
+
+      const radarPearsonMetricChart = state.charts[CHART_IDS.radarPearsonMetric];
+      const radarPearsonMetric = buildRadarOption({
+        chart: radarPearsonMetricChart,
+        title: "Regression By Parameter Type (Pearson)",
+        results,
+        selectorKey,
+        categories: denseMetricCategories,
+        seriesBuilder: (result, layer, categories) => {
+          const rows = denseRowsAtLayer(result, layer);
+          const stats = aggregateDenseStatsByGroup(rows, "pearson", "target_metric", categories);
+          const plottedValues = stats.map((value) => statMedian(value));
+          return { stats, plottedValues };
+        }
+      });
+      radarPearsonMetricChart.setOption(radarPearsonMetric.option, true);
+      setChartHoverTarget(CHART_IDS.radarPearsonMetric, radarPearsonMetric.hoverTarget);
+    }
+
+    function buildLineCharts(results, selectorKey) {
+      const r2Max = Math.max(
+        0.05,
+        ...results.flatMap((result) => {
+          const { stats } = metricStatsByLayer(result, "macro_r2");
+          return stats
+            .map((value) => {
+              const medianValue = statMedian(value);
+              const stdValue = statStd(value);
+              if (!Number.isFinite(medianValue) || !Number.isFinite(stdValue)) {
+                return null;
+              }
+              const clipped = clippedValue(medianValue + stdValue, 0.0);
+              return Number.isFinite(clipped) ? clipped * 1.05 : null;
+            })
+            .filter((value) => Number.isFinite(value));
+        })
+      );
+
+      const lineAuroc = buildLineOption({
+        title: "Macro AUROC By Layer",
+        yName: "AUROC",
+        results,
+        selectorKey,
+        metricKey: "auroc",
+        yMin: 0.5,
+        yMax: 1.0
+      });
+      state.charts[CHART_IDS.lineAuroc].setOption(lineAuroc.option, true);
+      setChartHoverTarget(CHART_IDS.lineAuroc, lineAuroc.hoverTarget);
+
+      const lineAuprc = buildLineOption({
+        title: "Macro AUPRC By Layer",
+        yName: "AUPRC",
+        results,
+        selectorKey,
+        metricKey: "auprc",
+        yMin: 0.0,
+        yMax: 1.0
+      });
+      state.charts[CHART_IDS.lineAuprc].setOption(lineAuprc.option, true);
+      setChartHoverTarget(CHART_IDS.lineAuprc, lineAuprc.hoverTarget);
+
+      const linePearson = buildLineOption({
+        title: "Macro Pearson By Layer",
+        yName: "Pearson",
+        results,
+        selectorKey,
+        metricKey: "macro_pearson",
+        yMin: 0.0,
+        yMax: 1.0
+      });
+      state.charts[CHART_IDS.linePearson].setOption(linePearson.option, true);
+      setChartHoverTarget(CHART_IDS.linePearson, linePearson.hoverTarget);
+
+      const lineR2 = buildLineOption({
+        title: "Macro R2 By Layer",
+        yName: "Macro R2",
+        results,
+        selectorKey,
+        metricKey: "macro_r2",
+        yMin: 0.0,
+        yMax: r2Max,
+        clippedNote: true
+      });
+      state.charts[CHART_IDS.lineR2].setOption(lineR2.option, true);
+      setChartHoverTarget(CHART_IDS.lineR2, lineR2.hoverTarget);
+    }
+
+    function groupSelectionStats(groupValue, mode = getModelSelectionMode()) {
+      const runKeys = runKeysForGroup(groupValue, mode);
+      const selectedCount = runKeys.filter((runKeyValue) => state.selectedRunKeys.has(runKeyValue)).length;
+      return {
+        runKeys,
+        selectedCount,
+        totalCount: runKeys.length,
+        isAllSelected: runKeys.length > 0 && selectedCount === runKeys.length,
+        isPartiallySelected: selectedCount > 0 && selectedCount < runKeys.length
+      };
+    }
+
+    function toggleModelSelectionGroup(groupValue, mode = getModelSelectionMode()) {
+      const { runKeys, isAllSelected } = groupSelectionStats(groupValue, mode);
+      runKeys.forEach((runKeyValue) => {
+        if (isAllSelected) {
+          state.selectedRunKeys.delete(runKeyValue);
+        } else {
+          state.selectedRunKeys.add(runKeyValue);
+        }
+      });
+    }
+
+    function renderModelSelectionGroups() {
+      const mode = getModelSelectionMode();
+      const modeNode = document.getElementById("model-selection-mode");
+      const listNode = document.getElementById("model-selection-group-list");
+      const entries = groupEntries(mode);
+      const selectedCount = getSelectedResults().length;
+      const visibleCount = visibleResults().length;
+
+      modeNode.textContent = entries.length
+        ? `${groupModeLabel(mode)} · ${selectedCount}/${visibleCount}`
+        : groupModeLabel(mode);
+      listNode.innerHTML = "";
+
+      if (!entries.length) {
+        const empty = document.createElement("div");
+        empty.className = "color-legend-empty";
+        empty.textContent = "Load benchmark JSON files to populate selection classes.";
+        listNode.appendChild(empty);
+        return;
+      }
+
+      entries.forEach((entry) => {
+        const selection = groupSelectionStats(entry.groupValue, mode);
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = `selection-group-item${selection.isAllSelected ? " active" : ""}${selection.isPartiallySelected ? " partial" : ""}`;
+        item.dataset.groupValue = entry.groupValue;
+        item.dataset.groupMode = mode;
+        item.setAttribute("aria-pressed", String(selection.selectedCount > 0));
+        item.title = `${entry.label}: ${selection.selectedCount}/${selection.totalCount}`;
+        item.addEventListener("click", () => {
+          toggleModelSelectionGroup(entry.groupValue, mode);
+          renderAll();
+        });
+        item.addEventListener("pointerenter", () => {
+          setHoveredModels(selection.runKeys);
+        });
+        item.addEventListener("pointerleave", () => {
+          clearHoveredModels();
+        });
+        item.addEventListener("focusin", () => {
+          setHoveredModels(selection.runKeys);
+        });
+        item.addEventListener("focusout", (event) => {
+          if (!item.contains(event.relatedTarget)) {
+            clearHoveredModels();
+          }
+        });
+
+        const label = document.createElement("span");
+        label.className = "color-legend-label";
+        label.textContent = entry.label;
+
+        const count = document.createElement("span");
+        count.className = "color-legend-count";
+        count.textContent = `${selection.selectedCount}/${selection.totalCount}`;
+
+        item.appendChild(label);
+        item.appendChild(count);
+        listNode.appendChild(item);
+      });
+      syncHoverDecorations();
+    }
+
+    function renderModelPicker() {
+      const picker = document.getElementById("model-picker");
+      const colorMode = getColorMode();
+      const selectionMode = getModelSelectionMode();
+      let visibleCount = 0;
+      picker.innerHTML = "";
+
+      visibleResults().forEach((result) => {
+        const key = runKey(result);
+        const name = modelName(result);
+        const selected = state.selectedRunKeys.has(key);
+        const visible = modelMatchesPickerFilters(result);
+        if (visible) {
+          visibleCount += 1;
+        }
+        const label = document.createElement("label");
+        label.className = `model-chip${selected ? " selected" : ""}${visible ? "" : " hidden"}`;
+        label.dataset.model = key;
+        label.title = [
+          `Color group (${groupModeLabel(colorMode)}): ${groupLabelForResult(result, colorMode)}`,
+          colorMode === selectionMode
+            ? null
+            : `Selection group (${groupModeLabel(selectionMode)}): ${groupLabelForResult(result, selectionMode)}`,
+          ...modelMetadataLines(result),
+        ].filter(Boolean).join(" | ");
+        label.addEventListener("pointerenter", () => {
+          setHoveredModels([key]);
+        });
+        label.addEventListener("pointerleave", () => {
+          clearHoveredModels();
+        });
+        label.addEventListener("focusin", () => {
+          setHoveredModels([key]);
+        });
+        label.addEventListener("focusout", (event) => {
+          if (!label.contains(event.relatedTarget)) {
+            clearHoveredModels();
+          }
+        });
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = selected;
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) {
+            state.selectedRunKeys.add(key);
+          } else {
+            state.selectedRunKeys.delete(key);
+          }
+          renderAll();
+        });
+
+        const swatch = document.createElement("span");
+        swatch.className = "model-swatch";
+        swatch.style.background = colorForResult(result);
+
+        const text = document.createElement("span");
+        text.className = "model-name";
+        text.textContent = name;
+
+        label.appendChild(checkbox);
+        label.appendChild(swatch);
+        label.appendChild(text);
+        picker.appendChild(label);
+      });
+      if (!visibleCount) {
+        const empty = document.createElement("div");
+        empty.className = "color-legend-empty";
+        empty.textContent = visibleResults().length
+          ? "No models match the current search."
+          : "Load benchmark JSON files to populate the model selector.";
+        picker.appendChild(empty);
+      }
+      syncHoverDecorations();
+    }
+
+    function renderColorLegend() {
+      const mode = getColorMode();
+      const modeNode = document.getElementById("color-legend-mode");
+      const listNode = document.getElementById("color-legend-list");
+      const entries = groupEntries(mode);
+
+      modeNode.textContent = entries.length
+        ? `${groupModeLabel(mode)} · ${entries.length} ${entries.length === 1 ? "group" : "groups"}`
+        : groupModeLabel(mode);
+      listNode.innerHTML = "";
+
+      if (!entries.length) {
+        const empty = document.createElement("div");
+        empty.className = "color-legend-empty";
+        empty.textContent = "Load benchmark JSON files to populate the shared color mapping.";
+        listNode.appendChild(empty);
+        return;
+      }
+
+      entries.forEach((entry) => {
+        const item = document.createElement("div");
+        item.className = "color-legend-item";
+        item.dataset.groupValue = entry.groupValue;
+        item.dataset.groupMode = mode;
+        item.title = `${entry.label}${mode === "model" ? "" : `: ${entry.count} run${entry.count === 1 ? "" : "s"}`}`;
+        item.addEventListener("pointerenter", () => {
+          setHoveredModels(runKeysForGroup(entry.groupValue, mode));
+        });
+        item.addEventListener("pointerleave", () => {
+          clearHoveredModels();
+        });
+
+        const swatch = document.createElement("span");
+        swatch.className = "color-legend-swatch";
+        swatch.style.background = entry.color;
+
+        const label = document.createElement("span");
+        label.className = "color-legend-label";
+        label.textContent = entry.label;
+
+        item.appendChild(swatch);
+        item.appendChild(label);
+
+        if (mode !== "model") {
+          const count = document.createElement("span");
+          count.className = "color-legend-count";
+          count.textContent = `${entry.count} run${entry.count === 1 ? "" : "s"}`;
+          item.appendChild(count);
+        }
+
+        listNode.appendChild(item);
+      });
+      syncHoverDecorations();
+    }
+
+    function renderAll() {
+	      if (state.isLoadingResults) {
+	        updateSummaries();
+	        updateLoadingStatus();
+	        return;
+	      }
+	      normalizeRunTypeFilterState();
+	      normalizeNumEnabledFilterState();
+	      syncSelectedRunsToVisibleResults();
+	      const selectorKey = getBestLayerSelector();
+	      const results = getSelectedResults();
+	      normalizeHoveredState();
+	      renderRunTypeFilter();
+	      renderNumEnabledFilter();
+      renderColorLegend();
+      renderModelSelectionGroups();
+      renderModelPicker();
+      updateSummaries();
+      const bubbleSummary = buildBubbleChart(results);
+      buildRadarCharts(results, selectorKey);
+      buildLineCharts(results, selectorKey);
+      syncHoverDecorations();
+      syncChartHoverState();
+      const warnings = [state.discoveryWarning, bubbleSummary ? bubbleSummary.warning : ""].filter(Boolean);
+
+      if (!state.allResults.length) {
+        setStatus(
+          state.discoveryWarning ||
+            "No JSON result files were loaded. Serve the repo over HTTP and keep benchmark JSONs in results/models-v2/.",
+          "warning"
+        );
+	      } else if (!visibleResults().length) {
+	        setStatus("No runs match the current run-type and num_enabled filters. Re-enable at least one value.", "warning");
+      } else if (!results.length) {
+        setStatus("No runs selected. Use the Model selector to choose at least one benchmark run.", "warning");
+      } else if (warnings.length) {
+        setStatus(
+          `Loaded ${state.allResults.length} JSON files; showing ${visibleResults().length} runs via ${state.discoverySource}. ${warnings.join(" | ")}`,
+          "warning"
+        );
+      } else {
+        setStatus(`Loaded ${state.allResults.length} JSON files; showing ${visibleResults().length} runs via ${state.discoverySource}.`);
+      }
+    }
+
+    function handleColorModeChange() {
+      renderAll();
+    }
+
+    function handleModelSelectionModeChange() {
+      renderModelSelectionGroups();
+      renderModelPicker();
+      syncHoverDecorations();
+    }
+
+    function discoverFilesFromListText(listText) {
+      const candidates = String(listText)
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#"))
+        .filter((line) => line.toLowerCase().endsWith(".json"))
+        .map((line) => `${MODELS_DIR}${basename(line)}`);
+      return Array.from(new Set(candidates));
+    }
+
+    function discoverFilesFromDirectoryListing(htmlText) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlText, "text/html");
+      const candidates = Array.from(doc.querySelectorAll("a[href]"))
+        .map((anchor) => String(anchor.getAttribute("href") || "").trim())
+        .filter((href) => href.toLowerCase().endsWith(".json"))
+        .map((href) => `${MODELS_DIR}${basename(href)}`);
+      return Array.from(new Set(candidates));
+    }
+
+    function normalizeLoadedResult(payload) {
+      if (!payload || typeof payload !== "object") {
+        throw new Error("Result payload is not a JSON object");
+      }
+      if (!payload.model || typeof payload.model !== "object" || Array.isArray(payload.model)) {
+        throw new Error("Result payload is missing the top-level model object");
+      }
+
+      const result = payload;
+      const model = result.model;
+      if (!result.dataset || typeof result.dataset !== "object" || Array.isArray(result.dataset)) {
+        result.dataset = {};
+      }
+      const dataset = result.dataset;
+      if (typeof model.family !== "string" || !model.family) {
+        model.family = typeof model.name === "string" && model.name ? model.name : "Unknown family";
+      }
+      if (typeof model.checkpoint_name !== "string" || !model.checkpoint_name) {
+        model.checkpoint_name = typeof model.name === "string" && model.name ? model.name : "Unknown checkpoint";
+      }
+      if (!model.architecture || typeof model.architecture !== "object" || Array.isArray(model.architecture)) {
+        model.architecture = {};
+      }
+      if (typeof model.architecture.backbone !== "string" || !model.architecture.backbone) {
+        model.architecture.backbone = "unknown";
+      }
+      if (!model.training || typeof model.training !== "object" || Array.isArray(model.training)) {
+        model.training = {};
+      }
+      if (typeof model.training.paradigm !== "string" || !model.training.paradigm) {
+        model.training.paradigm = "unknown";
+      }
+      if (typeof model.slug !== "string" || !model.slug) {
+        model.slug = typeof model.name === "string" && model.name ? model.name : slugFromPath(result.__resultPath || "");
+      }
+      if (typeof dataset.benchmark_family !== "string" || !dataset.benchmark_family) {
+        dataset.benchmark_family = "unknown_benchmark_family";
+      }
+      if (typeof dataset.benchmark_version !== "string" || !dataset.benchmark_version) {
+        dataset.benchmark_version = "unknown_benchmark_version";
+      }
+      if (!Number.isInteger(Number(dataset.num_enabled)) || Number(dataset.num_enabled) <= 0) {
+        dataset.num_enabled = null;
+      } else {
+        dataset.num_enabled = Number(dataset.num_enabled);
+      }
+      return result;
+    }
+
+    async function resolveResultFiles() {
+      let manifestError = null;
+      try {
+        const response = await fetch(MODELS_LIST_PATH, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`${MODELS_LIST_PATH} returned HTTP ${response.status}`);
+        }
+        const text = await response.text();
+        const discovered = discoverFilesFromListText(text);
+        if (!discovered.length) {
+          throw new Error(`${MODELS_LIST_PATH} is available, but it does not list any JSON files`);
+        }
+        return { files: discovered, source: MODELS_LIST_PATH, warning: "" };
+      } catch (error) {
+        manifestError = error;
+      }
+
+      try {
+        const response = await fetch(MODELS_DIR, { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`Directory listing request failed with HTTP ${response.status}`);
+        }
+        const html = await response.text();
+        const discovered = discoverFilesFromDirectoryListing(html);
+        if (!discovered.length) {
+          throw new Error("Directory listing is available, but no JSON links were found");
+        }
+        const ordered = discovered.sort((left, right) => slugFromPath(left).localeCompare(slugFromPath(right)));
+        return { files: ordered, source: "directory listing", warning: "" };
+      } catch (error) {
+        return {
+          files: [],
+          source: "discovery failed",
+          warning: `Could not discover model JSON files via ${MODELS_LIST_PATH} or directory listing: ${manifestError.message} | ${error.message}`
+        };
+      }
+    }
+
+    function errorMessage(error) {
+      if (error instanceof Error && error.message) {
+        return error.message;
+      }
+      if (error && typeof error === "object" && "message" in error && error.message) {
+        return String(error.message);
+      }
+      return String(error || "Unknown error");
+    }
+
+    function wait(delayMs) {
+      return new Promise((resolve) => {
+        window.setTimeout(resolve, delayMs);
+      });
+    }
+
+    async function fetchResultFile(path, timeoutMs = RESULT_FETCH_TIMEOUT_MS) {
+      let lastError = null;
+      for (let attempt = 1; attempt <= RESULT_FETCH_MAX_ATTEMPTS; attempt += 1) {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => {
+          controller.abort();
+        }, timeoutMs);
+        try {
+          const response = await fetch(path, { cache: "no-store", signal: controller.signal });
+          if (!response.ok) {
+            const httpError = new Error(`returned HTTP ${response.status}`);
+            httpError.isRetriable = response.status >= 500 || response.status === 429;
+            throw httpError;
+          }
+          const payload = normalizeLoadedResult(await response.json());
+          payload.__resultPath = path;
+          return payload;
+        } catch (error) {
+          let normalizedError;
+          if (error && typeof error === "object" && error.name === "AbortError") {
+            normalizedError = new Error(`timed out after ${Math.round(timeoutMs / 1000)}s`);
+            normalizedError.isRetriable = true;
+          } else if (error instanceof Error) {
+            normalizedError = error;
+          } else {
+            normalizedError = new Error(String(error || "Unknown error"));
+          }
+
+          const isRetriable = normalizedError.isRetriable === true || normalizedError instanceof TypeError;
+          lastError = normalizedError;
+          if (!isRetriable || attempt >= RESULT_FETCH_MAX_ATTEMPTS) {
+            if (isRetriable && attempt > 1) {
+              throw new Error(`${errorMessage(normalizedError)} after ${attempt} attempts`);
+            }
+            throw normalizedError;
+          }
+          await wait(RESULT_FETCH_RETRY_DELAY_MS * attempt);
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
+      }
+      throw lastError || new Error("Result fetch failed");
+    }
+
+    async function loadResults(files) {
+      if (!files.length) {
+        return { loaded: [], errors: [] };
+      }
+
+      const fileOrder = new Map(files.map((path, index) => [path, index]));
+      const settled = new Array(files.length);
+      const workerCount = Math.min(RESULT_FETCH_CONCURRENCY, files.length);
+      let nextIndex = 0;
+      let completedFiles = 0;
+      let loadedFiles = 0;
+
+      setLoadingProgress({ isLoading: true, totalFiles: files.length, completedFiles, loadedFiles });
+
+      async function worker() {
+        while (nextIndex < files.length) {
+          const currentIndex = nextIndex;
+          nextIndex += 1;
+          try {
+            const payload = await fetchResultFile(files[currentIndex]);
+            settled[currentIndex] = { status: "fulfilled", value: payload };
+            loadedFiles += 1;
+          } catch (error) {
+            settled[currentIndex] = { status: "rejected", reason: error };
+          } finally {
+            completedFiles += 1;
+            setLoadingProgress({
+              isLoading: true,
+              totalFiles: files.length,
+              completedFiles,
+              loadedFiles
+            });
+          }
+        }
+      }
+
+      await Promise.all(Array.from({ length: workerCount }, () => worker()));
+      setLoadingProgress({ isLoading: false });
+
+      const loaded = [];
+      const errors = [];
+      settled.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          loaded.push(result.value);
+        } else {
+          errors.push(`${files[index]}: ${errorMessage(result.reason)}`);
+        }
+      });
+      loaded.sort((left, right) => {
+        const leftIndex = fileOrder.get(left.__resultPath);
+        const rightIndex = fileOrder.get(right.__resultPath);
+        if (leftIndex !== rightIndex) {
+          return leftIndex - rightIndex;
+        }
+        return modelName(left).localeCompare(modelName(right));
+      });
+      return { loaded, errors };
+    }
+
+    function initCharts() {
+      Object.entries(CHART_IDS).forEach(([, id]) => {
+        state.charts[id] = echarts.init(document.getElementById(id), null, { renderer: "canvas" });
+      });
+      let resizeTimer = null;
+      window.addEventListener("resize", () => {
+        syncSidebarMode({ refresh: false });
+        Object.values(state.charts).forEach((chart) => chart.resize());
+        window.clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(() => {
+          renderAll();
+        }, 60);
+      });
+      SIDEBAR_OVERLAY_MEDIA.addEventListener("change", () => {
+        syncSidebarMode();
+      });
+    }
+
+    function bindControls() {
+      document.getElementById("best-layer-selector").addEventListener("change", renderAll);
+      document.getElementById("color-mode-selector").addEventListener("change", handleColorModeChange);
+      document.getElementById("model-selection-mode-selector").addEventListener("change", handleModelSelectionModeChange);
+      document.getElementById("bubble-x-selector").addEventListener("change", renderAll);
+      document.getElementById("bubble-y-selector").addEventListener("change", renderAll);
+      document.getElementById("bubble-size-selector").addEventListener("change", renderAll);
+      document.getElementById("bubble-parameter-scope-selector").addEventListener("change", renderAll);
+      document.getElementById("model-search").addEventListener("input", renderModelPicker);
+      document.getElementById("sidebar-open-button").addEventListener("click", () => {
+        setSidebarVisible(true);
+      });
+      document.getElementById("sidebar-close").addEventListener("click", () => {
+        setSidebarVisible(false);
+      });
+      document.getElementById("sidebar-backdrop").addEventListener("click", () => {
+        setSidebarVisible(false);
+      });
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && isSidebarOverlay() && state.sidebarOverlayOpen) {
+          setSidebarVisible(false);
+        }
+      });
+      document.getElementById("select-all").addEventListener("click", () => {
+        state.selectedRunKeys = new Set(visibleResults().map((result) => runKey(result)));
+        renderAll();
+      });
+      document.getElementById("select-none").addEventListener("click", () => {
+        state.selectedRunKeys = new Set();
+        renderAll();
+      });
+    }
+
+    async function boot() {
+      if (!window.echarts) {
+        setStatus("Apache ECharts did not load. Check network access to the CDN and refresh.", "warning");
+        return;
+      }
+
+      initCharts();
+      bindControls();
+      syncSidebarMode({ refresh: false });
+
+      const resolved = await resolveResultFiles();
+      state.discoverySource = resolved.source;
+      state.discoveryWarning = resolved.warning;
+
+	      const { loaded, errors } = await loadResults(resolved.files);
+	      state.allResults = loaded;
+	      normalizeRunTypeFilterState();
+	      normalizeNumEnabledFilterState();
+      state.selectedRunKeys = new Set(visibleResults().map((result) => runKey(result)));
+      if (errors.length) {
+        state.discoveryWarning = [state.discoveryWarning, ...errors].filter(Boolean).join(" | ");
+      }
+
+      renderAll();
+    }
+
+    boot();
+  </script>
+</body>
+</html>

@@ -35,6 +35,11 @@ models:
   - UniShape-ZeroShot
   - UniShape-FineTune
   - Toto-Open-Base-1.0
+  - Toto-2.0-4M
+  - Toto-2.0-22M
+  - Toto-2.0-313M
+  - Toto-2.0-1B
+  - Toto-2.0-2.5B
   - TiViT-H-14-B79K
   - TiConvNext-XXLarge-AugReg
   - NuTime-Bias9

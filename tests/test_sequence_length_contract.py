@@ -8,7 +8,7 @@ import torch
 
 from aionoscope_benchmarks.adapters.base import FrozenTimeSeriesAdapter
 from aionoscope_benchmarks.adapters.mantisv2 import MantisV2Adapter
-from aionoscope_benchmarks.adapters.toto import TotoAdapter
+from aionoscope_benchmarks.adapters.toto import Toto2_4MAdapter, TotoAdapter
 from aionoscope_benchmarks.constants import DATASET_CONFIG_PATH
 from aionoscope_benchmarks.runtime_dataset import (
     build_runtime_splits_by_validation_seed,
@@ -304,3 +304,40 @@ def test_toto_uses_official_quickstart_context_length(
     assert metadata["benchmark_sequence_length"] == 4096
     assert metadata["patch_size"] == 64
     assert metadata["patch_stride"] == 64
+
+
+def test_toto2_uses_official_quickstart_context_length(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    toto2_module = types.ModuleType("toto2")
+
+    class _FakeToto2Model(torch.nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            self.config = types.SimpleNamespace(num_layers=3, patch_size=16, d_model=32)
+            self.patch_proj = torch.nn.Linear(32, 32, bias=False)
+            self.transformer = torch.nn.Module()
+            self.transformer.layers = torch.nn.ModuleList(
+                [torch.nn.Linear(32, 32, bias=False) for _ in range(self.config.num_layers)]
+            )
+            self.transformer.out_norm = torch.nn.LayerNorm(32)
+
+        @classmethod
+        def from_pretrained(cls, checkpoint: str, map_location: str = "cpu"):
+            del checkpoint, map_location
+            return cls()
+
+    toto2_module.Toto2Model = _FakeToto2Model
+    monkeypatch.setitem(sys.modules, "toto2", toto2_module)
+
+    adapter = Toto2_4MAdapter()
+
+    metadata = adapter.adapter_metadata()
+    assert adapter.benchmark_sequence_length == 512
+    assert (
+        adapter.benchmark_sequence_length_source
+        == "official_toto_2_0_quickstart_context_length"
+    )
+    assert metadata["benchmark_sequence_length"] == 512
+    assert metadata["patch_size"] == 16
+    assert metadata["embed_dim"] == 32
