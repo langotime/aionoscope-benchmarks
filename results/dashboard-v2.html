@@ -267,6 +267,29 @@
       letter-spacing: -0.03em;
     }
 
+    .dashboard-version-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      margin: 0 0 12px;
+      padding: 7px 11px;
+      border: 1px solid var(--chip-border);
+      border-radius: 999px;
+      background: var(--chip-bg);
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+    }
+
+    .dashboard-version-link:hover {
+      border-color: var(--chip-selected-border);
+      background: var(--chip-selected);
+      color: var(--accent);
+    }
+
     .hero p {
       margin: 0;
       color: var(--muted);
@@ -991,6 +1014,10 @@
         <section class="hero">
           <div class="panel hero-card">
             <h1>Aionoscope Foundational Benchmark Dashboard v2</h1>
+            <a class="dashboard-version-link" href="index.html">
+              <i class="fa fa-code-branch" aria-hidden="true"></i>
+              Open v1 results
+            </a>
             <div id="status-banner" class="status-banner">
               Loading JSON results…
             </div>
