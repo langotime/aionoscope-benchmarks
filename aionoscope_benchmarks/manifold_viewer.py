@@ -109,6 +109,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>__TITLE__</title>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts-gl@2/dist/echarts-gl.min.js" onerror="window.__glLoadFailed=true"></script>
   <style>
     :root {
       color-scheme: light;
@@ -301,6 +302,20 @@ _VIEWER_TEMPLATE = """<!doctype html>
       font-size: 12px;
       text-align: right;
     }
+    .chart-head-right { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
+    .seg-toggle { display: inline-flex; border: 1px solid #c8d0d9; border-radius: 7px; overflow: hidden; flex: 0 0 auto; }
+    .seg-toggle button {
+      border: 0;
+      background: #fff;
+      color: #334155;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 650;
+      padding: 4px 11px;
+      cursor: pointer;
+    }
+    .seg-toggle button + button { border-left: 1px solid #c8d0d9; }
+    .seg-toggle button.active { background: var(--accent); color: #fff; }
     .chart {
       width: 100%;
       height: 430px;
@@ -359,6 +374,12 @@ _VIEWER_TEMPLATE = """<!doctype html>
     };
     const chartInstances = {};
     let renderToken = 0;
+    let centroidMode = "3d";
+    let centroidCache = null;
+
+    function glReady() {
+      return !!window.echarts && !window.__glLoadFailed;
+    }
 
     const metricSpecs = {
       spearman_latent_vs_linear: {
@@ -690,8 +711,14 @@ _VIEWER_TEMPLATE = """<!doctype html>
             <section class="panel chart-card">
               <div class="chart-header">
                 <h3>Centroid path</h3>
-                <p class="chart-note" id="centroid-note"></p>
-                <p class="chart-copy">Centroids are ordered by the controlled target value and projected to 2D with browser-side PCA for inspection. The axes are PCA components of layer centroids; color is the latent target coordinate.</p>
+                <div class="chart-head-right">
+                  <div class="seg-toggle" role="group" aria-label="centroid projection dimensions">
+                    <button type="button" data-centroid-mode="2d">2D</button>
+                    <button type="button" data-centroid-mode="3d">3D</button>
+                  </div>
+                  <p class="chart-note" id="centroid-note"></p>
+                </div>
+                <p class="chart-copy">Centroids are ordered by the controlled target value and projected onto their top principal components with browser-side PCA. Axes are PCA components of the layer centroids; color is the latent target coordinate; the line is the ordered path (closed for circle targets). In 3D, drag to rotate and scroll to zoom.</p>
               </div>
               <div class="chart" id="centroid-chart"></div>
             </section>
@@ -814,6 +841,21 @@ _VIEWER_TEMPLATE = """<!doctype html>
       return centered.map((row) => [dot(row, pc1), dot(row, pc2)]);
     }
 
+    function project3d(points) {
+      const rows = numericMatrix(points).filter((row) => row.length > 0);
+      if (!rows.length) return [];
+      const d = rows[0].length;
+      const centered = centeredRows(rows);
+      const pc1 = principalComponent(centered, [], 1);
+      const pc2 = d >= 2 ? principalComponent(centered, [pc1], 2) : null;
+      const pc3 = d >= 3 ? principalComponent(centered, [pc1, pc2], 3) : null;
+      return centered.map((row) => [
+        dot(row, pc1),
+        pc2 ? dot(row, pc2) : 0,
+        pc3 ? dot(row, pc3) : 0,
+      ]);
+    }
+
     function finiteValues(values) {
       return values.filter((value) => Number.isFinite(value));
     }
@@ -866,19 +908,53 @@ _VIEWER_TEMPLATE = """<!doctype html>
       return data;
     }
 
-    function renderCentroidChart(record, plotData) {
-      const chart = getChart("centroid-chart");
-      if (!chart) {
-        setChartStatus("centroid-chart", "Apache ECharts did not load. Check network access to the CDN and refresh.", "status warning");
-        return;
+    function updateCentroidToggle() {
+      for (const button of document.querySelectorAll("[data-centroid-mode]")) {
+        button.classList.toggle("active", button.getAttribute("data-centroid-mode") === centroidMode);
       }
+    }
+
+    function renderCentroidChart(record, plotData) {
+      centroidCache = { record, plotData };
+      drawCentroid();
+    }
+
+    function drawCentroid() {
+      if (!centroidCache) return;
+      const { record, plotData } = centroidCache;
       const centroids = plotData.path_centroids || plotData.centroids || [];
       const coords = plotData.path_centroid_coordinates || plotData.centroid_coordinates || [];
       const counts = plotData.path_centroid_counts || plotData.centroid_counts || [];
+      // Mode switches alternate a 2D cartesian grid and a 3D WebGL scene on the
+      // same container, so start each draw from a fresh chart instance.
+      const existing = chartInstances["centroid-chart"];
+      if (existing && !existing.isDisposed()) existing.dispose();
+      chartInstances["centroid-chart"] = null;
+      const element = document.getElementById("centroid-chart");
+      if (element) element.innerHTML = "";
+      if (!window.echarts) {
+        setChartStatus("centroid-chart", "Apache ECharts did not load. Check network access to the CDN and refresh.", "status warning");
+        return;
+      }
       if (!centroids.length || !coords.length) {
         setChartStatus("centroid-chart", "No centroid path data available for this layer.");
         return;
       }
+      if (centroidMode === "3d") {
+        if (!glReady()) {
+          centroidMode = "2d";
+          updateCentroidToggle();
+        } else {
+          renderCentroid3D(record, centroids, coords, counts);
+          return;
+        }
+      }
+      renderCentroid2D(record, centroids, coords, counts);
+    }
+
+    function renderCentroid2D(record, centroids, coords, counts) {
+      const chart = getChart("centroid-chart");
+      if (!chart) return;
       const points2d = project2d(centroids);
       const data = points2d.map((point, idx) => [point[0], point[1], Number(coords[idx]), idx, counts[idx] || 0]);
       const lineData = record.geometry === "circle" && data.length > 2 ? [...data, data[0]] : data;
@@ -945,6 +1021,81 @@ _VIEWER_TEMPLATE = """<!doctype html>
           },
         ],
       }, true);
+    }
+
+    function renderCentroid3D(record, centroids, coords, counts) {
+      const chart = getChart("centroid-chart");
+      if (!chart) return;
+      const points3d = project3d(centroids);
+      const data = points3d.map((point, idx) => [point[0], point[1], point[2], Number(coords[idx]), idx, counts[idx] || 0]);
+      const lineData = (record.geometry === "circle" && data.length > 2 ? [...data, data[0]] : data)
+        .map((item) => [item[0], item[1], item[2]]);
+      const coordValues = finiteValues(data.map((item) => item[3]));
+      const low = coordValues.length ? Math.min(...coordValues) : 0;
+      const high = coordValues.length ? Math.max(...coordValues) : 1;
+      try {
+        chart.setOption({
+          animation: false,
+          tooltip: {
+            formatter: (params) => {
+              const value = params.value || [];
+              return [
+                `<strong>Grid point ${value[4]}</strong>`,
+                `latent coordinate: ${fmt(value[3])}`,
+                `centroid count: ${fmt(value[5])}`,
+                `PCA-1: ${fmt(value[0])}`,
+                `PCA-2: ${fmt(value[1])}`,
+                `PCA-3: ${fmt(value[2])}`,
+              ].join("<br>");
+            },
+          },
+          visualMap: {
+            type: "continuous",
+            min: low,
+            max: high,
+            dimension: 3,
+            orient: "horizontal",
+            left: "center",
+            bottom: 4,
+            text: ["high latent", "low latent"],
+            inRange: { color: ["#2563eb", "#14b8a6", "#f59e0b", "#dc2626"] },
+          },
+          xAxis3D: { type: "value", name: "PCA 1", axisLine: { lineStyle: { color: "#94a3b8" } } },
+          yAxis3D: { type: "value", name: "PCA 2", axisLine: { lineStyle: { color: "#94a3b8" } } },
+          zAxis3D: { type: "value", name: "PCA 3", axisLine: { lineStyle: { color: "#94a3b8" } } },
+          grid3D: {
+            boxWidth: 100,
+            boxDepth: 100,
+            boxHeight: 78,
+            top: -10,
+            axisLine: { lineStyle: { color: "#94a3b8" } },
+            splitLine: { lineStyle: { color: "#e2e8f0" } },
+            axisPointer: { lineStyle: { color: "#64748b" } },
+            viewControl: { autoRotate: false, distance: 200, rotateSensitivity: 1.4 },
+          },
+          series: [
+            {
+              name: "ordered centroid path",
+              type: "line3D",
+              data: lineData,
+              lineStyle: { width: 3.2, color: "#0f766e", opacity: 0.85 },
+            },
+            {
+              name: "centroids",
+              type: "scatter3D",
+              data,
+              symbolSize: 9,
+              itemStyle: { opacity: 0.95 },
+              emphasis: { itemStyle: { borderColor: "#0f172a", borderWidth: 1 } },
+            },
+          ],
+        }, true);
+      } catch (error) {
+        // echarts-gl unavailable or incompatible: degrade to the 2D projection.
+        centroidMode = "2d";
+        updateCentroidToggle();
+        renderCentroid2D(record, centroids, coords, counts);
+      }
     }
 
     function renderScatterChart(plotData, metrics) {
@@ -1259,6 +1410,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       const record = matches[0];
       content.innerHTML = renderShell(record);
       renderLayerMetricsCharts(record);
+      updateCentroidToggle();
       const token = ++renderToken;
       renderPlotData(record, token);
     }
@@ -1313,6 +1465,16 @@ _VIEWER_TEMPLATE = """<!doctype html>
     });
     document.addEventListener("focusout", hideTip);
     window.addEventListener("scroll", hideTip, true);
+
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest ? event.target.closest("[data-centroid-mode]") : null;
+      if (!button) return;
+      const mode = button.getAttribute("data-centroid-mode");
+      if (mode !== "2d" && mode !== "3d") return;
+      centroidMode = mode;
+      updateCentroidToggle();
+      drawCentroid();
+    });
 
     for (const select of Object.values(selects)) select.addEventListener("change", render);
     window.addEventListener("resize", () => {
