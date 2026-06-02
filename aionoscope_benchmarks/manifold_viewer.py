@@ -858,7 +858,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
                   </div>
                   <p class="chart-note" id="centroid-note"></p>
                 </div>
-                <p class="chart-copy">Centroids ordered by the controlled target value, projected with browser-side PCA. Panels of the same target share a Procrustes-aligned frame (rotation/reflection only) so shapes are directly comparable; different targets are projected independently and badged. Color is the latent target coordinate; in 3D, drag to rotate and scroll to zoom.</p>
+                <p class="chart-copy">Centroids ordered by the controlled target value, projected with browser-side PCA. Each panel auto-fits its own axes (PCA scale differs across models). Same-target panels are Procrustes-aligned (rotation/reflection only) to the first selection so orientations are comparable; panels that cannot be put in correspondence are badged "independent PCA". Color is the latent target coordinate; in 3D, drag to rotate and scroll to zoom.</p>
               </div>
               <div class="sbs-grid" id="centroid-grid">${sbsCells("centroid-chart", items)}</div>
             </section>
@@ -866,7 +866,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
               <div class="chart-header">
                 <h3>Distance scatter</h3>
                 <p class="chart-note" id="scatter-note"></p>
-                <p class="chart-copy">Each point is a pair of grid points. X is true target-space distance; Y is representation distance (blue = direct Euclidean, red = graph geodesic). Axes share a common range across panels.</p>
+                <p class="chart-copy">Each point is a pair of grid points. X is true target-space distance; Y is representation distance (blue = direct Euclidean, red = graph geodesic). Each panel auto-fits its own axes.</p>
               </div>
               <div class="sbs-grid" id="scatter-grid">${sbsCells("scatter-chart", items)}</div>
             </section>
@@ -874,7 +874,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
               <div class="chart-header">
                 <h3>Distance heatmap</h3>
                 <p class="chart-note" id="heatmap-note"></p>
-                <p class="chart-copy">Pairwise distance matrices (latent / direct / geodesic) per panel, sharing one color scale so panels are directly comparable.</p>
+                <p class="chart-copy">Pairwise distance matrices (latent / direct / geodesic). Each panel uses its own color scale (distance magnitudes differ across models).</p>
               </div>
               <div class="sbs-grid heatmap-grid" id="heatmap-grid">${sbsCells("heatmap-chart", items)}</div>
             </section>
@@ -1160,24 +1160,31 @@ _VIEWER_TEMPLATE = """<!doctype html>
         if (!pd || pd.__error) return null;
         const e = centroidEmbedding(pd, k);
         if (!e) return null;
-        return { item: it, emb: e.emb, coords: e.coords, counts: e.counts, aligned: false };
+        const gridMode = it.sweep && it.sweep.grid_mode ? String(it.sweep.grid_mode) : "";
+        return { item: it, emb: e.emb, coords: e.coords, counts: e.counts, gridMode, aligned: false };
       });
-      const refByTarget = new Map();
-      out.forEach((o) => {
-        if (o && !refByTarget.has(o.item.target_name)) refByTarget.set(o.item.target_name, o);
-      });
+      // Single primary reference = first available item. Only same-target items
+      // can correspond, so cross-target panels stay in their own PCA frame.
+      const ref = out.find((o) => o);
+      if (!ref) return out;
+      const refIndex = new Map();
+      ref.coords.forEach((c, idx) => { if (Number.isFinite(c)) refIndex.set(c.toFixed(6), idx); });
       out.forEach((o) => {
         if (!o) return;
-        const ref = refByTarget.get(o.item.target_name);
-        if (ref === o) { o.aligned = true; return; }
-        const refIndex = new Map();
-        ref.coords.forEach((c, idx) => { if (Number.isFinite(c)) refIndex.set(c.toFixed(6), idx); });
-        const A = [];
-        const B = [];
+        if (o === ref) { o.aligned = true; return; }
+        if (o.item.target_name !== ref.item.target_name) { o.aligned = false; return; }
+        let A = [];
+        let B = [];
         o.coords.forEach((c, idx) => {
           const ri = Number.isFinite(c) ? refIndex.get(c.toFixed(6)) : undefined;
           if (ri !== undefined) { A.push(o.emb[idx].slice()); B.push(ref.emb[ri].slice()); }
         });
+        // Positional fallback only when the controlled grid is the same shape and
+        // binning (equal length, same grid mode); never mix linear vs signed_log.
+        if (A.length < 2 && o.emb.length === ref.emb.length && o.emb.length >= 2 && o.gridMode === ref.gridMode) {
+          A = o.emb.map((p) => p.slice());
+          B = ref.emb.map((p) => p.slice());
+        }
         if (A.length < 2) { o.aligned = false; return; }
         const aMean = meanRows(A, k);
         const bMean = meanRows(B, k);
@@ -1206,27 +1213,22 @@ _VIEWER_TEMPLATE = """<!doctype html>
       const use3d = centroidMode === "3d" && glReady();
       const k = use3d ? 3 : 2;
       const aligned = alignEmbeddings(items, plotDatas, k);
-      const lo = [Infinity, Infinity, Infinity];
-      const hi = [-Infinity, -Infinity, -Infinity];
-      aligned.forEach((o) => {
-        if (!o) return;
-        o.emb.forEach((p) => { for (let j = 0; j < k; j += 1) { lo[j] = Math.min(lo[j], p[j]); hi[j] = Math.max(hi[j], p[j]); } });
-      });
-      const range = (j) => (Number.isFinite(lo[j]) && Number.isFinite(hi[j]) && hi[j] > lo[j]) ? { min: lo[j], max: hi[j] } : {};
-      const primaryTarget = items.length ? items[0].target_name : null;
+      // Axes auto-fit per panel: PCA scale differs radically between models, so a
+      // shared range would squash most panels.
+      const multi = items.length > 1;
       items.forEach((it, i) => {
         const id = `centroid-chart-${i}`;
         const pd = plotDatas[i];
         if (pd && pd.__error) { setChartStatus(id, `Could not load plot data. Serve this directory over a static HTTP server. ${pd.__error}`, "status warning"); return; }
         const o = aligned[i];
         if (!o) { setChartStatus(id, "No centroid path data available for this layer."); return; }
-        const badge = it.target_name !== primaryTarget ? "independent frame" : (o.aligned ? "" : "unaligned");
-        if (use3d) renderCentroid3DPanel(id, it, o, range, badge);
-        else renderCentroid2DPanel(id, it, o, range, badge);
+        const badge = multi && !o.aligned ? "independent PCA" : "";
+        if (use3d) renderCentroid3DPanel(id, it, o, badge);
+        else renderCentroid2DPanel(id, it, o, badge);
       });
     }
 
-    function renderCentroid2DPanel(id, item, o, range, badge) {
+    function renderCentroid2DPanel(id, item, o, badge) {
       const chart = getChart(id);
       if (!chart) return;
       const data = o.emb.map((p, idx) => [p[0], p[1], Number(o.coords[idx]), idx, o.counts[idx] || 0]);
@@ -1249,8 +1251,8 @@ _VIEWER_TEMPLATE = """<!doctype html>
           orient: "horizontal", left: "center", bottom: 4,
           text: ["high", "low"], inRange: { color: ["#2563eb", "#14b8a6", "#f59e0b", "#dc2626"] },
         },
-        xAxis: { type: "value", name: "PCA 1", nameLocation: "middle", nameGap: 22, ...range(0), axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#edf2f7" } } },
-        yAxis: { type: "value", name: "PCA 2", nameLocation: "middle", nameGap: 36, ...range(1), axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#edf2f7" } } },
+        xAxis: { type: "value", scale: true, name: "PCA 1", nameLocation: "middle", nameGap: 22, axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#edf2f7" } } },
+        yAxis: { type: "value", scale: true, name: "PCA 2", nameLocation: "middle", nameGap: 36, axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#edf2f7" } } },
         series: [
           { type: "line", data: lineData, showSymbol: false, lineStyle: { width: 2, color: "#0f766e" }, emphasis: { disabled: true } },
           { type: "scatter", data, symbolSize: 6 },
@@ -1259,7 +1261,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       }, true);
     }
 
-    function renderCentroid3DPanel(id, item, o, range, badge) {
+    function renderCentroid3DPanel(id, item, o, badge) {
       const chart = getChart(id);
       if (!chart) return;
       const data = o.emb.map((p, idx) => [p[0], p[1], p[2], Number(o.coords[idx]), idx, o.counts[idx] || 0]);
@@ -1281,9 +1283,9 @@ _VIEWER_TEMPLATE = """<!doctype html>
             orient: "horizontal", left: "center", bottom: 2,
             text: ["high", "low"], inRange: { color: ["#2563eb", "#14b8a6", "#f59e0b", "#dc2626"] },
           },
-          xAxis3D: { type: "value", name: "PCA 1", ...range(0) },
-          yAxis3D: { type: "value", name: "PCA 2", ...range(1) },
-          zAxis3D: { type: "value", name: "PCA 3", ...range(2) },
+          xAxis3D: { type: "value", name: "PCA 1" },
+          yAxis3D: { type: "value", name: "PCA 2" },
+          zAxis3D: { type: "value", name: "PCA 3" },
           grid3D: {
             boxWidth: 90, boxDepth: 90, boxHeight: 68, top: -20,
             axisLine: { lineStyle: { color: "#94a3b8" } },
@@ -1299,7 +1301,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       } catch (error) {
         centroidMode = "2d";
         updateCentroidToggle();
-        renderCentroid2DPanel(id, item, o, range, badge);
+        renderCentroid2DPanel(id, item, o, badge);
       }
     }
 
@@ -1308,16 +1310,12 @@ _VIEWER_TEMPLATE = """<!doctype html>
     }
 
     function renderScatterPanels(items, plotDatas) {
-      let xmax = 0;
-      let ymax = 0;
       const prepared = items.map((it, i) => {
         const pd = plotDatas[i];
         if (!pd || pd.__error) return null;
         const latent = numericMatrix(pd.latent_distance);
         const linearData = upperTriangularPairs(latent, numericMatrix(pd.linear_distance));
         const graphData = pd.geodesic_distance ? upperTriangularPairs(latent, numericMatrix(pd.geodesic_distance)) : [];
-        for (const p of linearData) { if (p[0] > xmax) xmax = p[0]; if (p[1] > ymax) ymax = p[1]; }
-        for (const p of graphData) { if (p[0] > xmax) xmax = p[0]; if (p[1] > ymax) ymax = p[1]; }
         return { linearData, graphData, metrics: it.metrics || {} };
       });
       items.forEach((it, i) => {
@@ -1339,8 +1337,8 @@ _VIEWER_TEMPLATE = """<!doctype html>
               return [`<strong>${escapeHtml(params.seriesName)}</strong>`, `target-space distance: ${fmt(v[0])}`, `representation distance: ${fmt(v[1])}`].join("<br>");
             },
           },
-          xAxis: { type: "value", name: "target-space distance", nameLocation: "middle", nameGap: 26, max: xmax || null, splitLine: { lineStyle: { color: "#edf2f7" } } },
-          yAxis: { type: "value", name: "repr distance", nameLocation: "middle", nameGap: 40, max: ymax || null, splitLine: { lineStyle: { color: "#edf2f7" } } },
+          xAxis: { type: "value", scale: true, name: "target-space distance", nameLocation: "middle", nameGap: 26, splitLine: { lineStyle: { color: "#edf2f7" } } },
+          yAxis: { type: "value", scale: true, name: "repr distance", nameLocation: "middle", nameGap: 40, splitLine: { lineStyle: { color: "#edf2f7" } } },
           series: [
             { name: `linear rho=${fmt(pr.metrics.spearman_latent_vs_linear)}`, type: "scatter", data: pr.linearData, symbolSize: 3, large: pr.linearData.length > 2000, itemStyle: { color: "#2563eb", opacity: 0.45 } },
             { name: `geodesic rho=${fmt(pr.metrics.spearman_latent_vs_geodesic)}`, type: "scatter", data: pr.graphData, symbolSize: 3, large: pr.graphData.length > 2000, itemStyle: { color: "#dc2626", opacity: 0.45 } },
@@ -1350,7 +1348,6 @@ _VIEWER_TEMPLATE = """<!doctype html>
     }
 
     function renderHeatmapPanels(items, plotDatas) {
-      const allMatrices = [];
       const prep = items.map((it, i) => {
         const pd = plotDatas[i];
         if (!pd || pd.__error) return null;
@@ -1359,16 +1356,16 @@ _VIEWER_TEMPLATE = """<!doctype html>
           { name: "linear", matrix: numericMatrix(pd.linear_distance) },
         ];
         if (pd.geodesic_distance) matrices.push({ name: "graph", matrix: numericMatrix(pd.geodesic_distance) });
-        matrices.forEach((m) => allMatrices.push(m.matrix));
         return matrices;
       });
-      const [low, high] = matrixMinMax(allMatrices);
       items.forEach((it, i) => {
         const id = `heatmap-chart-${i}`;
         const pd = plotDatas[i];
         if (pd && pd.__error) { setChartStatus(id, `Could not load plot data. ${pd.__error}`, "status warning"); return; }
         const matrices = prep[i];
         if (!matrices) { setChartStatus(id, "No distance data available for this layer."); return; }
+        // Per-panel colour scale: distance magnitudes differ across models.
+        const [low, high] = matrixMinMax(matrices.map((m) => m.matrix));
         const chart = getChart(id);
         if (!chart) return;
         const count = matrices.length;
