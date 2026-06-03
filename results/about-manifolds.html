@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Shape of a Signal — Manifold Geometry in Time-Series Foundation Models</title>
+  <meta name="description" content="How frozen time-series foundation models arrange the generative factors of a signal — phase, event time, trend — into geometric manifolds, and how to read the Aionoscope manifold dashboard.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,16..72,400;0,16..72,500;0,16..72,600;1,16..72,400&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts-gl@2/dist/echarts-gl.min.js" onerror="window.__glLoadFailed=true"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #16202b;
+      --ink-soft: #44566a;
+      --ink-faint: #75879a;
+      --bg: #fbfaf7;
+      --panel: #ffffff;
+      --line: #e7e3da;
+      --line-strong: #d8d3c7;
+      --accent: #0f766e;
+      --blue: #2563eb;
+      --red: #dc2626;
+      --amber: #d97706;
+      --serif: "Newsreader", Georgia, "Times New Roman", serif;
+      --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 18px;
+      line-height: 1.72;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+    .col { max-width: 720px; margin: 0 auto; }
+
+    /* ---- hero ---- */
+    header.hero {
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(1200px 520px at 12% -10%, #d9f2ee 0%, rgba(217,242,238,0) 60%),
+        radial-gradient(1000px 480px at 95% 0%, #e7edff 0%, rgba(231,237,255,0) 55%),
+        linear-gradient(180deg, #fbfaf7 0%, #fbfaf7 100%);
+      border-bottom: 1px solid var(--line);
+    }
+    .hero-inner { padding: 92px 24px 64px; }
+    .eyebrow {
+      font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--accent); margin: 0 0 22px;
+    }
+    h1 {
+      font-family: var(--serif);
+      font-weight: 500;
+      font-size: clamp(2.3rem, 5.2vw, 3.7rem);
+      line-height: 1.06;
+      letter-spacing: -0.012em;
+      margin: 0 0 24px;
+      color: var(--ink);
+    }
+    .lede {
+      font-family: var(--serif);
+      font-size: clamp(1.18rem, 2.3vw, 1.42rem);
+      line-height: 1.55;
+      color: var(--ink-soft);
+      margin: 0 0 8px;
+    }
+    .byline {
+      margin-top: 30px; font-size: 14px; color: var(--ink-faint);
+      display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+    }
+    .byline .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--line-strong); }
+    .byline a { color: var(--accent); text-decoration: none; }
+    .byline a:hover { text-decoration: underline; }
+
+    /* ---- article body ---- */
+    main { padding: 8px 0 40px; }
+    section.block { padding: 30px 0; }
+    h2 {
+      font-family: var(--serif);
+      font-weight: 600;
+      font-size: clamp(1.7rem, 3.2vw, 2.15rem);
+      line-height: 1.16;
+      letter-spacing: -0.01em;
+      margin: 40px 0 6px;
+    }
+    h2 .num {
+      display: block; font-family: var(--sans); font-size: 13px; font-weight: 600;
+      letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+    }
+    h3 {
+      font-family: var(--sans); font-weight: 600; font-size: 1.18rem;
+      margin: 34px 0 4px; color: var(--ink);
+    }
+    p { margin: 18px 0; }
+    a { color: var(--accent); }
+    strong { font-weight: 600; color: var(--ink); }
+    em { color: var(--ink); }
+    .col ul { margin: 18px 0; padding-left: 22px; }
+    .col li { margin: 8px 0; }
+    code {
+      font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+      font-size: 0.86em; background: #f1efe8; border: 1px solid var(--line);
+      padding: 1px 6px; border-radius: 5px; color: #355;
+    }
+
+    .pull {
+      font-family: var(--serif); font-size: 1.5rem; line-height: 1.4; font-weight: 500;
+      color: var(--accent); border-left: 3px solid var(--accent);
+      padding: 6px 0 6px 24px; margin: 40px auto; max-width: 720px;
+    }
+
+    /* stat callouts */
+    .stats {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 14px; margin: 28px auto; max-width: 720px;
+    }
+    .stat {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px;
+    }
+    .stat .v { font-family: var(--serif); font-size: 1.9rem; font-weight: 600; line-height: 1; color: var(--accent); }
+    .stat .l { font-size: 13px; color: var(--ink-faint); margin-top: 8px; line-height: 1.35; }
+
+    /* ---- figures / charts ---- */
+    figure.fig {
+      margin: 40px auto; max-width: 1000px;
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 16px; padding: 18px 18px 14px; box-shadow: 0 1px 2px rgba(20,30,40,0.03);
+    }
+    .fig-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap; margin: 4px 4px 10px;
+    }
+    .fig-title { font-family: var(--sans); font-weight: 600; font-size: 1.02rem; color: var(--ink); }
+    .fig-sub { font-size: 13px; color: var(--ink-faint); }
+    .chart { width: 100%; height: 440px; }
+    .chart.short { height: 360px; }
+    .chart.tall { height: 520px; }
+    .twin { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .twin .chart { height: 360px; }
+    @media (max-width: 720px) { .twin { grid-template-columns: 1fr; } }
+    figcaption {
+      font-size: 14.5px; line-height: 1.6; color: var(--ink-soft);
+      margin: 12px 6px 4px; padding-top: 12px; border-top: 1px solid var(--line);
+    }
+    figcaption b { color: var(--ink); font-weight: 600; }
+
+    .seg {
+      display: inline-flex; border: 1px solid var(--line-strong); border-radius: 9px; overflow: hidden; background: #f4f2ec;
+    }
+    .seg button {
+      border: 0; background: transparent; padding: 5px 14px; font: inherit; font-size: 13px; font-weight: 600;
+      color: var(--ink-faint); cursor: pointer;
+    }
+    .seg button.active { background: var(--accent); color: #fff; }
+
+    .chart-msg {
+      display: flex; align-items: center; justify-content: center; height: 100%;
+      text-align: center; color: var(--ink-faint); font-size: 14px; padding: 24px; line-height: 1.5;
+    }
+    .chart-msg.warn { color: #8a5a00; }
+    .spinner {
+      width: 22px; height: 22px; border: 3px solid #e3ddcf; border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* note / caveat boxes */
+    .note {
+      background: #f5f8f7; border: 1px solid #d6e6e2; border-left: 3px solid var(--accent);
+      border-radius: 10px; padding: 4px 22px; margin: 26px auto; max-width: 720px;
+    }
+    .note h3 { margin-top: 18px; }
+
+    /* footer */
+    footer {
+      border-top: 1px solid var(--line); margin-top: 40px; padding: 48px 24px 80px;
+      background: #f6f4ee;
+    }
+    .cta {
+      display: inline-flex; align-items: center; gap: 10px; background: var(--accent); color: #fff;
+      text-decoration: none; font-weight: 600; padding: 13px 22px; border-radius: 11px; font-size: 15px;
+    }
+    .cta:hover { background: #0c5f58; }
+    .respect { font-size: 15px; color: var(--ink-soft); margin-top: 28px; }
+    .respect a { color: var(--accent); }
+    .smallprint { font-size: 13px; color: var(--ink-faint); margin-top: 22px; }
+    hr.soft { border: 0; border-top: 1px solid var(--line); margin: 36px auto; max-width: 720px; }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner wrap">
+      <div class="col">
+        <p class="eyebrow">Aionoscope&nbsp;·&nbsp;Representation Geometry</p>
+        <h1>The shape of a signal</h1>
+        <p class="lede">Neural networks don't just memorize — they build geometry. Days of the week curl into a circle; colours arrange themselves on a wheel. We asked a simpler question of time-series foundation models: when you sweep the <em>phase</em> of a sine wave, or slide a <em>spike</em> across time, do the model's frozen activations trace out the right shape?</p>
+        <div class="byline">
+          <span>Aionoscope manifold suite</span>
+          <span class="dot"></span>
+          <span>A walkthrough of the manifold dashboard</span>
+          <span class="dot"></span>
+          <a href="manifolds.html">Open the live dashboard →</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="wrap">
+
+      <!-- INTRO -->
+      <section class="block">
+        <div class="col">
+          <p>A growing body of interpretability work shows that neural networks lay out concepts as <em>geometry</em>. The structure of the world leaks into the structure of the activations: representations of days of the week form a loop, colours form a wheel, and the relationships between genomes recover the tree of life. Goodfire's <a href="https://www.goodfire.ai/research/neural-geometry" target="_blank" rel="noopener">Neural Geometry</a> series makes this case beautifully for language models — and inspired this work. (Hat tip: go read it.)</p>
+
+          <p>Time-series foundation models are a natural place to ask the same question, because here we know the ground truth. Every signal in our benchmark is <em>generated</em> from a handful of knobs — the phase and frequency of a sine, the position of a spike, the slope of a trend. So we can sweep one knob at a time and watch, layer by layer, what the model's internal representation does in response.</p>
+
+          <p>That is what the <strong>Aionoscope manifold suite</strong> measures, and what its dashboard lets you explore. This post explains what the project is, why we built it, and how to read the charts — using <strong>Toto-2.0-2.5B</strong> (Datadog's 2.5-billion-parameter forecasting model) as our running example.</p>
+        </div>
+      </section>
+
+      <!-- WHY -->
+      <section class="block">
+        <div class="col">
+          <h2><span class="num">Why we built it</span>Decodable is not the same as organized</h2>
+          <p>The standard way to interrogate a frozen representation is a <strong>linear probe</strong>: train a small linear readout and ask "can I recover the phase / the spike position / the slope from these activations?" It's a great question, and we still run it as our primary benchmark. But it only tells you whether a variable is <em>linearly decodable</em>. It is silent on a deeper question:</p>
+
+          <p class="pull">Does the representation arrange examples according to the true shape of the process that generated them?</p>
+
+          <p>A probe can succeed while the underlying geometry is a tangled mess, and it can fail on structure that is perfectly real but <em>curved</em>. We wanted to see the shape directly. So for each model we run a controlled experiment:</p>
+
+          <ul>
+            <li><strong>Sweep one factor.</strong> Pick a generative knob (say, <code>sine_phase</code>) and step it across a fine 1,024-point grid, holding everything else fixed. Every other component is switched off (<code>num_enabled = 1</code>), so the only thing changing is the factor we care about.</li>
+            <li><strong>Collect frozen features.</strong> Push each signal through the model and read out the hidden activations at every layer. No fine-tuning, no probe training — just the representations the model already has.</li>
+            <li><strong>Build the manifold.</strong> Average the activations at each grid point into a <em>centroid</em>. Ordered by the swept value, those centroids trace a path through representation space. That path is the object we score.</li>
+            <li><strong>Measure the geometry.</strong> Does the path preserve distances? Local neighbourhoods? The cyclic topology of a phase, or the monotone order of a spike position? Does it close into a loop when it should?</li>
+          </ul>
+
+          <p>We do this for <strong>45 foundation models</strong> (Toto, Moirai, Chronos, TiRex, Mantis, TimesFM, Sundial, LeNEPA and more) across <strong>seven generative factors</strong>, at every layer. The dashboard is a static reader over the results: all the heavy lifting happens in Python, and the page just plots what was stored.</p>
+        </div>
+      </section>
+
+      <!-- HOW TO READ -->
+      <section class="block">
+        <div class="col">
+          <h2><span class="num">How to read the dashboard</span>Three views, one manifold</h2>
+          <p>Pick a <em>model</em>, a <em>target</em> (the swept factor) and a <em>layer</em>, and the dashboard shows the same manifold from three angles. The rest of this post walks through each one with a real example.</p>
+          <ul>
+            <li><strong>Centroid path</strong> — the manifold itself, projected from its 64 PCA dimensions down to 2D or 3D <em>in your browser</em>. Each dot is one grid point, coloured by the value of the swept factor. A clean shape here is the headline result.</li>
+            <li><strong>Metrics across layers</strong> — line charts of each geometry score against depth, so you can see <em>where</em> in the network the structure lives and how it changes.</li>
+            <li><strong>Distance scatter &amp; heatmap</strong> — the raw evidence behind the scores: for every pair of grid points, true distance in factor-space vs. distance in the representation, measured both as a straight line and as a walk along the manifold.</li>
+          </ul>
+          <p class="smallprint">The charts below are live: they stream the very same JSON artifacts the dashboard reads, and render as you scroll. Local previews read from <code>results/manifolds/</code>; hosted Pages reads from the manifold data CDN. (Hosting your own copy of the data? Point <code>window.MANIFOLD_DATA_BASE_URL</code> at it before the page script runs.)</p>
+        </div>
+      </section>
+
+      <!-- EXAMPLE 1: SINE PHASE -->
+      <section class="block">
+        <div class="col">
+          <h2><span class="num">Example 1 · sine_phase</span>A phase is a circle</h2>
+          <p>Start with the cleanest case. The phase of a sine wave is a <em>circular</em> quantity: phase 0 and phase 2π are the same signal. If a model truly understands phase, its centroids should trace a closed loop — and points near the start should sit right next to points near the end.</p>
+          <p>Here is Toto-2.0-2.5B at layer 4, sweeping phase across a full cycle. Drag to rotate the 3D view; the colour runs from low phase (blue) to high (red).</p>
+        </div>
+
+        <figure class="fig" data-chart="centroid"
+                data-plot="Toto-2.0-2.5B/sine_phase/plots/Toto-2.0-2.5B__sine_phase__layer_4_plot_data.json"
+                data-geometry="circle">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">Centroid path · Toto-2.0-2.5B · sine_phase · layer 4</div>
+              <div class="fig-sub">1,024 centroids, browser-side PCA. Colour = phase.</div>
+            </div>
+            <div class="seg" data-seg>
+              <button type="button" data-mode="2d" class="active">2D</button>
+              <button type="button" data-mode="3d">3D</button>
+            </div>
+          </div>
+          <div class="chart tall" id="fig-sine-centroid"></div>
+          <figcaption>The sweep closes into a near-perfect ring. <b>Cycle-closure error is 0.000</b> and the <b>circular-order score is 1.000</b> — the loop is traversed in the right order and returns exactly to where it started. Distance along the loop tracks the true phase distance with a Spearman correlation of essentially 1.0. Phase, for Toto, really is a circle.</figcaption>
+        </figure>
+
+        <div class="col">
+          <p>One subtlety the layer view reveals: a shape can be globally right but locally fuzzy. The ring is preserved at every depth, yet the fine-grained ordering of <em>immediate</em> neighbours blurs in the deeper layers.</p>
+        </div>
+
+        <figure class="fig" data-chart="layers"
+                data-metrics="Toto-2.0-2.5B/sine_phase/metrics.json"
+                data-series="phase">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">Metrics across layers · Toto-2.0-2.5B · sine_phase</div>
+              <div class="fig-sub">Higher is better. 49 layers.</div>
+            </div>
+          </div>
+          <div class="chart" id="fig-sine-layers"></div>
+          <figcaption>Distance preservation (<b>Spearman vs. linear</b> and <b>vs. geodesic</b>) stays pinned near 1.0 from the very first layer to the last — the circle is robust. But <b>5-NN recall</b> peaks early (≈0.90 at layer 0) and sags toward the middle and end of the network: the manifold keeps its shape while the model trades away some local resolution for whatever the forecasting objective needs downstream.</figcaption>
+        </figure>
+      </section>
+
+      <!-- EXAMPLE 2: SPIKE -->
+      <section class="block">
+        <div class="col">
+          <h2><span class="num">Example 2 · spike_time_frac</span>When a straight line lies</h2>
+          <p>Now slide a single spike from the start of the window to the end. The factor is the spike's position in time — a simple <em>interval</em> from 0 to 1. You might expect the representation to lay this out as a straight line. At the input-facing layer 0, it does something more interesting.</p>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><div class="v">0.12</div><div class="l">straight-line distance order (Spearman) — looks almost random</div></div>
+          <div class="stat"><div class="v">0.97</div><div class="l">distance-along-the-manifold order (geodesic) — nearly perfect</div></div>
+          <div class="stat"><div class="v">+0.85</div><div class="l">geodesic gain — the curve carries almost all the signal</div></div>
+        </div>
+
+        <figure class="fig" data-chart="centroid"
+                data-plot="Toto-2.0-2.5B/spike_time_frac/plots/Toto-2.0-2.5B__spike_time_frac__layer_0_plot_data.json"
+                data-geometry="interval">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">Centroid path · Toto-2.0-2.5B · spike_time_frac · layer 0</div>
+              <div class="fig-sub">Colour = spike position in time.</div>
+            </div>
+            <div class="seg" data-seg>
+              <button type="button" data-mode="2d" class="active">2D</button>
+              <button type="button" data-mode="3d">3D</button>
+            </div>
+          </div>
+          <div class="chart tall" id="fig-spike-centroid"></div>
+          <figcaption>The spike position is encoded as a <b>curved arc</b>, not a straight line. That curvature is exactly why a naïve straight-line (Euclidean) distance between two centroids is misleading — two points on opposite ends of a horseshoe are close <em>through the air</em> but far <em>along the curve</em>. Walk along the manifold instead, and the order comes back almost perfectly.</figcaption>
+        </figure>
+
+        <div class="col">
+          <p>This is the single most important idea in the whole suite, so it's worth seeing in the raw data. The distance scatter plots, for every pair of grid points, <em>true</em> spike-distance on the x-axis against <em>representation</em> distance on the y-axis. A faithful geometry would form a tight rising band.</p>
+        </div>
+
+        <figure class="fig" data-chart="scatter"
+                data-distance="Toto-2.0-2.5B/spike_time_frac/plots/Toto-2.0-2.5B__spike_time_frac__layer_0_distance_data.json">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">Distance scatter · Toto-2.0-2.5B · spike_time_frac · layer 0</div>
+              <div class="fig-sub">~4&nbsp;MB of pairwise distances — loads on scroll.</div>
+            </div>
+          </div>
+          <div class="chart" id="fig-spike-scatter"></div>
+          <figcaption><b style="color:#2563eb">Blue (straight-line)</b> is a scrambled cloud: Euclidean distance barely knows which spikes are near in time. <b style="color:#dc2626">Red (geodesic)</b> snaps into a clean rising band: distance measured <em>along the manifold</em> recovers the true ordering. Same activations, two rulers — and only one of them sees the structure.</figcaption>
+        </figure>
+
+        <div class="col">
+          <p>Does the curve persist? The layer view tells the rest of the story: the manifold gradually <em>straightens out</em> as you go deeper.</p>
+        </div>
+
+        <figure class="fig" data-chart="layers"
+                data-metrics="Toto-2.0-2.5B/spike_time_frac/metrics.json"
+                data-series="spike">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">Metrics across layers · Toto-2.0-2.5B · spike_time_frac</div>
+              <div class="fig-sub">Watch the blue and red lines converge.</div>
+            </div>
+          </div>
+          <div class="chart" id="fig-spike-layers"></div>
+          <figcaption>Early on, <b style="color:#dc2626">geodesic</b> distance order is excellent while <b style="color:#2563eb">straight-line</b> order is poor — a big positive <b style="color:#d97706">geodesic gain</b>, the signature of a curved-but-clean manifold. By the middle of the network the two lines meet near 1.0: the model has <em>flattened</em> the spike-position manifold into something almost linear, and the geodesic gain falls to zero. Curvature is not a failure — it's a stage the representation moves through.</figcaption>
+        </figure>
+      </section>
+
+      <!-- EXAMPLE 3: LINEAR VS LOG -->
+      <section class="block">
+        <div class="col">
+          <h2><span class="num">Example 3 · linear_trend_slope</span>The ruler matters too</h2>
+          <p>The last example is a twist: sometimes the geometry looks broken only because we measured it with the wrong ruler.</p>
+          <p>The trend-slope factor sweeps from <code>−1,000,000</code> to <code>+1,000,000</code>. Measured on a <strong>linear</strong> grid, the steps are evenly spaced in raw slope units — which means almost every grid point is an enormous slope, and the interesting near-zero region (the difference between a slope of 1 and a slope of 100) is crushed into a sliver. Distances are dominated by the few giant extremes. Measured on a <strong>signed-log</strong> grid instead, the points spread evenly across orders of magnitude and across the sign change, so a step from 1→10 counts the same as 100k→1M.</p>
+          <p>Crucially, the <em>representation never changes</em> between these two views — only the notion of distance we hold it to. Here is the same factor, scored both ways, across all 49 layers.</p>
+        </div>
+
+        <figure class="fig" data-chart="loglin"
+                data-linear="Toto-2.0-2.5B/linear_trend_slope/metrics.json"
+                data-log="Toto-2.0-2.5B/linear_trend_slope__signed_log/metrics.json">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">Linear ruler vs. signed-log ruler · Toto-2.0-2.5B · linear_trend_slope</div>
+              <div class="fig-sub">Same activations, two ways of measuring distance.</div>
+            </div>
+          </div>
+          <div class="twin">
+            <div class="chart short" id="fig-slope-iso"></div>
+            <div class="chart short" id="fig-slope-r2"></div>
+          </div>
+          <figcaption>Under the <b style="color:#d97706">linear ruler</b>, geodesic distance order peaks at a feeble <b>~0.16</b> and 5-NN recall sits near 0.04 — the slope manifold looks nearly geometry-free. Switch to the <b style="color:#0f766e">signed-log ruler</b> and the very same representation reveals real structure: isometry climbs to <b>~0.54</b> and neighbour recall jumps several-fold. Note the nuance in the right-hand panel: <em>decodability</em> (projection R²) is comparable under both rulers — the slope is recoverable either way — but the <em>geometry</em> only lines up when you measure it on the scale the model actually uses.</figcaption>
+        </figure>
+
+        <div class="col">
+          <p>The lesson generalizes well beyond trend slope: a geometry score is a statement about a representation <em>and</em> the metric you put on the target. For factors that span many orders of magnitude, the natural ruler is logarithmic — and the dashboard lets you flip between them so a low score never gets mistaken for an absent structure.</p>
+        </div>
+      </section>
+
+      <!-- WHAT IT IS / ISN'T -->
+      <section class="block">
+        <div class="note">
+          <div class="col" style="max-width:none;">
+            <h3>What this measures — and what it doesn't</h3>
+            <ul>
+              <li>This is a <strong>representation-geometry</strong> evaluation, not a steering or causal-intervention result. We read frozen activations; we never replace them or continue generation from an edited state.</li>
+              <li>It <strong>complements</strong> the linear-probe leaderboard — it does not replace it. A manifold can be clean but curved, or decodable but tangled; the two views answer different questions.</li>
+              <li>The numbers are honest about <strong>geometry, not downstream accuracy</strong>. A high projection R² means a coordinate is recoverable by following the manifold — not that the model forecasts well.</li>
+              <li>It is deliberately <strong>simple</strong>: controlled one-factor sweeps with everything else switched off, classical PCA and shortest-path geodesics. No UMAP or t-SNE in the metrics — only as optional eye-candy, never as a score.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="col" style="max-width:760px;">
+        <h2 style="margin-top:0;">Go explore the geometry</h2>
+        <p style="color:var(--ink-soft);">We showed three targets on one model. The dashboard has seven generative factors across forty-five foundation models, every layer, with the 2D/3D centroid views, layer curves, and distance diagnostics you've just learned to read. Pin up to four selections side by side to compare a small model against a large one, or one family against another.</p>
+        <p><a class="cta" href="manifolds.html">Open the manifold dashboard →</a></p>
+        <p class="respect">With gratitude to Goodfire's <a href="https://www.goodfire.ai/research/neural-geometry" target="_blank" rel="noopener">Neural Geometry</a> series, whose framing — that the structure of the world shows up as the geometry of activations — set the direction for this work. The manifold-steering paper in that series is the direct inspiration for treating curved representation geometry, rather than a single linear direction, as the object of study.</p>
+        <p class="smallprint">Aionoscope manifold suite · controlled-factor-slice protocol <code>manifold_v0</code> · <code>num_enabled = 1</code> · metrics computed in Python, this page only plots stored artifacts. Example model: Toto-2.0-2.5B (<code>Datadog/Toto-2.0-2.5B</code>).</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---------- data source ----------
+    // Same contract as the viewer (results/manifolds.html): record-relative paths
+    // use local generated artifacts during local preview and R2 on hosted Pages.
+    var REMOTE_BASE = "https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260603T142443Z/";
+    function defaultBase() {
+      var host = window.location.hostname;
+      if (
+        window.location.protocol === "file:" ||
+        host === "localhost" ||
+        host === "127.0.0.1" ||
+        host === "::1" ||
+        host === "[::1]"
+      ) {
+        return "manifolds/";
+      }
+      return REMOTE_BASE;
+    }
+    var BASE = (typeof window.MANIFOLD_DATA_BASE_URL === "string")
+      ? window.MANIFOLD_DATA_BASE_URL
+      : defaultBase();
+    function dataUrl(rel) {
+      if (!BASE) return rel;
+      var normalizedBase = String(BASE).endsWith("/") ? String(BASE) : String(BASE) + "/";
+      return new URL(rel, new URL(normalizedBase, window.location.href)).toString();
+    }
+
+    // ---------- shared palette (matches the dashboard) ----------
+    var C = { blue: "#2563eb", red: "#dc2626", teal: "#0f766e", amber: "#d97706", coord: ["#2563eb", "#14b8a6", "#f59e0b", "#dc2626"] };
+
+    function glReady() {
+      return typeof echarts !== "undefined" && typeof echarts.init === "function" && !window.__glLoadFailed;
+    }
+
+    // ---------- formatting ----------
+    function fmt(v) {
+      if (v === null || v === undefined) return "n/a";
+      if (typeof v === "number") {
+        if (!Number.isFinite(v)) return "n/a";
+        var a = Math.abs(v);
+        if (a >= 10000 || (a > 0 && a < 0.001)) return v.toExponential(2);
+        return Math.round(v * 1000) / 1000;
+      }
+      return String(v);
+    }
+
+    // ---------- browser-side PCA (ported from the dashboard) ----------
+    function dot(a, b) { var t = 0; for (var i = 0; i < a.length; i++) t += a[i] * b[i]; return t; }
+    function normalize(v) { var n = Math.sqrt(dot(v, v)); if (!Number.isFinite(n) || n <= 0) return v.map(function () { return 0; }); return v.map(function (x) { return x / n; }); }
+    function centeredRows(rows) {
+      var n = rows.length, d = rows[0] ? rows[0].length : 0, m = new Array(d).fill(0), i, j;
+      for (i = 0; i < n; i++) for (j = 0; j < d; j++) m[j] += Number.isFinite(rows[i][j]) ? rows[i][j] : 0;
+      for (j = 0; j < d; j++) m[j] /= Math.max(n, 1);
+      return rows.map(function (r) { return m.map(function (mean, k) { return (Number.isFinite(r[k]) ? r[k] : 0) - mean; }); });
+    }
+    function multiplyCovariance(rows, v) {
+      var d = v.length, out = new Array(d).fill(0), i, j;
+      for (i = 0; i < rows.length; i++) { var s = dot(rows[i], v); for (j = 0; j < d; j++) out[j] += s * rows[i][j]; }
+      return out.map(function (x) { return x / Math.max(rows.length - 1, 1); });
+    }
+    function principalComponent(rows, bases, seed) {
+      var d = rows[0] ? rows[0].length : 0;
+      var v = normalize(new Array(d).fill(0).map(function (_, i) { return Math.sin((i + 1) * (seed + 1)) + 0.01 * (i + 1); }));
+      for (var it = 0; it < 45; it++) {
+        v = multiplyCovariance(rows, v);
+        for (var b = 0; b < bases.length; b++) { var p = dot(v, bases[b]); v = v.map(function (x, k) { return x - p * bases[b][k]; }); }
+        v = normalize(v);
+      }
+      return v;
+    }
+    function numericMatrix(m) { return Array.isArray(m) ? m.map(function (r) { return Array.isArray(r) ? r.map(function (x) { return (typeof x === "number" && Number.isFinite(x)) ? x : NaN; }) : []; }) : []; }
+    function project(points, k) {
+      var rows = numericMatrix(points).filter(function (r) { return r.length > 0; });
+      if (!rows.length) return [];
+      var c = centeredRows(rows);
+      var p1 = principalComponent(c, [], 1);
+      var p2 = (rows[0].length >= 2) ? principalComponent(c, [p1], 2) : null;
+      var p3 = (k === 3 && rows[0].length >= 3) ? principalComponent(c, [p1, p2], 3) : null;
+      return c.map(function (r) { return k === 3 ? [dot(r, p1), p2 ? dot(r, p2) : 0, p3 ? dot(r, p3) : 0] : [dot(r, p1), p2 ? dot(r, p2) : 0]; });
+    }
+
+    // ---------- chart plumbing ----------
+    var instances = {};
+    function getChart(id) {
+      var el = document.getElementById(id);
+      if (!el) return null;
+      if (instances[id] && !instances[id].isDisposed()) return instances[id];
+      el.innerHTML = "";
+      instances[id] = echarts.init(el, null, { renderer: "canvas" });
+      return instances[id];
+    }
+    function disposeChart(id) { if (instances[id] && !instances[id].isDisposed()) { instances[id].dispose(); } instances[id] = null; }
+    function msg(id, text, warn) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = '<div class="chart-msg' + (warn ? " warn" : "") + '">' + text + "</div>";
+    }
+    function spin(id) {
+      var el = document.getElementById(id);
+      if (el) el.innerHTML = '<div class="chart-msg"><span class="spinner"></span>loading live data…</div>';
+    }
+    function fetchJSON(url) {
+      return fetch(url, { cache: "force-cache" }).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      });
+    }
+    var LOAD_HELP = "Could not load the live data. Local previews expect JSON under <code>results/manifolds/</code>; hosted Pages streams it from the manifold data CDN. If you're hosting your own copy, point <code>window.MANIFOLD_DATA_BASE_URL</code> at it.";
+
+    // ---------- centroid path ----------
+    function renderCentroid(id, plot, geometry, mode) {
+      var chart = getChart(id);
+      if (!chart) return;
+      var centroids = plot.path_centroids || plot.centroids || [];
+      var coords = (plot.path_centroid_coordinates || plot.centroid_coordinates || []).map(Number);
+      var counts = plot.path_centroid_counts || plot.centroid_counts || [];
+      var k = mode === "3d" ? 3 : 2;
+      var emb = project(centroids, k);
+      if (!emb.length) { msg(id, "No centroid data for this layer.", false); return; }
+      var cv = coords.filter(function (x) { return Number.isFinite(x); });
+      var low = cv.length ? Math.min.apply(null, cv) : 0, high = cv.length ? Math.max.apply(null, cv) : 1;
+
+      if (k === 3) {
+        var data3 = emb.map(function (p, i) { return [p[0], p[1], p[2], coords[i], i, counts[i] || 0]; });
+        var line3 = (geometry === "circle" && data3.length > 2 ? data3.concat([data3[0]]) : data3).map(function (d) { return [d[0], d[1], d[2]]; });
+        chart.setOption({
+          animation: false,
+          tooltip: { formatter: function (pr) { var v = pr.value || []; return "<b>grid " + v[4] + "</b><br>factor value: " + fmt(v[3]); } },
+          visualMap: { type: "continuous", min: low, max: high, dimension: 3, orient: "horizontal", left: "center", bottom: 2, text: ["high", "low"], inRange: { color: C.coord } },
+          xAxis3D: { type: "value", name: "PCA 1" }, yAxis3D: { type: "value", name: "PCA 2" }, zAxis3D: { type: "value", name: "PCA 3" },
+          grid3D: { boxWidth: 96, boxDepth: 96, boxHeight: 72, top: -10, axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#eee" } }, viewControl: { autoRotate: false, distance: 200 } },
+          series: [
+            { type: "line3D", data: line3, lineStyle: { width: 3, color: C.teal, opacity: 0.85 } },
+            { type: "scatter3D", data: data3, symbolSize: 8, itemStyle: { opacity: 0.95 } }
+          ]
+        }, true);
+        return;
+      }
+      var data = emb.map(function (p, i) { return [p[0], p[1], coords[i], i, counts[i] || 0]; });
+      var lineData = (geometry === "circle" && data.length > 2) ? data.concat([data[0]]) : data;
+      chart.setOption({
+        animation: false,
+        grid: { left: 52, right: 18, top: 24, bottom: 64 },
+        tooltip: { trigger: "item", formatter: function (pr) { var v = pr.value || []; return "<b>grid " + v[3] + "</b><br>factor value: " + fmt(v[2]); } },
+        visualMap: { type: "continuous", min: low, max: high, dimension: 2, orient: "horizontal", left: "center", bottom: 6, text: ["high", "low"], inRange: { color: C.coord } },
+        xAxis: { type: "value", scale: true, name: "PCA 1", nameLocation: "middle", nameGap: 24, axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#f0eee7" } } },
+        yAxis: { type: "value", scale: true, name: "PCA 2", nameLocation: "middle", nameGap: 38, axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#f0eee7" } } },
+        series: [
+          { type: "line", data: lineData, showSymbol: false, lineStyle: { width: 2, color: C.teal }, emphasis: { disabled: true }, silent: true },
+          { type: "scatter", data: data, symbolSize: 6 }
+        ]
+      }, true);
+    }
+
+    // ---------- layer curves ----------
+    function layerSeries(metrics, keys) {
+      var byLayer = metrics.by_layer || {};
+      var layers = Object.keys(byLayer).map(Number).filter(function (n) { return Number.isFinite(n); }).sort(function (a, b) { return a - b; });
+      var out = { x: layers, series: {} };
+      keys.forEach(function (key) {
+        out.series[key] = layers.map(function (L) {
+          var e = byLayer[String(L)] || {};
+          var v = e[key];
+          return (typeof v === "number" && Number.isFinite(v)) ? v : null;
+        });
+      });
+      return out;
+    }
+    function renderLines(id, x, series, opts) {
+      opts = opts || {};
+      var chart = getChart(id);
+      if (!chart) return;
+      chart.setOption({
+        animation: false,
+        grid: { left: 50, right: 16, top: 38, bottom: 46 },
+        legend: { top: 4, type: "scroll", textStyle: { fontSize: 12 } },
+        tooltip: { trigger: "axis", valueFormatter: function (v) { return v == null ? "n/a" : fmt(v); } },
+        xAxis: { type: "category", data: x, name: "layer", nameLocation: "middle", nameGap: 28, boundaryGap: false, axisLabel: { fontSize: 11 } },
+        yAxis: { type: "value", scale: !!opts.scale, name: opts.yName || "", nameGap: 14, nameTextStyle: { align: "left" }, splitLine: { lineStyle: { color: "#f0eee7" } }, min: opts.min, max: opts.max },
+        series: series.map(function (s) {
+          return { name: s.name, type: "line", data: s.data, showSymbol: false, smooth: true, connectNulls: true, lineStyle: { width: 2.5, color: s.color, type: s.dash ? "dashed" : "solid" }, itemStyle: { color: s.color } };
+        })
+      }, true);
+    }
+
+    // ---------- distance scatter ----------
+    function upperPairs(latent, repr, cap) {
+      var pairs = [];
+      var n = Math.min(latent.length, repr.length);
+      for (var i = 0; i < n; i++) {
+        var lr = latent[i] || [], rr = repr[i] || [];
+        for (var j = i + 1; j < n; j++) {
+          var x = Number(lr[j]), y = Number(rr[j]);
+          if (Number.isFinite(x) && Number.isFinite(y)) pairs.push([x, y]);
+        }
+      }
+      if (cap && pairs.length > cap) {
+        var stride = Math.ceil(pairs.length / cap), s = [];
+        for (var p = 0; p < pairs.length; p += stride) s.push(pairs[p]);
+        return s;
+      }
+      return pairs;
+    }
+    function renderScatter(id, dist) {
+      var chart = getChart(id);
+      if (!chart) return;
+      var latent = numericMatrix(dist.latent_distance);
+      var linear = upperPairs(latent, numericMatrix(dist.linear_distance), 9000);
+      var geo = dist.geodesic_distance ? upperPairs(latent, numericMatrix(dist.geodesic_distance), 9000) : [];
+      chart.setOption({
+        animation: false,
+        grid: { left: 60, right: 18, top: 34, bottom: 48 },
+        legend: { top: 4, right: 8, textStyle: { fontSize: 12 } },
+        tooltip: { trigger: "item", formatter: function (pr) { var v = pr.value || []; return "<b>" + pr.seriesName + "</b><br>factor distance: " + fmt(v[0]) + "<br>repr distance: " + fmt(v[1]); } },
+        xAxis: { type: "value", scale: true, name: "true distance in factor-space", nameLocation: "middle", nameGap: 28, splitLine: { lineStyle: { color: "#f0eee7" } } },
+        yAxis: { type: "value", scale: true, name: "representation distance", nameLocation: "middle", nameGap: 44, splitLine: { lineStyle: { color: "#f0eee7" } } },
+        series: [
+          { name: "straight-line (Euclidean)", type: "scatter", data: linear, symbolSize: 3, large: true, largeThreshold: 2000, itemStyle: { color: C.blue, opacity: 0.4 } },
+          { name: "geodesic (along manifold)", type: "scatter", data: geo, symbolSize: 3, large: true, largeThreshold: 2000, itemStyle: { color: C.red, opacity: 0.4 } }
+        ]
+      }, true);
+    }
+
+    // ---------- per-figure loaders ----------
+    function loadCentroid(fig) {
+      var id = fig.querySelector(".chart").id;
+      var url = dataUrl(fig.getAttribute("data-plot"));
+      var geometry = fig.getAttribute("data-geometry");
+      spin(id);
+      fetchJSON(url).then(function (plot) {
+        fig.__plot = plot; fig.__geometry = geometry; fig.__mode = "2d";
+        renderCentroid(id, plot, geometry, "2d");
+        var seg = fig.querySelector("[data-seg]");
+        if (seg) seg.addEventListener("click", function (ev) {
+          var btn = ev.target.closest("button[data-mode]"); if (!btn) return;
+          var mode = btn.getAttribute("data-mode");
+          if (mode === "3d" && !glReady()) { return; }
+          if (mode === fig.__mode) return;
+          fig.__mode = mode;
+          seg.querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b === btn); });
+          disposeChart(id);
+          try { renderCentroid(id, fig.__plot, fig.__geometry, mode); }
+          catch (e) { fig.__mode = "2d"; seg.querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-mode") === "2d"); }); disposeChart(id); renderCentroid(id, fig.__plot, fig.__geometry, "2d"); }
+        });
+      }).catch(function () { msg(id, LOAD_HELP, true); });
+    }
+
+    function loadLayers(fig) {
+      var id = fig.querySelector(".chart").id;
+      var url = dataUrl(fig.getAttribute("data-metrics"));
+      var kind = fig.getAttribute("data-series");
+      spin(id);
+      fetchJSON(url).then(function (m) {
+        if (kind === "phase") {
+          var d = layerSeries(m, ["spearman_latent_vs_linear", "spearman_latent_vs_geodesic", "knn_recall_at_5"]);
+          renderLines(id, d.x, [
+            { name: "Spearman vs. linear", color: C.blue, data: d.series.spearman_latent_vs_linear },
+            { name: "Spearman vs. geodesic", color: C.red, data: d.series.spearman_latent_vs_geodesic },
+            { name: "5-NN recall", color: C.teal, data: d.series.knn_recall_at_5 }
+          ], { yName: "score", min: 0, max: 1 });
+        } else if (kind === "spike") {
+          var s = layerSeries(m, ["spearman_latent_vs_linear", "spearman_latent_vs_geodesic", "geodesic_gain"]);
+          renderLines(id, s.x, [
+            { name: "Spearman vs. linear", color: C.blue, data: s.series.spearman_latent_vs_linear },
+            { name: "Spearman vs. geodesic", color: C.red, data: s.series.spearman_latent_vs_geodesic },
+            { name: "geodesic gain", color: C.amber, data: s.series.geodesic_gain }
+          ], { yName: "score", scale: true });
+        }
+      }).catch(function () { msg(id, LOAD_HELP, true); });
+    }
+
+    function loadLogLin(fig) {
+      var isoId = "fig-slope-iso", r2Id = "fig-slope-r2";
+      spin(isoId); spin(r2Id);
+      Promise.all([fetchJSON(dataUrl(fig.getAttribute("data-linear"))), fetchJSON(dataUrl(fig.getAttribute("data-log")))]).then(function (res) {
+        var lin = layerSeries(res[0], ["spearman_latent_vs_geodesic", "projection_r2"]);
+        var log = layerSeries(res[1], ["spearman_latent_vs_geodesic", "projection_r2"]);
+        renderLines(isoId, lin.x, [
+          { name: "linear ruler", color: C.amber, data: lin.series.spearman_latent_vs_geodesic },
+          { name: "signed-log ruler", color: C.teal, data: log.series.spearman_latent_vs_geodesic }
+        ], { yName: "geodesic isometry (Spearman)", scale: true });
+        renderLines(r2Id, lin.x, [
+          { name: "linear ruler", color: C.amber, data: lin.series.projection_r2 },
+          { name: "signed-log ruler", color: C.teal, data: log.series.projection_r2 }
+        ], { yName: "projection R²", scale: true });
+      }).catch(function () { msg(isoId, LOAD_HELP, true); msg(r2Id, LOAD_HELP, true); });
+    }
+
+    function loadScatter(fig) {
+      var id = fig.querySelector(".chart").id;
+      spin(id);
+      fetchJSON(dataUrl(fig.getAttribute("data-distance"))).then(function (d) { renderScatter(id, d); })
+        .catch(function () { msg(id, LOAD_HELP, true); });
+    }
+
+    var LOADERS = { centroid: loadCentroid, layers: loadLayers, loglin: loadLogLin, scatter: loadScatter };
+
+    // ---------- lazy init on scroll ----------
+    function init() {
+      var figs = Array.prototype.slice.call(document.querySelectorAll("figure.fig[data-chart]"));
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (!en.isIntersecting) return;
+          var fig = en.target;
+          io.unobserve(fig);
+          if (fig.__loaded) return;
+          fig.__loaded = true;
+          var fn = LOADERS[fig.getAttribute("data-chart")];
+          if (fn) try { fn(fig); } catch (e) { /* swallow */ }
+        });
+      }, { rootMargin: "240px 0px" });
+      figs.forEach(function (f) { io.observe(f); });
+
+      var resizeTimer = null;
+      window.addEventListener("resize", function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function () {
+          Object.keys(instances).forEach(function (k) { if (instances[k] && !instances[k].isDisposed()) instances[k].resize(); });
+        }, 150);
+      });
+    }
+
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+    else init();
+  })();
+  </script>
+</body>
+</html>
