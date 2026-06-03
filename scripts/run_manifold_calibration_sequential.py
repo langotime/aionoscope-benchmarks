@@ -50,7 +50,15 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--view-grid-mode", choices=("linear", "log", "signed_log"), default=None)
     parser.add_argument("--view-range-max-abs", type=float, default=None)
     parser.add_argument("--view-log-min-abs", type=float, default=None)
-    parser.add_argument("--plot-max-points", type=int, default=None)
+    parser.add_argument(
+        "--plot-max-points",
+        type=int,
+        default=None,
+        help=(
+            "Maximum points for plot distance matrices. Centroid path arrays are "
+            "stored at the full controlled-grid resolution."
+        ),
+    )
     parser.add_argument("--encode-batch-size", type=int, default=None)
     parser.add_argument("--dataset-config", type=Path, default=DATASET_CONFIG_PATH)
     parser.add_argument("--out-root", type=Path, default=RESULTS_ROOT / "manifolds")

@@ -489,7 +489,9 @@ results/manifolds/<run-id>/<model-slug>/<target>/metrics.json
 
 The payload uses `schema_version = "manifold_result_v0"` and stores
 the controlled-slice manifest, layerwise metrics, summaries, timings, and paths to
-standalone JSON plot artifacts. The run-level viewer is built with:
+standalone JSON plot artifacts. Plot artifacts keep centroid path arrays at the
+full controlled-grid resolution; `plot_max_points` only caps the distance matrices
+used by scatter and heatmap panels. The run-level viewer is built with:
 
 ```bash
 uv run python scripts/build_manifold_calibration_viewer.py \

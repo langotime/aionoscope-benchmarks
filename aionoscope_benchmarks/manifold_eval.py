@@ -672,25 +672,26 @@ def compute_manifold_layer_evaluation(
         )
     )
 
-    indices = _plot_indices(len(centroid_coords), int(plot_max_points))
-    plot_centroid_coords = centroid_coords[indices]
-    plot_counts = counts[indices]
-    plot_centroids = centroids[indices]
-    plot_latent_dist = latent_dist[np.ix_(indices, indices)]
-    plot_linear_dist = linear_dist[np.ix_(indices, indices)]
-    plot_geodesic = None if best_geodesic is None else np.asarray(best_geodesic)[np.ix_(indices, indices)]
+    distance_indices = _plot_indices(len(centroid_coords), int(plot_max_points))
+    plot_latent_dist = latent_dist[np.ix_(distance_indices, distance_indices)]
+    plot_linear_dist = linear_dist[np.ix_(distance_indices, distance_indices)]
+    plot_geodesic = (
+        None
+        if best_geodesic is None
+        else np.asarray(best_geodesic)[np.ix_(distance_indices, distance_indices)]
+    )
     plot_data = {
-        "downsampled": bool(len(indices) != len(centroid_coords)),
+        "downsampled": bool(len(distance_indices) != len(centroid_coords)),
         "source_grid_points": int(len(centroid_coords)),
-        "plot_grid_points": int(len(indices)),
-        "plot_indices": [int(value) for value in indices.tolist()],
-        "path_grid_points": int(len(centroid_coords)),
-        "path_centroid_coordinates": [float(value) for value in centroid_coords.tolist()],
-        "path_centroid_counts": [int(value) for value in counts.tolist()],
-        "path_centroids": centroids.astype(float).tolist(),
-        "centroid_coordinates": [float(value) for value in plot_centroid_coords.tolist()],
-        "centroid_counts": [int(value) for value in plot_counts.tolist()],
-        "centroids": plot_centroids.astype(float).tolist(),
+        "centroid_grid_points": int(len(centroid_coords)),
+        "distance_grid_points": int(len(distance_indices)),
+        "distance_downsampled": bool(len(distance_indices) != len(centroid_coords)),
+        "distance_plot_indices": [int(value) for value in distance_indices.tolist()],
+        "plot_grid_points": int(len(distance_indices)),
+        "plot_indices": [int(value) for value in distance_indices.tolist()],
+        "centroid_coordinates": [float(value) for value in centroid_coords.tolist()],
+        "centroid_counts": [int(value) for value in counts.tolist()],
+        "centroids": centroids.astype(float).tolist(),
         "latent_distance": plot_latent_dist.astype(float).tolist(),
         "linear_distance": plot_linear_dist.astype(float).tolist(),
         "geodesic_distance": (

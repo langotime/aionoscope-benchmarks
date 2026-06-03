@@ -43,6 +43,30 @@ def test_interval_manifold_metrics_are_near_perfect_for_straight_line() -> None:
     assert evaluation.metrics["graph_by_k"]["2"]["connected"] is True
 
 
+def test_plot_downsampling_only_limits_distance_matrices() -> None:
+    coords = np.linspace(0.0, 1.0, 16)
+    features = np.column_stack([coords, np.zeros_like(coords)])
+
+    evaluation = compute_manifold_layer_evaluation(
+        train_features=features,
+        train_grid_index=np.arange(coords.size),
+        train_coordinates=coords,
+        geometry="interval",
+        geodesic_neighbors=(2,),
+        pca_dim=8,
+        plot_max_points=4,
+    )
+    plot_data = evaluation.plot_data
+
+    assert plot_data["source_grid_points"] == 16
+    assert plot_data["centroid_grid_points"] == 16
+    assert plot_data["distance_grid_points"] == 4
+    assert len(plot_data["centroids"]) == 16
+    assert len(plot_data["centroid_coordinates"]) == 16
+    assert len(plot_data["latent_distance"]) == 4
+    assert len(plot_data["linear_distance"]) == 4
+
+
 def test_circle_manifold_metrics_detect_closed_neighbors() -> None:
     coords = np.linspace(0.0, 2.0 * math.pi, 24, endpoint=False)
     features = np.column_stack([np.cos(coords), np.sin(coords)])
