@@ -1494,6 +1494,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
           grid: { left: 56, right: 12, top: 12, bottom: 30 },
           tooltip: {
             trigger: "axis",
+            appendToBody: true,
             formatter: (params) => {
               if (!Array.isArray(params) || !params.length) return "";
               const head = `layer ${fmt(params[0].value[0])}`;
