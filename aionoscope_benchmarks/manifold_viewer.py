@@ -64,7 +64,7 @@ def collect_viewer_records(*, artifact_root: Path, viewer_path: Path) -> list[di
                     "paths": {
                         key: _relpath(value, base=base)
                         for key, value in viz.items()
-                        if key == "plot_data_json"
+                        if key in {"plot_data_json", "distance_data_json"}
                         if isinstance(value, str)
                     },
                     "metrics_json": _relpath(str(metrics_path), base=base),
@@ -335,6 +335,25 @@ _VIEWER_TEMPLATE = """<!doctype html>
     }
     .collapsible[open] > summary .chev { transform: rotate(0deg); }
     .collapsible:not([open]) > summary { margin-bottom: 0; }
+    .distance-section { margin-top: 12px; }
+    .distance-section + .distance-section {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid #edf1f5;
+    }
+    .distance-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin: 0 0 6px;
+    }
+    .distance-header h4 {
+      margin: 0;
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.2;
+    }
     .comparison {
       display: flex;
       flex-wrap: wrap;
@@ -444,11 +463,13 @@ _VIEWER_TEMPLATE = """<!doctype html>
     let centroidMode = "3d";
     let sideCache = null;
     let metricsCollapsed = false;
+    let distanceBlockOpen = false;
 
     const PALETTE = ["#0f766e", "#2563eb", "#d97706", "#db2777"];
     const MAX_ITEMS = 4;
     const selection = [];
     const plotDataCache = new Map();
+    const distanceDataCache = new Map();
 
     function glReady() {
       return !!window.echarts && !window.__glLoadFailed;
@@ -824,6 +845,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       const sweepText = sweepParts.length ? sweepParts.join(", ") : "n/a";
       const metricsLink = candidate.metrics_json ? `<a href="${escapeHtml(candidate.metrics_json)}">metrics JSON</a>` : "";
       const plotDataLink = candidate.paths && candidate.paths.plot_data_json ? `<a href="${escapeHtml(candidate.paths.plot_data_json)}">plot data JSON</a>` : "";
+      const distanceDataLink = candidate.paths && candidate.paths.distance_data_json ? `<a href="${escapeHtml(candidate.paths.distance_data_json)}">distance data JSON</a>` : "";
       const trackCount = tracksOf(items).length;
       const overlayNote = `${escapeHtml(candidate.model)} / ${escapeHtml(candidate.target)}${items.length > 1 ? ` &middot; ${trackCount} track${trackCount === 1 ? "" : "s"}` : ""}`;
       return `
@@ -835,7 +857,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
               <div class="meta-row"><span>Sweep</span><span>${escapeHtml(sweepText)}</span></div>
               <div class="meta-row"><span>Selected geodesic k</span><span>${escapeHtml(fmt(candidate.metrics && candidate.metrics.selected_geodesic_k))}</span></div>
             </div>
-            <div class="links">${metricsLink}${plotDataLink}</div>
+            <div class="links">${metricsLink}${plotDataLink}${distanceDataLink}</div>
           </section>
           <section class="charts">
             <section class="panel chart-card">
@@ -863,20 +885,27 @@ _VIEWER_TEMPLATE = """<!doctype html>
               <div class="sbs-grid" id="centroid-grid">${sbsCells("centroid-chart", items)}</div>
             </section>
             <section class="panel chart-card">
-              <div class="chart-header">
-                <h3>Distance scatter</h3>
-                <p class="chart-note" id="scatter-note"></p>
-                <p class="chart-copy">Each point is a pair of grid points. X is true target-space distance; Y is representation distance (blue = direct Euclidean, red = graph geodesic). Each panel auto-fits its own axes.</p>
-              </div>
-              <div class="sbs-grid" id="scatter-grid">${sbsCells("scatter-chart", items)}</div>
-            </section>
-            <section class="panel chart-card">
-              <div class="chart-header">
-                <h3>Distance heatmap</h3>
-                <p class="chart-note" id="heatmap-note"></p>
-                <p class="chart-copy">Pairwise distance matrices (latent / direct / geodesic). Each panel uses its own color scale (distance magnitudes differ across models).</p>
-              </div>
-              <div class="sbs-grid heatmap-grid" id="heatmap-grid">${sbsCells("heatmap-chart", items)}</div>
+              <details id="distance-details" class="collapsible"${distanceBlockOpen ? " open" : ""}>
+                <summary class="chart-header">
+                  <h3><span class="chev"></span>Distance scatter / heatmap</h3>
+                  <p class="chart-note" id="distance-note"></p>
+                  <p class="chart-copy">Pairwise distance matrices are stored separately and loaded only when this block is opened. Scatter uses target-space distance on X and representation distance on Y; heatmaps show latent / direct / geodesic matrices with per-panel color scales.</p>
+                </summary>
+                <div class="distance-section">
+                  <div class="distance-header">
+                    <h4>Distance scatter</h4>
+                    <p class="chart-note" id="scatter-note"></p>
+                  </div>
+                  <div class="sbs-grid" id="scatter-grid">${sbsCells("scatter-chart", items)}</div>
+                </div>
+                <div class="distance-section">
+                  <div class="distance-header">
+                    <h4>Distance heatmap</h4>
+                    <p class="chart-note" id="heatmap-note"></p>
+                  </div>
+                  <div class="sbs-grid heatmap-grid" id="heatmap-grid">${sbsCells("heatmap-chart", items)}</div>
+                </div>
+              </details>
             </section>
           </section>
         </div>`;
@@ -1503,6 +1532,8 @@ _VIEWER_TEMPLATE = """<!doctype html>
         const el = document.getElementById(nid);
         if (el) el.textContent = note;
       }
+      const distanceNote = document.getElementById("distance-note");
+      if (distanceNote) distanceNote.textContent = distanceBlockOpen ? note : `${note}; loads on open`;
     }
 
     function loadPlotData(path) {
@@ -1513,6 +1544,91 @@ _VIEWER_TEMPLATE = """<!doctype html>
         .catch((error) => ({ __error: String(error) }));
       plotDataCache.set(path, promise);
       return promise;
+    }
+
+    function loadDistanceData(path) {
+      if (!path) return Promise.resolve(null);
+      if (distanceDataCache.has(path)) return distanceDataCache.get(path);
+      const promise = fetch(path)
+        .then((response) => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); })
+        .catch((error) => ({ __error: String(error) }));
+      distanceDataCache.set(path, promise);
+      return promise;
+    }
+
+    function hasInlineDistanceData(plotData) {
+      return !!(
+        plotData &&
+        !plotData.__error &&
+        plotData.latent_distance &&
+        plotData.linear_distance
+      );
+    }
+
+    function distanceDataPath(item, plotData) {
+      if (item && item.paths && item.paths.distance_data_json) return item.paths.distance_data_json;
+      if (
+        item &&
+        item.paths &&
+        typeof item.paths.plot_data_json === "string" &&
+        item.paths.plot_data_json.endsWith("_plot_data.json")
+      ) {
+        const suffix = "_plot_data.json";
+        return item.paths.plot_data_json.slice(0, -suffix.length) + "_distance_data.json";
+      }
+      if (plotData && typeof plotData.distance_data_json === "string") return plotData.distance_data_json;
+      return null;
+    }
+
+    function loadDistanceDataForItem(item, plotData) {
+      if (plotData && plotData.__error) return Promise.resolve(plotData);
+      if (hasInlineDistanceData(plotData)) return Promise.resolve(plotData);
+      const path = distanceDataPath(item, plotData);
+      if (!path) return Promise.resolve({ __error: "No distance data JSON path in this artifact." });
+      return loadDistanceData(path);
+    }
+
+    function setDistanceStatus(items, message, className = "status") {
+      items.forEach((_, i) => {
+        setChartStatus(`scatter-chart-${i}`, message, className);
+        setChartStatus(`heatmap-chart-${i}`, message, className);
+      });
+    }
+
+    async function renderDistancePanels(items, plotDatas, token) {
+      const details = document.getElementById("distance-details");
+      if (!details || !details.open) return;
+      setDistanceStatus(items, "Loading distance matrices...");
+      const distanceDatas = await Promise.all(
+        items.map((it, i) => loadDistanceDataForItem(it, plotDatas[i])),
+      );
+      if (token !== renderToken) return;
+      if (!details.open) return;
+      if (sideCache) sideCache.distanceDatas = distanceDatas;
+      renderScatterPanels(items, distanceDatas);
+      renderHeatmapPanels(items, distanceDatas);
+      updateNotes(items);
+    }
+
+    function attachDistanceToggle(token) {
+      const details = document.getElementById("distance-details");
+      if (!details) return;
+      details.addEventListener("toggle", () => {
+        distanceBlockOpen = details.open;
+        updateNotes(sideCache ? sideCache.items : effectiveItems());
+        if (details.open && sideCache) {
+          renderDistancePanels(sideCache.items, sideCache.plotDatas, token);
+        } else if (!details.open && sideCache) {
+          sideCache.items.forEach((_, i) => {
+            for (const prefix of ["scatter-chart", "heatmap-chart"]) {
+              const id = `${prefix}-${i}`;
+              const chart = chartInstances[id];
+              if (chart && !chart.isDisposed()) chart.dispose();
+              delete chartInstances[id];
+            }
+          });
+        }
+      });
     }
 
     async function renderSideBySide(items, token) {
@@ -1526,11 +1642,10 @@ _VIEWER_TEMPLATE = """<!doctype html>
       }
       const plotDatas = await Promise.all(items.map((it) => loadPlotData(it.paths && it.paths.plot_data_json)));
       if (token !== renderToken) return;
-      sideCache = { items, plotDatas };
+      sideCache = { items, plotDatas, distanceDatas: null };
       updateNotes(items);
       renderCentroidPanels(items, plotDatas);
-      renderScatterPanels(items, plotDatas);
-      renderHeatmapPanels(items, plotDatas);
+      if (distanceBlockOpen) renderDistancePanels(items, plotDatas, token);
     }
 
     function render() {
@@ -1552,6 +1667,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       renderLayerMetricsCharts(items);
       updateCentroidToggle();
       const token = ++renderToken;
+      attachDistanceToggle(token);
       renderSideBySide(items, token);
     }
 
@@ -1644,6 +1760,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
     document.addEventListener("toggle", (event) => {
       const target = event.target;
       if (!target || !target.matches || !target.matches("details.collapsible")) return;
+      if (target.id === "distance-details") return;
       // Remember the collapse state so it survives shell re-renders on selection.
       metricsCollapsed = !target.open;
       if (!target.open) return;

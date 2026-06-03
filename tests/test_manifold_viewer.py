@@ -57,7 +57,7 @@ def test_manifold_visualization_bundle_and_viewer_are_static_artifacts(tmp_path:
         metrics=evaluation.metrics,
         title="Toy / linear_trend_slope / layer 0",
     )
-    assert set(visualizations) == {"plot_data_json"}
+    assert set(visualizations) == {"plot_data_json", "distance_data_json"}
     metrics_path = target_dir / "metrics.json"
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     metrics_path.write_text(
@@ -87,6 +87,9 @@ def test_manifold_visualization_bundle_and_viewer_are_static_artifacts(tmp_path:
     assert "Centroid path" in html
     assert "Distance scatter" in html
     assert "Distance heatmap" in html
+    assert "distance data JSON" in html
+    assert "distance-details" in html
+    assert "loadDistanceData" in html
     assert "Spearman: latent vs linear" in html
     assert "plot data JSON" in html
     # multi-select comparison mechanism (overlay + side-by-side)
@@ -99,6 +102,21 @@ def test_manifold_visualization_bundle_and_viewer_are_static_artifacts(tmp_path:
     assert html.index('<select id="geometry">') < html.index('<select id="target">')
     assert "all geometries" in html
     plot_data_path = Path(visualizations["plot_data_json"])
+    distance_data_path = Path(visualizations["distance_data_json"])
     assert plot_data_path.exists()
+    assert distance_data_path.exists()
     assert plot_data_path.stat().st_size > 0
+    assert distance_data_path.stat().st_size > 0
+    plot_payload = json.loads(plot_data_path.read_text(encoding="utf-8"))
+    distance_payload = json.loads(distance_data_path.read_text(encoding="utf-8"))
+    assert "distance_data_json" in plot_payload
+    assert "latent_distance" not in plot_payload
+    assert "linear_distance" not in plot_payload
+    assert "geodesic_distance" not in plot_payload
+    assert "distance_grid_points" not in plot_payload
+    assert "plot_indices" not in plot_payload
+    assert plot_payload["centroid_grid_points"] == coords.size
+    assert "latent_distance" in distance_payload
+    assert "linear_distance" in distance_payload
+    assert distance_payload["distance_grid_points"] == coords.size
     assert not list((target_dir / "plots").glob("*.png"))

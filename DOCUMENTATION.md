@@ -141,9 +141,9 @@ This encodes controlled one-factor slices through the normal
 `results/dashboard.html`. The generated `index.html` inside the run directory is
 the review page for inspecting metrics and ECharts visualizations before
 deciding whether this should become part of the benchmark dashboard. It reads the
-stored `plot_data_json` files in the browser, so serve the run directory over a
-static HTTP server rather than opening the file directly when the browser blocks
-local `fetch()` calls.
+stored `plot_data_json` and lazy `distance_data_json` files in the browser, so
+serve the run directory over a static HTTP server rather than opening the file
+directly when the browser blocks local `fetch()` calls.
 
 For a mixed-environment subset such as `MantisV2`, `LeNEPA-Aiono`, `Chronos-2`,
 and `Toto-Open-Base-1.0`, use the sequential dispatcher so each model runs under
@@ -489,9 +489,10 @@ results/manifolds/<run-id>/<model-slug>/<target>/metrics.json
 
 The payload uses `schema_version = "manifold_result_v0"` and stores
 the controlled-slice manifest, layerwise metrics, summaries, timings, and paths to
-standalone JSON plot artifacts. Plot artifacts keep centroid path arrays at the
-full controlled-grid resolution; `plot_max_points` only caps the distance matrices
-used by scatter and heatmap panels. The run-level viewer is built with:
+standalone JSON plot artifacts. `plot_data_json` keeps centroid path arrays at the
+full controlled-grid resolution; `distance_data_json` stores the downsampled
+distance matrices used by scatter and heatmap panels. `plot_max_points` only caps
+those distance matrices. The run-level viewer is built with:
 
 ```bash
 uv run python scripts/build_manifold_calibration_viewer.py \
@@ -500,14 +501,16 @@ uv run python scripts/build_manifold_calibration_viewer.py \
 ```
 
 The viewer renders everything in the browser from the embedded record index and
-the per-target `plot_data_json` files. Pickers (Run/Model/Geometry/Target/Layer)
-select an active record; a comparison bar pins up to four records as colour-coded
-chips. With pins present, "Metrics across layers" overlays one curve per
-(model, target) track, and Centroid path / Distance scatter / Distance heatmap
-show one side-by-side panel per pinned record. Centroid panels project to 2D or
-3D PCA (`echarts-gl`, with a 2D fallback) and Procrustes-align same-target panels
-to a shared frame so manifold shapes are directly comparable; different-target
-panels are projected independently and badged. An empty comparison bar reproduces
+the per-target JSON files. It loads `plot_data_json` for the visible centroid
+panels first, then fetches `distance_data_json` only when the collapsed
+scatter/heatmap block is opened. Pickers (Run/Model/Geometry/Target/Layer) select
+an active record; a comparison bar pins up to four records as colour-coded chips.
+With pins present, "Metrics across layers" overlays one curve per (model, target)
+track, and Centroid path / Distance scatter / Distance heatmap show one
+side-by-side panel per pinned record. Centroid panels project to 2D or 3D PCA
+(`echarts-gl`, with a 2D fallback) and Procrustes-align same-target panels to a
+shared frame so manifold shapes are directly comparable; different-target panels
+are projected independently and badged. An empty comparison bar reproduces
 the single active-record view.
 
 Encoder models only receive representation evaluation in this workflow. Steering
