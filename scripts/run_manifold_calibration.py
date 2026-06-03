@@ -25,6 +25,7 @@ from aionoscope_benchmarks.manifold_viewer import build_viewer
 from aionoscope_benchmarks.manifold_viz import write_visualization_bundle
 from aionoscope_benchmarks.model_registry import create_adapter, model_taxonomy
 from aionoscope_benchmarks.offline_probe import collect_probe_features_by_layer
+from aionoscope_benchmarks.runtime_dataset import build_runtime_splits
 
 
 def _utc_timestamp() -> str:
@@ -160,11 +161,32 @@ def run_calibration(
             view_range_max_abs=config.view_range_max_abs,
             view_log_min_abs=float(config.view_log_min_abs),
         )
-        adapter.prepare(
-            manifest=first_train.manifest["dataset_manifest"],
-            train_split=_split_to_device(first_train.split, device=device),
-            val_split=_split_to_device(first_val.split, device=device),
-        )
+        if bool(getattr(adapter, "manifold_requires_balanced_prepare", False)):
+            _log(f"[{model_name}] build balanced prepare split for supervised tabular adapter")
+            prepare_manifest, prepare_train, prepare_val = build_runtime_splits(
+                config_path=config.dataset_config_path,
+                device=generation_device,
+                batch_size=256,
+                channel_size_override=seq_len,
+                channel_size_policy_override="model_native_exact",
+                channel_size_source_override=f"adapter.{adapter.benchmark_sequence_length_source}",
+                num_enabled=1,
+            )
+            adapter.prepare(
+                manifest=prepare_manifest,
+                train_split=prepare_train,
+                val_split=prepare_val,
+            )
+            train_representation_split = "manifold_train"
+            val_representation_split = "manifold_val"
+        else:
+            adapter.prepare(
+                manifest=first_train.manifest["dataset_manifest"],
+                train_split=_split_to_device(first_train.split, device=device),
+                val_split=_split_to_device(first_val.split, device=device),
+            )
+            train_representation_split = "train"
+            val_representation_split = "val"
         adapter.prepare_runtime(device=device)
 
         for target_name in targets:
@@ -209,7 +231,7 @@ def run_calibration(
                 encoder=adapter,
                 representation_fn=adapter.make_representation_fn(
                     layers=selected_layers,
-                    split="train",
+                    split=train_representation_split,
                 ),
                 layers=selected_layers,
                 loader=_make_loader(train_slice.split, batch_size=batch_size),
@@ -222,7 +244,7 @@ def run_calibration(
                 encoder=adapter,
                 representation_fn=adapter.make_representation_fn(
                     layers=selected_layers,
-                    split="val",
+                    split=val_representation_split,
                 ),
                 layers=selected_layers,
                 loader=_make_loader(val_slice.split, batch_size=batch_size),

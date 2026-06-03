@@ -39,6 +39,33 @@ def _json_float(value: float | np.floating | None) -> float | None:
     return value_float if math.isfinite(value_float) else None
 
 
+def _sanitize_feature_array(features: np.ndarray) -> tuple[np.ndarray, dict[str, Any]]:
+    arr = np.asarray(features, dtype=np.float64)
+    finite = np.isfinite(arr)
+    if bool(finite.all()):
+        return arr, {
+            "finite_input_fraction": 1.0,
+            "nonfinite_replacement": None,
+        }
+
+    finite_values = arr[finite]
+    if finite_values.size:
+        posinf = float(np.max(finite_values))
+        neginf = float(np.min(finite_values))
+    else:
+        posinf = 0.0
+        neginf = 0.0
+    sanitized = np.nan_to_num(arr, nan=0.0, posinf=posinf, neginf=neginf)
+    return sanitized, {
+        "finite_input_fraction": _json_float(float(np.mean(finite))),
+        "nonfinite_replacement": {
+            "nan": 0.0,
+            "posinf": posinf,
+            "neginf": neginf,
+        },
+    }
+
+
 def _upper_triangular_values(matrix: np.ndarray) -> np.ndarray:
     if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
         raise ValueError(f"distance matrix must be square, got {matrix.shape}")
@@ -99,24 +126,42 @@ def maybe_pca(
     pca_dim: int,
     val_features: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray | None, dict[str, Any]]:
-    train = np.asarray(train_features, dtype=np.float64)
-    val = None if val_features is None else np.asarray(val_features, dtype=np.float64)
+    train, train_sanitize_payload = _sanitize_feature_array(np.asarray(train_features, dtype=np.float64))
+    val = None
+    val_sanitize_payload = None
+    if val_features is not None:
+        val, val_sanitize_payload = _sanitize_feature_array(np.asarray(val_features, dtype=np.float64))
     if pca_dim <= 0 or train.shape[1] <= pca_dim or train.shape[0] <= 2:
         return train, val, {
             "applied": False,
             "input_dim": int(train.shape[1]),
             "output_dim": int(train.shape[1]),
             "explained_variance_ratio_sum": None,
+            "train_sanitize": train_sanitize_payload,
+            "val_sanitize": val_sanitize_payload,
         }
     n_components = min(int(pca_dim), int(train.shape[0] - 1), int(train.shape[1]))
     pca = PCA(n_components=n_components, svd_solver="full")
-    train_pca = pca.fit_transform(train)
-    val_pca = None if val is None else pca.transform(val)
+    try:
+        train_pca = pca.fit_transform(train)
+        val_pca = None if val is None else pca.transform(val)
+    except np.linalg.LinAlgError as exc:
+        return train, val, {
+            "applied": False,
+            "input_dim": int(train.shape[1]),
+            "output_dim": int(train.shape[1]),
+            "explained_variance_ratio_sum": None,
+            "pca_error": str(exc),
+            "train_sanitize": train_sanitize_payload,
+            "val_sanitize": val_sanitize_payload,
+        }
     return train_pca, val_pca, {
         "applied": True,
         "input_dim": int(train.shape[1]),
         "output_dim": int(n_components),
         "explained_variance_ratio_sum": _json_float(np.sum(pca.explained_variance_ratio_)),
+        "train_sanitize": train_sanitize_payload,
+        "val_sanitize": val_sanitize_payload,
     }
 
 

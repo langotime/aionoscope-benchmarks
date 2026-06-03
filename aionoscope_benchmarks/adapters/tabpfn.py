@@ -24,6 +24,7 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
     fit_seed = 0
     probe_train_sample_cap = 2_048
     probe_val_sample_cap = 2_048
+    manifold_requires_balanced_prepare = True
 
     def __init__(self) -> None:
         super().__init__()
@@ -136,6 +137,15 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
             probs.append(np.asarray(prob, dtype=np.float32))
         return np.concatenate(probs, axis=0)
 
+    def _features_for_inputs(self, x: torch.Tensor) -> torch.Tensor:
+        if not self._classifiers:
+            raise RuntimeError("TabPFN classifiers are not prepared yet")
+        reduced = self._reduce_inputs(x)
+        features = np.empty((reduced.shape[0], len(self._class_names)), dtype=np.float32)
+        for class_index, classifier in enumerate(self._classifiers):
+            features[:, class_index] = self._positive_proba(classifier, reduced)
+        return torch.from_numpy(features)
+
     def prepare(
         self,
         *,
@@ -234,6 +244,8 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
         requested_layers = tuple(int(layer) for layer in layers)
         if requested_layers != (0,):
             raise ValueError(f"TabPFN only exposes layer 0, got {requested_layers}")
+        if str(split).startswith("manifold_"):
+            return self.forward_layer_dict
         split_cache = self._split_feature_cache.get(split)
         if split_cache is None:
             raise RuntimeError("TabPFN features are not prepared yet")
@@ -262,4 +274,7 @@ class TabPFNAdapter(FrozenTimeSeriesAdapter):
         *,
         layers: tuple[int, ...] | None = None,
     ) -> dict[int, torch.Tensor]:
-        raise RuntimeError("TabPFN uses cached split features; call make_representation_fn()")
+        requested_layers = tuple(int(layer) for layer in (layers or (0,)))
+        if requested_layers != (0,):
+            raise ValueError(f"TabPFN only exposes layer 0, got {requested_layers}")
+        return {0: self._features_for_inputs(x)}

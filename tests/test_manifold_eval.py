@@ -7,6 +7,7 @@ import numpy as np
 from aionoscope_benchmarks.manifold_eval import (
     compute_manifold_layer_evaluation,
     knn_geodesic_distance_matrix,
+    maybe_pca,
     target_distance_matrix,
 )
 
@@ -75,3 +76,45 @@ def test_zero_neighbor_geodesic_graph_reports_disconnected() -> None:
     assert payload["connected"] is False
     assert payload["finite_pair_fraction"] == 0.0
     assert not np.isfinite(geodesic[0, 1])
+
+
+def test_maybe_pca_sanitizes_nonfinite_inputs() -> None:
+    train = np.asarray(
+        [
+            [0.0, 1.0, np.nan, 3.0],
+            [1.0, 2.0, np.inf, 4.0],
+            [2.0, 3.0, -np.inf, 5.0],
+            [3.0, 4.0, 6.0, 6.0],
+            [4.0, 5.0, 7.0, 7.0],
+        ]
+    )
+    val = train + 0.5
+
+    train_pca, val_pca, payload = maybe_pca(train, pca_dim=2, val_features=val)
+
+    assert payload["applied"] is True
+    assert payload["train_sanitize"]["finite_input_fraction"] < 1.0
+    assert np.isfinite(train_pca).all()
+    assert val_pca is not None
+    assert np.isfinite(val_pca).all()
+
+
+def test_maybe_pca_falls_back_when_svd_does_not_converge(monkeypatch) -> None:
+    class FailingPCA:
+        def __init__(self, *, n_components: int, svd_solver: str) -> None:
+            self.n_components = n_components
+            self.svd_solver = svd_solver
+
+        def fit_transform(self, train: np.ndarray) -> np.ndarray:
+            raise np.linalg.LinAlgError("SVD did not converge")
+
+    monkeypatch.setattr("aionoscope_benchmarks.manifold_eval.PCA", FailingPCA)
+    train = np.arange(20, dtype=np.float64).reshape(5, 4)
+
+    train_pca, val_pca, payload = maybe_pca(train, pca_dim=2, val_features=train)
+
+    assert payload["applied"] is False
+    assert payload["pca_error"] == "SVD did not converge"
+    assert train_pca.shape == train.shape
+    assert val_pca is not None
+    assert val_pca.shape == train.shape
