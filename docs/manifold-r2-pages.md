@@ -135,7 +135,7 @@ from Cloudflare Pages. Local development should not depend on R2 CORS.
 R2 CORS is configured on bucket `aionoscope-manifold-data`:
 
 ```text
-Allowed origins: https://aionoscope-benchmarks.pages.dev
+Allowed origins: https://aionoscope-benchmarks.pages.dev, https://aionoscope.langotime.ai
 Allowed methods: GET, HEAD
 Allowed headers: *
 Exposed headers: Content-Length, Content-Encoding, Cache-Control, cf-cache-status
