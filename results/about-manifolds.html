@@ -180,6 +180,30 @@
     }
     .note h3 { margin-top: 18px; }
 
+    /* collaboration / get-involved callout */
+    .collab {
+      position: relative; overflow: hidden;
+      background:
+        radial-gradient(820px 360px at 100% -30%, #d9f2ee 0%, rgba(217,242,238,0) 62%),
+        radial-gradient(620px 280px at -10% 120%, #e7edff 0%, rgba(231,237,255,0) 60%),
+        linear-gradient(180deg, #ffffff 0%, #fbfdfc 100%);
+      border: 1px solid #cfe5e0; border-radius: 18px;
+      padding: 32px 36px 30px; margin: 8px auto; max-width: 760px;
+      box-shadow: 0 4px 22px rgba(15,118,110,0.07);
+    }
+    .collab .eyebrow { margin-bottom: 14px; }
+    .collab h2 { margin: 0 0 4px; }
+    .collab p { margin: 14px 0; }
+    .collab ul { margin: 16px 0 22px; padding-left: 0; list-style: none; }
+    .collab li { position: relative; padding-left: 28px; margin: 10px 0; }
+    .collab li::before {
+      content: ""; position: absolute; left: 4px; top: 11px; width: 8px; height: 8px;
+      border-radius: 50%; background: var(--accent);
+    }
+    .collab .actions { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: center; margin-top: 8px; }
+    .collab .quiet { font-size: 14px; color: var(--ink-faint); }
+    .collab .quiet a { color: var(--accent); }
+
     /* footer */
     footer {
       border-top: 1px solid var(--line); margin-top: 40px; padding: 48px 24px 80px;
@@ -411,6 +435,26 @@
               <li>The numbers are honest about <strong>geometry, not downstream accuracy</strong>. A high projection R² means a coordinate is recoverable by following the manifold — not that the model forecasts well.</li>
               <li>It is deliberately <strong>simple</strong>: controlled one-factor sweeps with everything else switched off, classical PCA and shortest-path geodesics. No UMAP or t-SNE in the metrics — only as optional eye-candy, never as a score.</li>
             </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- GET INVOLVED -->
+      <section class="block">
+        <div class="collab">
+          <p class="eyebrow">Open research · a community effort</p>
+          <h2>This is research in progress — come build it with us</h2>
+          <p>Everything here is early, evolving, and deliberately open. We think representation geometry for time-series models is far too interesting — and too big — to keep to ourselves, so we'd love to turn this into a genuine community effort. Collaboration, questions, pushback, and wild ideas are all very welcome.</p>
+          <ul>
+            <li><strong>Want your model in the benchmark?</strong> We're happy to add more architectures and checkpoints.</li>
+            <li><strong>Missing a factor or geometry you care about?</strong> Suggest new targets and sweep families.</li>
+            <li><strong>Spotted a bug, a misleading metric, or a better way to measure?</strong> Tell us — we'll fix it.</li>
+            <li><strong>Want to dig in together?</strong> We're keen to co-investigate and publish more findings as a group.</li>
+          </ul>
+          <p>If any of that resonates, just send us a message. The open research wiki below has the full idea writeup, current thinking, and how to reach us.</p>
+          <div class="actions">
+            <a class="cta" href="https://alex-knowledge-base.pages.dev/ideas/aionoscope-manifold-reconstruction-benchmark" target="_blank" rel="noopener">Open research wiki &amp; contact →</a>
+            <span class="quiet">alex-knowledge-base.pages.dev/ideas/aionoscope-manifold-reconstruction-benchmark</span>
           </div>
         </div>
       </section>
