@@ -6,13 +6,20 @@ The canonical artifact for one benchmark run is:
 
 `results/dashboard.html` must be able to initialize from those files without any hard-coded manifest.
 
-Official standalone manifold artifacts live under `results/manifolds/`. They are
-canonical for the manifold evaluation workflow, but separate from the leaderboard
-benchmark result artifacts.
-They use `schema_version = "manifold_result_v0"` plus a dedicated static
-viewer for inspection, and `results/dashboard.html` must not discover them as
-leaderboard inputs. The manifold viewer reads each layer's `plot_data_json` in
-the browser and renders ECharts charts; metric computation remains in Python.
+Official standalone manifold artifacts are generated under `results/manifolds/`.
+They are canonical for the manifold evaluation workflow, but separate from the
+leaderboard benchmark result artifacts. This directory is ignored by Git because
+the full generated corpus is too large for the Cloudflare Pages repository
+deployment. The deployable viewer shell is checked in as `results/manifolds.html`
+and reads its large JSON payloads from Cloudflare R2. See
+`docs/manifold-r2-pages.md` for the exact bucket, custom domain, cache rule, and
+upload contract.
+
+Manifold artifacts use `schema_version = "manifold_result_v0"` plus a dedicated
+static viewer for inspection, and `results/dashboard.html` must not discover them
+as leaderboard inputs. The manifold viewer reads each layer's `plot_data_json`
+and, on demand, its split `distance_data_json` in the browser and renders
+ECharts charts; metric computation remains in Python.
 
 Calibration baselines write to `results/models/`. They must set
 `model.type = "baseline"` and use synthetic layer `0`; foundational model runs

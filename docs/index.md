@@ -18,6 +18,7 @@ Agent rule: ignore [../README.md](../README.md) when gathering repository contex
 - [adapter-guide.md](adapter-guide.md): how to add or change model integrations without breaking the adapter boundary.
 - [results-schema.md](results-schema.md): canonical JSON artifact shape, discovery manifest, and compatibility rules.
 - [dashboard-guide.md](dashboard-guide.md): how the static site discovers results and how to smoke-test it.
+- [manifold-r2-pages.md](manifold-r2-pages.md): Cloudflare Pages + R2 setup for the hosted manifold viewer and large JSON corpus.
 - [runbooks/foundational-sweep.md](runbooks/foundational-sweep.md): operational runbook for the foundational sweep and model-specific environments.
 - [maintenance.md](maintenance.md): quality scorecard, recurring maintenance inventory, and automation venue decisions.
 

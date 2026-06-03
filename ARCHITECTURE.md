@@ -118,11 +118,13 @@ the same `FrozenTimeSeriesAdapter` boundary, and writes inspection artifacts und
 `results/manifolds/`.
 
 Those artifacts are not `results/models/*.json` benchmark results and are not read by
-`results/dashboard.html`. They have a dedicated static viewer generated into the
-manifold run directory so metric realism and visual geometry can be reviewed before
-any dashboard integration is considered. That viewer is a static JSON reader using
-Apache ECharts from a CDN; Python still owns metric computation and plot-data
-serialization. Encoder models are evaluation-only here;
+`results/dashboard.html`. The hosted static viewer is checked in as
+`results/manifolds.html` so the Git-backed Cloudflare Pages project can deploy it
+from the repository, while the generated JSON corpus stays ignored under
+`results/manifolds/` locally and is served from Cloudflare R2. The R2/Pages
+contract is documented in `docs/manifold-r2-pages.md`. That viewer is a static
+JSON reader using Apache ECharts from a CDN; Python still owns metric computation
+and plot-data serialization. Encoder models are evaluation-only here;
 future generative-model steering should be added as a separate protocol rather than
 overloading these encoder representation metrics.
 

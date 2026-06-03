@@ -19,6 +19,7 @@ Start with these docs before exploring ad hoc:
 - `ARCHITECTURE.md`: durable design decisions and invariants
 - `docs/planning.md`: GitHub-issue planning workflow
 - `docs/maintenance.md`: recurring maintenance inventory and automation venue decisions
+- `docs/manifold-r2-pages.md`: Cloudflare Pages + R2 deployment contract for the hosted manifold viewer
 
 Top-level `AGENTS.md` is intentionally short and points into that doc set. `README.md` is human-facing onboarding; agents must keep it up to date, but should not use it as the repository context source.
 
@@ -481,10 +482,10 @@ Default manifold models are:
 - `Chronos-2`
 - `Toto-Open-Base-1.0`
 
-Each target artifact lives at:
+Each target artifact lives under the ignored local data directory:
 
 ```text
-results/manifolds/<run-id>/<model-slug>/<target>/metrics.json
+results/manifolds/<model-slug>/<target>/metrics.json
 ```
 
 The payload uses `schema_version = "manifold_result_v0"` and stores
@@ -496,9 +497,15 @@ those distance matrices. The run-level viewer is built with:
 
 ```bash
 uv run python scripts/build_manifold_calibration_viewer.py \
-  --artifact-root results/manifolds/<run-id> \
-  --out results/manifolds/<run-id>/index.html
+  --artifact-root results/manifolds \
+  --out results/manifolds.html
 ```
+
+`results/manifolds.html` is checked in and deployed by the Git-backed
+Cloudflare Pages project. The large generated JSON files remain under the
+ignored `results/manifolds/` directory and are uploaded to Cloudflare R2; see
+`docs/manifold-r2-pages.md` for the current bucket, custom domain, CORS, cache
+rule, and upload procedure.
 
 The viewer renders everything in the browser from the embedded record index and
 the per-target JSON files. It loads `plot_data_json` for the visible centroid

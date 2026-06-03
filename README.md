@@ -61,19 +61,26 @@ uv run python scripts/run_manifold_calibration_sequential.py \
   --max-layers 4
 ```
 
-This writes `results/manifolds/<run-id>/index.html` plus per-target
-`metrics.json`, `plot_data_json`, and `distance_data_json` artifacts. The run
-`index.html` is an Apache ECharts review page loaded from a static HTTP server;
-it reads the stored JSON artifacts directly, shows axis labels and metric
-tooltips, and is not loaded by the main benchmark dashboard. Centroid manifolds
-render in 2D or 3D PCA (`echarts-gl`), and a comparison bar lets you pin up to
-four selections: the "Metrics across layers" panel overlays them as coloured
-per-(model, target) curves, while Centroid path / Distance scatter / Distance
-heatmap show one side-by-side panel per pinned selection (same-target centroids
-are Procrustes-aligned to a shared frame). Scatter and heatmap distance matrices
-are loaded from `distance_data_json` only when their collapsed block is opened.
-In a git worktree without the model `.venv-*` directories, add
-`--env-root /path/to/checkout/with/model/envs`.
+This writes generated manifold JSON artifacts under `results/manifolds/`,
+including per-target `metrics.json`, `plot_data_json`, and
+`distance_data_json` files. That generated directory is ignored by Git. The
+checked-in hosted viewer is `results/manifolds.html`; Cloudflare Pages deploys
+it from the Git-backed `aionoscope-benchmarks` Pages project. When served from
+localhost or `file:`, the viewer reads local JSON from `results/manifolds/`;
+when served from Pages, it fetches the large JSON corpus from Cloudflare R2 at
+`https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260603T142443Z/`.
+See `docs/manifold-r2-pages.md` before changing the hosted manifold setup.
+
+The viewer is an Apache ECharts review page; it reads stored JSON artifacts,
+shows axis labels and metric tooltips, and is not loaded by the main benchmark
+dashboard. Centroid manifolds render in 2D or 3D PCA (`echarts-gl`), and a
+comparison bar lets you pin up to four selections: the "Metrics across layers"
+panel overlays them as coloured per-(model, target) curves, while Centroid path
+/ Distance scatter / Distance heatmap show one side-by-side panel per pinned
+selection (same-target centroids are Procrustes-aligned to a shared frame).
+Scatter and heatmap distance matrices are loaded from `distance_data_json` only
+when their collapsed block is opened. In a git worktree without the model
+`.venv-*` directories, add `--env-root /path/to/checkout/with/model/envs`.
 
 ## Benchmark Identity
 
