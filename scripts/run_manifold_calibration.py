@@ -287,7 +287,7 @@ def run_calibration(
 
             summary = summarize_layer_metrics(by_layer=by_layer)
             payload = {
-                "schema_version": "manifold_calibration_result_v0",
+                "schema_version": "manifold_result_v0",
                 "plan_issue": "https://github.com/langotime/aionoscope-benchmarks/issues/5",
                 "created_at_unix": float(time()),
                 "model": {
@@ -336,7 +336,7 @@ def run_calibration(
     _write_json(
         run_root / "index.json",
         {
-            "schema_version": "manifold_calibration_index_v0",
+            "schema_version": "manifold_index_v0",
             "run_id": active_run_id,
             "created_at_unix": float(time()),
             "config": config.to_payload(),

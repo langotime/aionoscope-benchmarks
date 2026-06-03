@@ -81,7 +81,7 @@ def test_manifold_visualization_bundle_and_viewer_are_static_artifacts(tmp_path:
 
     assert viewer_path.exists()
     html = viewer_path.read_text(encoding="utf-8")
-    assert "Aionoscope Manifold Calibration Viewer" in html
+    assert "Aionoscope Manifold Viewer" in html
     assert "ToyModel" in html
     assert "https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" in html
     assert "Centroid path" in html

@@ -109,17 +109,17 @@ crop, pad, or waveform-resample the generated Aiono sequence to fit the model.
 
 `run_model.py` first collects layerwise representations for the full finite train and validation splits, then runs linear probes over those frozen features. Feature collection and probe training are intentionally separated so per-layer probe evaluation does not recompute model embeddings.
 
-### Standalone manifold calibration prototype
+### Standalone Manifold Workflow
 
-The manifold calibration workflow is intentionally separate from the benchmark
+The manifold workflow is intentionally separate from the benchmark
 leaderboard. It builds deterministic controlled slices with `num_enabled=1`, varies
 one known latent factor at a time, collects layerwise frozen representations through
 the same `FrozenTimeSeriesAdapter` boundary, and writes inspection artifacts under
-`results/manifold_calibration/`.
+`results/manifolds/`.
 
 Those artifacts are not `results/models/*.json` benchmark results and are not read by
 `results/dashboard.html`. They have a dedicated static viewer generated into the
-calibration run directory so metric realism and visual geometry can be reviewed before
+manifold run directory so metric realism and visual geometry can be reviewed before
 any dashboard integration is considered. That viewer is a static JSON reader using
 Apache ECharts from a CDN; Python still owns metric computation and plot-data
 serialization. Encoder models are evaluation-only here;
@@ -270,7 +270,7 @@ explicitly in the top-level docs instead of being treated as an implicit fallbac
 `results/dashboard.html` is a static browser dashboard that reads `results/models/*.json` and visualizes the stored metrics. It must stay compatible with the JSON schema produced by `results.py`, including the explicit runtime encoder-forward totals, the total adapter parameter counts, the cumulative through-layer parameter metadata used by the bubble chart controls, and the canonical model taxonomy fields used both by the shared color-palette selector and by the independent model-selection grouping controls. Dashboard selection and hover state must key off a composite benchmark-run identity, not raw `model.name`, because `v2` intentionally produces multiple runs per canonical model.
 
 `aionoscope_benchmarks.manifold_viewer` is a separate static reader for
-`results/manifold_calibration/**/metrics.json`. It exists for calibration review and
+`results/manifolds/**/metrics.json`. It exists for manifold review and
 must not become an implicit source of leaderboard data.
 
 ## Architectural Invariants

@@ -120,7 +120,7 @@ Run the dashboard smoke harness against the checked-in `results/` site:
 uv run python -m aionoscope_benchmarks.dashboard_smoke
 ```
 
-Run the standalone manifold calibration prototype for one model in the current
+Run the standalone manifold workflow for one model in the current
 environment:
 
 ```bash
@@ -136,7 +136,7 @@ uv run python scripts/run_manifold_calibration.py \
 
 This encodes controlled one-factor slices through the normal
 `FrozenTimeSeriesAdapter` boundary and writes artifacts under
-`results/manifold_calibration/<run-id>/`. It does not write
+`results/manifolds/<run-id>/`. It does not write
 `results/models/*.json` and is intentionally not consumed by
 `results/dashboard.html`. The generated `index.html` inside the run directory is
 the review page for inspecting metrics and ECharts visualizations before
@@ -457,15 +457,15 @@ uv run python -m aionoscope_benchmarks.run_baseline \
 The dashboard defaults to model artifacts and exposes a run-type filter for
 showing or hiding baseline artifacts.
 
-### Manifold Calibration Artifacts
+### Manifold Artifacts
 
-The manifold calibration prototype is a separate inspection workflow rather than a
+The manifold workflow is a separate inspection workflow rather than a leaderboard
 benchmark result schema. It materializes deterministic controlled slices with
 `num_enabled=1`, sweeps one latent factor at a time, collects layerwise frozen
 representations, and measures whether the representation geometry preserves the
 known target geometry.
 
-Default calibration targets are:
+Default manifold targets are:
 
 - `sine_phase`
 - `sine_frequency_hz`
@@ -474,7 +474,7 @@ Default calibration targets are:
 - `gaussian_time_frac`
 - `linear_trend_slope`
 
-Default calibration models are:
+Default manifold models are:
 
 - `MantisV2`
 - `LeNEPA-Aiono`
@@ -484,17 +484,17 @@ Default calibration models are:
 Each target artifact lives at:
 
 ```text
-results/manifold_calibration/<run-id>/<model-slug>/<target>/metrics.json
+results/manifolds/<run-id>/<model-slug>/<target>/metrics.json
 ```
 
-The payload uses `schema_version = "manifold_calibration_result_v0"` and stores
+The payload uses `schema_version = "manifold_result_v0"` and stores
 the controlled-slice manifest, layerwise metrics, summaries, timings, and paths to
 standalone JSON plot artifacts. The run-level viewer is built with:
 
 ```bash
 uv run python scripts/build_manifold_calibration_viewer.py \
-  --artifact-root results/manifold_calibration/<run-id> \
-  --out results/manifold_calibration/<run-id>/index.html
+  --artifact-root results/manifolds/<run-id> \
+  --out results/manifolds/<run-id>/index.html
 ```
 
 The viewer renders everything in the browser from the embedded record index and
@@ -510,7 +510,7 @@ the single active-record view.
 
 Encoder models only receive representation evaluation in this workflow. Steering
 experiments for generative models are a later extension and should not be folded
-into these encoder calibration metrics.
+into these encoder manifold metrics.
 
 Numeric values aggregated across validation seeds use the payload:
 

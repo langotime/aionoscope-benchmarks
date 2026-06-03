@@ -1,6 +1,14 @@
 from __future__ import annotations
 
+from aionoscope_benchmarks.constants import RESULTS_ROOT
 from aionoscope_benchmarks.manifold_config import ManifoldEvalConfig
+
+
+def test_manifold_config_defaults_to_official_protocol_and_root() -> None:
+    config = ManifoldEvalConfig.from_mapping({})
+
+    assert config.protocol_version == "manifold_v0"
+    assert config.artifact_root == RESULTS_ROOT / "manifolds"
 
 
 def test_manifold_config_accepts_scalar_cli_like_values() -> None:

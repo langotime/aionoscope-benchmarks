@@ -94,7 +94,7 @@ def build_viewer(*, artifact_root: Path, out_path: Path) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     records = collect_viewer_records(artifact_root=artifact_root, viewer_path=out_path)
     records_json = _json_for_script(records)
-    title = "Aionoscope Manifold Calibration Viewer"
+    title = "Aionoscope Manifold Viewer"
     html_text = _VIEWER_TEMPLATE.replace("__TITLE__", html.escape(title)).replace(
         "__RECORDS_JSON__",
         records_json,
@@ -1539,7 +1539,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       disposeCharts();
       const content = document.getElementById("content");
       if (!records.length) {
-        content.innerHTML = '<div class="empty panel">No calibration metrics found.</div>';
+        content.innerHTML = '<div class="empty panel">No manifold metrics found.</div>';
         return;
       }
       const candidate = activeCandidate();

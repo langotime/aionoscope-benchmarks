@@ -12,7 +12,7 @@ Current scope:
 - balanced Aiono basic-components offline probes
 - one JSON result per benchmark run
 - interactive browser dashboard from those JSON results
-- standalone manifold calibration artifacts for inspecting representation geometry
+- standalone manifold artifacts for inspecting representation geometry
 
 Canonical benchmark model names now include explicit version and size whenever an
 upstream family publishes multiple official checkpoints, and they keep published
@@ -50,7 +50,7 @@ Baseline artifacts use the same `results/models/<slug>__num_enabled_<k>.json`
 schema as model artifacts with `model.type = "baseline"`. The dashboard has a
 run-type filter so baselines do not mix into the model leaderboard by default.
 
-Run a small manifold calibration inspection:
+Run a small manifold inspection:
 
 ```bash
 uv run python scripts/run_manifold_calibration_sequential.py \
@@ -61,7 +61,7 @@ uv run python scripts/run_manifold_calibration_sequential.py \
   --max-layers 4
 ```
 
-This writes `results/manifold_calibration/<run-id>/index.html` plus per-target
+This writes `results/manifolds/<run-id>/index.html` plus per-target
 `metrics.json` and `plot_data_json` artifacts. The run `index.html` is an Apache
 ECharts review page loaded from a static HTTP server; it reads the stored JSON
 artifacts directly, shows axis labels and metric tooltips, and is not loaded by

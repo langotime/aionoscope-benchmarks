@@ -52,7 +52,7 @@ def _as_int_tuple(value: object, *, default: tuple[int, ...], name: str) -> tupl
 class ManifoldEvalConfig:
     enabled: bool = True
     mode: str = "controlled_factor_slices"
-    protocol_version: str = "calibration_v0"
+    protocol_version: str = "manifold_v0"
     models: tuple[str, ...] = DEFAULT_MANIFOLD_CALIBRATION_MODELS
     targets: tuple[str, ...] = DEFAULT_MANIFOLD_CALIBRATION_TARGETS
     num_enabled: int = 1
@@ -68,7 +68,7 @@ class ManifoldEvalConfig:
     view_log_min_abs: float = 1e-6
     plot_max_points: int = 256
     dataset_config_path: Path = DATASET_CONFIG_PATH
-    artifact_root: Path = RESULTS_ROOT / "manifold_calibration"
+    artifact_root: Path = RESULTS_ROOT / "manifolds"
     write_plots: bool = True
     write_viewer: bool = True
 
@@ -77,9 +77,9 @@ class ManifoldEvalConfig:
             return
         if self.mode != "controlled_factor_slices":
             raise ValueError(f"Unsupported manifold eval mode: {self.mode!r}")
-        if self.protocol_version != "calibration_v0":
+        if self.protocol_version != "manifold_v0":
             raise ValueError(
-                "Only manifold calibration protocol_version='calibration_v0' is supported, "
+                "Only manifold protocol_version='manifold_v0' is supported, "
                 f"got {self.protocol_version!r}"
             )
         if int(self.num_enabled) != 1:
@@ -154,7 +154,7 @@ class ManifoldEvalConfig:
         config = cls(
             enabled=bool(raw.get("enabled", True)),
             mode=str(raw.get("mode", "controlled_factor_slices")),
-            protocol_version=str(raw.get("protocol_version", "calibration_v0")),
+            protocol_version=str(raw.get("protocol_version", "manifold_v0")),
             models=_as_str_tuple(
                 models_raw,
                 default=DEFAULT_MANIFOLD_CALIBRATION_MODELS,
@@ -188,7 +188,7 @@ class ManifoldEvalConfig:
             view_log_min_abs=float(raw.get("view_log_min_abs", 1e-6)),
             plot_max_points=int(raw.get("plot_max_points", 256)),
             dataset_config_path=Path(raw.get("dataset_config_path", DATASET_CONFIG_PATH)),
-            artifact_root=Path(artifacts.get("root", RESULTS_ROOT / "manifold_calibration")),
+            artifact_root=Path(artifacts.get("root", RESULTS_ROOT / "manifolds")),
             write_plots=bool(artifacts.get("write_plots", True)),
             write_viewer=bool(artifacts.get("write_viewer", True)),
         )

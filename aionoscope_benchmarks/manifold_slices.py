@@ -360,7 +360,7 @@ def _resolve_target(
         default_low, default_high = _view_range(component, param)
         if view_range_max_abs is None:
             physical_low, physical_high = default_low, default_high
-            range_policy = "calibration_default_view_range"
+            range_policy = "manifold_default_view_range"
         else:
             physical_low, physical_high = _expanded_view_range(
                 default_low=default_low,
@@ -884,8 +884,8 @@ def _build_dataset_manifest(
         "channels": [str(channel) for channel in cfg.get("channels", ["I"])],
         "default_channel_size": int(_require_int(cfg, "default_channel_size")),
         "channel_size": int(seq_len),
-        "channel_size_policy": "manifold_calibration_adapter_exact",
-        "channel_size_source": "manifold_calibration.adapter_exact",
+        "channel_size_policy": "manifold_adapter_exact",
+        "channel_size_source": "manifold.adapter_exact",
         "train_seed": int(_require_int(aiono, "train_seed")),
         "validation_seed_values": [0],
         "validation_seed_offset": 0,

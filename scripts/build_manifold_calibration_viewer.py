@@ -12,13 +12,13 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--artifact-root",
         type=Path,
-        default=RESULTS_ROOT / "manifold_calibration",
-        help="Root directory containing manifold calibration artifacts.",
+        default=RESULTS_ROOT / "manifolds",
+        help="Root directory containing manifold artifacts.",
     )
     parser.add_argument(
         "--out",
         type=Path,
-        default=RESULTS_ROOT / "manifold_calibration" / "index.html",
+        default=RESULTS_ROOT / "manifolds" / "index.html",
         help="Output static HTML viewer path.",
     )
     return parser.parse_args()

@@ -53,7 +53,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--plot-max-points", type=int, default=None)
     parser.add_argument("--encode-batch-size", type=int, default=None)
     parser.add_argument("--dataset-config", type=Path, default=DATASET_CONFIG_PATH)
-    parser.add_argument("--out-root", type=Path, default=RESULTS_ROOT / "manifold_calibration")
+    parser.add_argument("--out-root", type=Path, default=RESULTS_ROOT / "manifolds")
     parser.add_argument("--run-id", type=str, default=None)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--generation-device", type=str, default="cpu")
