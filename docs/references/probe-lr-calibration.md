@@ -100,10 +100,19 @@ Categorical conclusion:
   policies because it gives one transparent benchmark standard and avoids
   model-family-specific exceptions.
 
-## Reproducibility Notes
+## Diagnostic Procedure
 
-The diagnostics were run with `scripts/diagnose_toto2_probe_lr.py`, writing CSV
-and JSON artifacts under `results/toto2_probe_lr_diagnostics/`. The script
-collects frozen features once per model/layer set, then reuses them for a sweep
-over exact probe learning rates with benchmark LR scaling disabled. It supports
-`--head dense` and `--head categorical` for the two probe heads.
+The calibration was a one-off diagnostic sweep, not part of the benchmark
+contract. For each model, frozen features were collected once for the selected
+layer set and then reused across exact probe learning rates with benchmark LR
+scaling disabled. Dense and categorical heads were swept separately.
+
+The sweep compared the fixed `0.01` default against smaller exact rates around
+the proposed feature-dimension-scaled value. Dense calibration used macro `R2`
+as the decision metric. Categorical calibration used macro AUROC and macro
+AUPRC to verify that applying the same rule to the classification head did not
+meaningfully degrade near-ceiling categorical recovery.
+
+Raw diagnostic CSV/JSON outputs are intentionally not tracked in git. The
+tables above record the benchmark-relevant evidence: tested rates, best observed
+rates, fixed-`0.01` behavior, and the resulting protocol decision.
