@@ -150,6 +150,23 @@ _VIEWER_TEMPLATE = """<!doctype html>
     }
     h1 { font-size: 20px; line-height: 1.15; margin: 0 0 5px; font-weight: 720; }
     .header-copy { margin: 0; color: var(--muted); font-size: 13px; max-width: 820px; }
+    .about-link {
+      flex: none;
+      align-self: center;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 16px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 650;
+      white-space: nowrap;
+      box-shadow: 0 6px 16px rgba(15, 118, 110, 0.25);
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .about-link:hover { background: #0c5f58; transform: translateY(-1px); }
     main { padding: 18px 24px 36px; }
     .controls {
       display: grid;
@@ -437,6 +454,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       <h1>__TITLE__</h1>
       <p class="header-copy">Static reader for controlled manifold-slice artifacts. Metrics are computed in Python over all stored grid points; the browser only renders the selected record.</p>
     </div>
+    <a class="about-link" href="about-manifolds.html">About manifolds &rarr;</a>
   </header>
   <main>
     <div class="controls">
