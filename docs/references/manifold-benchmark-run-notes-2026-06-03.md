@@ -1,9 +1,11 @@
-# Manifold Benchmark Model Difficulties
+# Manifold Benchmark Run Notes
 
 Date: 2026-06-03 UTC
 
-Scope: `aionoscope-benchmarks-manifold`, combined manifold run
-`results/manifold_calibration/manifold_grid1024_opt_combined`.
+Historical notes from the `aionoscope-benchmarks-manifold` worktree for the
+combined manifold run `results/manifold_calibration/manifold_grid1024_opt_combined`.
+The source worktree was removed after its artifacts were moved into
+`aionoscope-benchmarks/results/`.
 
 Benchmark shape used for the sweep:
 
@@ -12,7 +14,8 @@ Benchmark shape used for the sweep:
 - Linear targets: `sine_phase`, `sine_frequency_hz`, `sine_amplitude`,
   `spike_time_frac`, `gaussian_time_frac`, `linear_trend_slope`
 - Signed-log target: `linear_trend_slope__signed_log`
-- Main summary file: `logs/manifold_missing_sweep_20260602T144054Z.json`
+- Main summary file during the run:
+  `logs/manifold_missing_sweep_20260602T144054Z.json`
 
 ## TabPFN-v2
 
