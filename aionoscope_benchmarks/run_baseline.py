@@ -21,6 +21,7 @@ from .constants import DATASET_CONFIG_PATH, MODEL_RESULTS_ROOT, PROBE_CONFIG_PAT
 from .offline_probe import (
     CollectedProbeFeatures,
     offline_probe_run_linear_multihead_by_layer_multi_val_from_collected,
+    probe_learning_rate_scaling_payload,
 )
 from .probe_metrics import ensure_probe_metric_dependencies_available, probe_compute_metrics
 from .results import build_model_result, write_model_result
@@ -537,6 +538,9 @@ def run_baselines_for_num_enabled(
             result_probe_seed = probe_seed
             probe_config_payload = dict(probe_config_raw)
             probe_config_payload["probe_seed"] = None if probe_seed is None else int(probe_seed)
+            probe_config_payload["learning_rate_scaling"] = probe_learning_rate_scaling_payload(
+                probe_config
+            )
         else:
             _log_run(run_label, "phase: compute metric-floor predictions")
             metric_start = perf_counter()
@@ -551,6 +555,9 @@ def run_baselines_for_num_enabled(
             result_probe_seed = None
             probe_config_payload = dict(probe_config_raw)
             probe_config_payload["probe_seed"] = None
+            probe_config_payload["learning_rate_scaling"] = probe_learning_rate_scaling_payload(
+                probe_config
+            )
 
         runtime_summary["finished_at_unix"] = float(time())
         runtime_summary["total_wall_s"] = float(perf_counter() - baseline_start)

@@ -44,6 +44,45 @@ def test_offline_probe_heads_do_not_layer_normalize_features() -> None:
     assert "nn.LayerNorm" not in source
 
 
+def test_probe_learning_rate_scales_by_feature_dim() -> None:
+    config = OfflineProbeConfig(
+        steps=2,
+        batch_size=4,
+        learning_rate=0.01,
+        final_learning_rate=0.005,
+        learning_rate_warmup_steps=0,
+        weight_decay=0.0,
+        opt_betas=(0.9, 0.999),
+        gradient_clip=1.0,
+        checkpoint_interval=1,
+    )
+
+    unchanged = offline_probe_module._probe_learning_rates_for_feature_dim(
+        eval_config=config,
+        feature_dim=1024,
+    )
+    assert unchanged.learning_rate == pytest.approx(0.01)
+    assert unchanged.final_learning_rate == pytest.approx(0.005)
+    assert unchanged.dimension_scale == pytest.approx(1.0)
+
+    scaled = offline_probe_module._probe_learning_rates_for_feature_dim(
+        eval_config=config,
+        feature_dim=1536,
+    )
+    expected_scale = (1024.0 / 1536.0) ** 3
+    assert scaled.learning_rate == pytest.approx(0.01 * expected_scale)
+    assert scaled.final_learning_rate == pytest.approx(0.005 * expected_scale)
+    assert scaled.floor_applied is False
+
+    floored = offline_probe_module._probe_learning_rates_for_feature_dim(
+        eval_config=config,
+        feature_dim=4096,
+    )
+    assert floored.learning_rate == pytest.approx(0.001)
+    assert floored.final_learning_rate == pytest.approx(0.0005)
+    assert floored.floor_applied is True
+
+
 def _make_collected(
     *,
     feature_shift: float,

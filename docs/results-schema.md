@@ -34,6 +34,22 @@ keep `model.type = "foundational"`.
 
 Those fields are the minimum needed for discovery, dashboard grouping, and run identity.
 
+## Probe Learning Rates
+
+`probe_config.learning_rate` and `probe_config.final_learning_rate` are base
+optimizer rates. Current benchmark runs also include
+`probe_config.learning_rate_scaling`, which records the normalized
+feature-dimension scaling policy:
+
+```python
+effective_lr = base_lr * min(1.0, (1024.0 / feature_dim) ** 3)
+effective_lr = max(effective_lr, 1.0e-3)
+```
+
+Each layer payload under `results.categorical` and `results.dense` includes a
+`learning_rate` object with the base and effective rates used for that probe
+head/layer. Older checked-in artifacts may not contain these fields.
+
 ## Corpus Rules
 
 - `results/models/` must contain one coherent benchmark family/version at a time.

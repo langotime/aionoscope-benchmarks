@@ -3,6 +3,11 @@ batch_size: 1024
 runtime_dataset_batch_size: 256
 learning_rate: 1.0e-2
 final_learning_rate: 1.0e-2
+learning_rate_scaling:
+  enabled: true
+  reference_feature_dim: 1024
+  feature_dim_power: 3.0
+  min_learning_rate: 1.0e-3
 learning_rate_warmup_steps: 0
 weight_decay: 0.0
 opt_betas: [0.9, 0.999]

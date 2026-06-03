@@ -28,6 +28,7 @@ and write schema-compatible `model.type = "baseline"` JSON artifacts.
 
 - [../README.md](../README.md): human-facing onboarding and quickstart, maintained alongside code changes but not used as the agent context source.
 - [references/runtime-environments.md](references/runtime-environments.md): pinned environment layout and where model families run.
+- [references/probe-lr-calibration.md](references/probe-lr-calibration.md): probe learning-rate calibration diagnostics and active feature-dimension scaling rule.
 - [../benchmark_models_list.md](../benchmark_models_list.md): human-facing foundational model catalog.
 - [../results/AGENTS.md](../results/AGENTS.md): subdirectory-specific guidance for checked-in result artifacts.
 

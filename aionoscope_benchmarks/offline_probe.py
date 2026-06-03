@@ -23,6 +23,22 @@ class OfflineProbeConfig:
     opt_betas: tuple[float, float]
     gradient_clip: float
     checkpoint_interval: int
+    learning_rate_scaling_enabled: bool = True
+    learning_rate_reference_feature_dim: float = 1024.0
+    learning_rate_feature_dim_power: float = 3.0
+    min_learning_rate: float = 1.0e-3
+
+
+@dataclass(frozen=True)
+class ProbeLearningRates:
+    learning_rate: float
+    final_learning_rate: float
+    dimension_scale: float
+    effective_scale: float
+    floor_applied: bool
+
+
+PROBE_LEARNING_RATE_SCALING_POLICY = "feature_dim_cubic_floor_v1"
 
 
 @dataclass(frozen=True)
@@ -50,6 +66,12 @@ def _validate_offline_probe_config(*, eval_config: OfflineProbeConfig) -> None:
         raise ValueError(f"batch_size must be > 0, got {eval_config.batch_size}")
     if eval_config.steps <= 0:
         raise ValueError(f"steps must be > 0, got {eval_config.steps}")
+    if eval_config.learning_rate <= 0:
+        raise ValueError(f"learning_rate must be > 0, got {eval_config.learning_rate}")
+    if eval_config.final_learning_rate < 0:
+        raise ValueError(
+            f"final_learning_rate must be >= 0, got {eval_config.final_learning_rate}"
+        )
     if eval_config.checkpoint_interval <= 0:
         raise ValueError(
             "checkpoint_interval must be > 0, "
@@ -57,6 +79,82 @@ def _validate_offline_probe_config(*, eval_config: OfflineProbeConfig) -> None:
         )
     if eval_config.gradient_clip < 0:
         raise ValueError(f"gradient_clip must be >= 0, got {eval_config.gradient_clip}")
+    if eval_config.learning_rate_reference_feature_dim <= 0:
+        raise ValueError(
+            "learning_rate_reference_feature_dim must be > 0, "
+            f"got {eval_config.learning_rate_reference_feature_dim}"
+        )
+    if eval_config.learning_rate_feature_dim_power < 0:
+        raise ValueError(
+            "learning_rate_feature_dim_power must be >= 0, "
+            f"got {eval_config.learning_rate_feature_dim_power}"
+        )
+    if eval_config.min_learning_rate <= 0:
+        raise ValueError(f"min_learning_rate must be > 0, got {eval_config.min_learning_rate}")
+
+
+def probe_learning_rate_scaling_payload(eval_config: OfflineProbeConfig) -> dict[str, object]:
+    return {
+        "policy": PROBE_LEARNING_RATE_SCALING_POLICY,
+        "enabled": bool(eval_config.learning_rate_scaling_enabled),
+        "reference_feature_dim": float(eval_config.learning_rate_reference_feature_dim),
+        "feature_dim_power": float(eval_config.learning_rate_feature_dim_power),
+        "min_learning_rate": float(eval_config.min_learning_rate),
+        "applies_to": ["categorical", "dense"],
+    }
+
+
+def _probe_learning_rates_for_feature_dim(
+    *,
+    eval_config: OfflineProbeConfig,
+    feature_dim: int,
+) -> ProbeLearningRates:
+    if feature_dim <= 0:
+        raise ValueError(f"feature_dim must be > 0, got {feature_dim}")
+    if not eval_config.learning_rate_scaling_enabled:
+        return ProbeLearningRates(
+            learning_rate=float(eval_config.learning_rate),
+            final_learning_rate=float(eval_config.final_learning_rate),
+            dimension_scale=1.0,
+            effective_scale=1.0,
+            floor_applied=False,
+        )
+
+    dimension_scale = min(
+        1.0,
+        (float(eval_config.learning_rate_reference_feature_dim) / float(feature_dim))
+        ** float(eval_config.learning_rate_feature_dim_power),
+    )
+    raw_learning_rate = float(eval_config.learning_rate) * float(dimension_scale)
+    learning_rate = max(raw_learning_rate, float(eval_config.min_learning_rate))
+    effective_scale = learning_rate / float(eval_config.learning_rate)
+    return ProbeLearningRates(
+        learning_rate=float(learning_rate),
+        final_learning_rate=float(eval_config.final_learning_rate) * float(effective_scale),
+        dimension_scale=float(dimension_scale),
+        effective_scale=float(effective_scale),
+        floor_applied=bool(learning_rate > raw_learning_rate),
+    )
+
+
+def _probe_learning_rate_result_payload(
+    *,
+    eval_config: OfflineProbeConfig,
+    feature_dim: int,
+    learning_rates: ProbeLearningRates,
+) -> dict[str, object]:
+    return {
+        "policy": PROBE_LEARNING_RATE_SCALING_POLICY,
+        "enabled": bool(eval_config.learning_rate_scaling_enabled),
+        "feature_dim": int(feature_dim),
+        "base_learning_rate": float(eval_config.learning_rate),
+        "base_final_learning_rate": float(eval_config.final_learning_rate),
+        "effective_learning_rate": float(learning_rates.learning_rate),
+        "effective_final_learning_rate": float(learning_rates.final_learning_rate),
+        "dimension_scale": float(learning_rates.dimension_scale),
+        "effective_scale": float(learning_rates.effective_scale),
+        "floor_applied": bool(learning_rates.floor_applied),
+    }
 
 
 def _set_torch_random_seed(seed: int | None) -> None:
@@ -634,6 +732,10 @@ def _train_linear_classification_probe(
         )
 
     feature_dim = int(train_features.size(1))
+    learning_rates = _probe_learning_rates_for_feature_dim(
+        eval_config=eval_config,
+        feature_dim=feature_dim,
+    )
     train_size = int(train_features.size(0))
     val_size = int(val_targets.size(0))
     if train_size < eval_config.batch_size:
@@ -647,14 +749,14 @@ def _train_linear_classification_probe(
     probe = nn.Linear(feature_dim, num_classes).to(device)
     optimizer = torch.optim.AdamW(
         probe.parameters(),
-        lr=eval_config.learning_rate,
+        lr=learning_rates.learning_rate,
         betas=eval_config.opt_betas,
         weight_decay=eval_config.weight_decay,
     )
     lr_schedule = cosine_schedule(
         total_steps=eval_config.steps,
-        start_value=eval_config.learning_rate,
-        final_value=eval_config.final_learning_rate,
+        start_value=learning_rates.learning_rate,
+        final_value=learning_rates.final_learning_rate,
         warmup_steps=eval_config.learning_rate_warmup_steps,
         warmup_start_value=1e-6,
     )
@@ -758,6 +860,11 @@ def _train_linear_classification_probe(
         "train_size": int(train_size),
         "val_size": int(val_size),
         "val_num_crops": int(val_num_crops),
+        "learning_rate": _probe_learning_rate_result_payload(
+            eval_config=eval_config,
+            feature_dim=feature_dim,
+            learning_rates=learning_rates,
+        ),
         "timings": {
             "classification": {
                 "total_s": float(total_s),
@@ -831,6 +938,10 @@ def _train_linear_regression_probe(
         )
 
     feature_dim = int(train_features.size(1))
+    learning_rates = _probe_learning_rates_for_feature_dim(
+        eval_config=eval_config,
+        feature_dim=feature_dim,
+    )
     train_size = int(train_features.size(0))
     val_size = int(val_targets.size(0))
     if train_size < eval_config.batch_size:
@@ -867,14 +978,14 @@ def _train_linear_regression_probe(
     linear_head = probe
     optimizer = torch.optim.AdamW(
         probe.parameters(),
-        lr=eval_config.learning_rate,
+        lr=learning_rates.learning_rate,
         betas=eval_config.opt_betas,
         weight_decay=eval_config.weight_decay,
     )
     lr_schedule = cosine_schedule(
         total_steps=eval_config.steps,
-        start_value=eval_config.learning_rate,
-        final_value=eval_config.final_learning_rate,
+        start_value=learning_rates.learning_rate,
+        final_value=learning_rates.final_learning_rate,
         warmup_steps=eval_config.learning_rate_warmup_steps,
         warmup_start_value=1e-6,
     )
@@ -949,6 +1060,11 @@ def _train_linear_regression_probe(
         "macro_mae": float(best_metrics["mae"].mean()),
         "macro_r2": float(torch.nanmean(best_metrics["r2"])),
         "macro_pearson": float(torch.nanmean(best_metrics["pearson"])),
+        "learning_rate": _probe_learning_rate_result_payload(
+            eval_config=eval_config,
+            feature_dim=feature_dim,
+            learning_rates=learning_rates,
+        ),
         "timings": {
             "regression": {
                 "total_s": float(perf_counter() - total_start),
@@ -1061,6 +1177,10 @@ def _train_linear_classification_probe_multi_val(
             )
 
     feature_dim = int(train_features.size(1))
+    learning_rates = _probe_learning_rates_for_feature_dim(
+        eval_config=eval_config,
+        feature_dim=feature_dim,
+    )
     train_size = int(train_features.size(0))
     if train_size < eval_config.batch_size:
         raise ValueError(
@@ -1075,14 +1195,14 @@ def _train_linear_classification_probe_multi_val(
     probe = nn.Linear(feature_dim, num_classes).to(device)
     optimizer = torch.optim.AdamW(
         probe.parameters(),
-        lr=eval_config.learning_rate,
+        lr=learning_rates.learning_rate,
         betas=eval_config.opt_betas,
         weight_decay=eval_config.weight_decay,
     )
     lr_schedule = cosine_schedule(
         total_steps=eval_config.steps,
-        start_value=eval_config.learning_rate,
-        final_value=eval_config.final_learning_rate,
+        start_value=learning_rates.learning_rate,
+        final_value=learning_rates.final_learning_rate,
         warmup_steps=eval_config.learning_rate_warmup_steps,
         warmup_start_value=1e-6,
     )
@@ -1205,6 +1325,11 @@ def _train_linear_classification_probe_multi_val(
             "train_size": int(train_size),
             "val_size": int(val_targets.size(0)),
             "val_num_crops": int(val_num_crops),
+            "learning_rate": _probe_learning_rate_result_payload(
+                eval_config=eval_config,
+                feature_dim=feature_dim,
+                learning_rates=learning_rates,
+            ),
             "timings": {
                 "classification": {
                     "total_s": float(total_s + eval_forward_s_by_seed[seed_value]),
@@ -1283,6 +1408,10 @@ def _train_linear_regression_probe_multi_val(
             )
 
     feature_dim = int(train_features.size(1))
+    learning_rates = _probe_learning_rates_for_feature_dim(
+        eval_config=eval_config,
+        feature_dim=feature_dim,
+    )
     train_size = int(train_features.size(0))
     if train_size < eval_config.batch_size:
         raise ValueError(
@@ -1319,14 +1448,14 @@ def _train_linear_regression_probe_multi_val(
     linear_head = probe
     optimizer = torch.optim.AdamW(
         probe.parameters(),
-        lr=eval_config.learning_rate,
+        lr=learning_rates.learning_rate,
         betas=eval_config.opt_betas,
         weight_decay=eval_config.weight_decay,
     )
     lr_schedule = cosine_schedule(
         total_steps=eval_config.steps,
-        start_value=eval_config.learning_rate,
-        final_value=eval_config.final_learning_rate,
+        start_value=learning_rates.learning_rate,
+        final_value=learning_rates.final_learning_rate,
         warmup_steps=eval_config.learning_rate_warmup_steps,
         warmup_start_value=1e-6,
     )
@@ -1422,6 +1551,11 @@ def _train_linear_regression_probe_multi_val(
             "macro_mae": float(best_metrics[seed_value]["mae"].mean()),
             "macro_r2": float(torch.nanmean(best_metrics[seed_value]["r2"])),
             "macro_pearson": float(torch.nanmean(best_metrics[seed_value]["pearson"])),
+            "learning_rate": _probe_learning_rate_result_payload(
+                eval_config=eval_config,
+                feature_dim=feature_dim,
+                learning_rates=learning_rates,
+            ),
             "timings": {
                 "regression": {
                     "total_s": float(total_s + eval_forward_s_by_seed[seed_value]),

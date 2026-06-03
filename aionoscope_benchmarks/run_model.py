@@ -17,6 +17,7 @@ from .offline_probe import (
     OfflineProbeConfig,
     collect_probe_features_by_layer,
     offline_probe_run_linear_multihead_by_layer_multi_val_from_collected,
+    probe_learning_rate_scaling_payload,
 )
 from .probe_metrics import ensure_probe_metric_dependencies_available
 from .results import build_model_result, write_model_result
@@ -99,6 +100,20 @@ def _load_probe_config(path: Path) -> tuple[OfflineProbeConfig, dict[str, object
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError(f"Expected YAML dict, got {type(raw).__name__}")
+    learning_rate_scaling = raw.get("learning_rate_scaling", {})
+    if learning_rate_scaling is None:
+        learning_rate_scaling = {}
+    if not isinstance(learning_rate_scaling, dict):
+        raise ValueError(
+            "learning_rate_scaling must be a YAML dict when provided, "
+            f"got {type(learning_rate_scaling).__name__}"
+        )
+    scaling_enabled = learning_rate_scaling.get("enabled", True)
+    if not isinstance(scaling_enabled, bool):
+        raise ValueError(
+            "learning_rate_scaling.enabled must be a boolean, "
+            f"got {scaling_enabled!r}"
+        )
     config = OfflineProbeConfig(
         steps=int(raw["steps"]),
         batch_size=int(raw["batch_size"]),
@@ -109,6 +124,12 @@ def _load_probe_config(path: Path) -> tuple[OfflineProbeConfig, dict[str, object
         opt_betas=(float(raw["opt_betas"][0]), float(raw["opt_betas"][1])),
         gradient_clip=float(raw["gradient_clip"]),
         checkpoint_interval=int(raw["checkpoint_interval"]),
+        learning_rate_scaling_enabled=bool(scaling_enabled),
+        learning_rate_reference_feature_dim=float(
+            learning_rate_scaling.get("reference_feature_dim", 1024.0)
+        ),
+        learning_rate_feature_dim_power=float(learning_rate_scaling.get("feature_dim_power", 3.0)),
+        min_learning_rate=float(learning_rate_scaling.get("min_learning_rate", 1.0e-3)),
     )
     return config, raw
 
@@ -376,6 +397,9 @@ def run_single_model_for_num_enabled(
 
     probe_config_payload = dict(probe_config_raw)
     probe_config_payload["probe_seed"] = None if probe_seed is None else int(probe_seed)
+    probe_config_payload["learning_rate_scaling"] = probe_learning_rate_scaling_payload(
+        probe_config
+    )
     payload = build_model_result(
         model_name=spec.name,
         model_slug=spec.slug,

@@ -233,8 +233,14 @@ square `duty_cycle`.
 - number of steps;
 - batch size;
 - optimizer hyperparameters;
+- feature-dimension learning-rate scaling;
 - gradient clipping;
 - checkpoint interval used for selecting best probe checkpoints.
+
+Probe learning-rate calibration is recorded in
+`docs/references/probe-lr-calibration.md`. The 2026-06-02 diagnostics support a
+single feature-dimension-aware LR rule for both categorical and dense probes
+rather than hard per-model thresholds.
 
 ### Foundational model list
 

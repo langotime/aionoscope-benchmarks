@@ -1,0 +1,843 @@
+{
+  "adapter": {
+    "benchmark_sequence_length": 16384,
+    "benchmark_sequence_length_source": "timesfm_2p5_config.context_limit",
+    "cpu_feature_cache_dtype": "float32",
+    "encode_batch_size": 128,
+    "env": "core",
+    "hidden_size": 1280,
+    "input_length_policy": "exact",
+    "layer_layout": "layer 0 is the tokenizer output embedding stream; layers 1..N are the stacked transformer outputs",
+    "num_hidden_layers": 20,
+    "output_patch_size": 128,
+    "output_quantile_len": 1024,
+    "parameter_count": 231289280,
+    "parameter_count_prefix_by_layer": {
+      "0": 1806080,
+      "1": 11641840,
+      "10": 100163680,
+      "11": 109999440,
+      "12": 119835200,
+      "13": 129670960,
+      "14": 139506720,
+      "15": 149342480,
+      "16": 159178240,
+      "17": 169014000,
+      "18": 178849760,
+      "19": 188685520,
+      "2": 21477600,
+      "20": 198521280,
+      "3": 31313360,
+      "4": 41149120,
+      "5": 50984880,
+      "6": 60820640,
+      "7": 70656400,
+      "8": 80492160,
+      "9": 90327920
+    },
+    "parameter_count_prefix_source": "cumulative_representation_path_unique_parameters",
+    "parameter_count_source": "torch_registered_parameters",
+    "parameter_count_total": 231289280,
+    "patch_size": 32,
+    "preprocess": "reshape the exact context into non-overlapping patches; apply the official running-stat ReVIN prefill normalization used by TimesFM decode; mean-pool patch tokens",
+    "trainable_parameter_count": 231289280
+  },
+  "config": {
+    "base_probe_config": {
+      "batch_size": 1024,
+      "checkpoint_interval": 50,
+      "final_learning_rate": 0.01,
+      "gradient_clip": 1.0,
+      "learning_rate": 0.01,
+      "learning_rate_warmup_steps": 0,
+      "opt_betas": [
+        0.9,
+        0.999
+      ],
+      "runtime_dataset_batch_size": 256,
+      "steps": 1250,
+      "weight_decay": 0.0
+    },
+    "channel_size": 16384,
+    "checkpoint": "google/timesfm-2.5-200m-pytorch",
+    "encode_batch_size": 128,
+    "head": "categorical",
+    "layers": [
+      12,
+      13
+    ],
+    "learning_rates": [
+      0.01,
+      0.0064,
+      0.005,
+      0.003
+    ],
+    "model": "TimesFM-2.5-200M",
+    "model_slug": "TimesFM-2.5-200M",
+    "num_enabled": 1,
+    "probe_seed": 0,
+    "train_batches": 256,
+    "val_batches": 256,
+    "validation_seed_values": [
+      0
+    ]
+  },
+  "feature_stats": {
+    "12": {
+      "dtype": "float32",
+      "finite_fraction": 1.0,
+      "max_abs": 210.43975830078125,
+      "mean": 0.09402329474687576,
+      "mean_abs": 0.5104261040687561,
+      "numel": 83886080,
+      "p99_abs": 2.403623104095459,
+      "p99_abs_sample_size": 1000000,
+      "shape": [
+        65536,
+        1280
+      ],
+      "std": 2.4357399940490723
+    },
+    "13": {
+      "dtype": "float32",
+      "finite_fraction": 1.0,
+      "max_abs": 216.98257446289062,
+      "mean": 0.09522358328104019,
+      "mean_abs": 0.5142441391944885,
+      "numel": 83886080,
+      "p99_abs": 2.6772255897521973,
+      "p99_abs_sample_size": 1000000,
+      "shape": [
+        65536,
+        1280
+      ],
+      "std": 2.454127073287964
+    }
+  },
+  "runs": {
+    "lr_0.003": {
+      "elapsed_s": 2.6981054078787565,
+      "summary": {
+        "best_auc": {
+          "best_probe_step": 1250,
+          "layer": 13,
+          "macro_auc": 0.9998674988746643,
+          "macro_auprc": 0.9985706210136414,
+          "per_class_auc": {
+            "constant": 1.0,
+            "gaussian": 0.9999719858169556,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999898672103882,
+            "linear_trend": 0.9998839497566223,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9984158277511597,
+            "random_walk_noise": 0.9999999403953552,
+            "sawtooth": 0.9999997615814209,
+            "sigmoid_trend": 0.9998821020126343,
+            "sine": 0.9999998807907104,
+            "spike": 1.0,
+            "square": 0.9999998807907104,
+            "uniform_noise": 1.0
+          },
+          "per_class_auprc": {
+            "constant": 1.0,
+            "gaussian": 0.9980331063270569,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9998595118522644,
+            "linear_trend": 0.9978194236755371,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9854559898376465,
+            "random_walk_noise": 0.9999999403953552,
+            "sawtooth": 0.9999976754188538,
+            "sigmoid_trend": 0.9988247156143188,
+            "sine": 0.9999980926513672,
+            "spike": 1.0,
+            "square": 0.9999992251396179,
+            "uniform_noise": 1.0
+          }
+        },
+        "best_auprc": {
+          "best_probe_step": 1250,
+          "layer": 13,
+          "macro_auc": 0.9998674988746643,
+          "macro_auprc": 0.9985706210136414,
+          "per_class_auc": {
+            "constant": 1.0,
+            "gaussian": 0.9999719858169556,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999898672103882,
+            "linear_trend": 0.9998839497566223,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9984158277511597,
+            "random_walk_noise": 0.9999999403953552,
+            "sawtooth": 0.9999997615814209,
+            "sigmoid_trend": 0.9998821020126343,
+            "sine": 0.9999998807907104,
+            "spike": 1.0,
+            "square": 0.9999998807907104,
+            "uniform_noise": 1.0
+          },
+          "per_class_auprc": {
+            "constant": 1.0,
+            "gaussian": 0.9980331063270569,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9998595118522644,
+            "linear_trend": 0.9978194236755371,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9854559898376465,
+            "random_walk_noise": 0.9999999403953552,
+            "sawtooth": 0.9999976754188538,
+            "sigmoid_trend": 0.9988247156143188,
+            "sine": 0.9999980926513672,
+            "spike": 1.0,
+            "square": 0.9999992251396179,
+            "uniform_noise": 1.0
+          }
+        },
+        "oracle_categorical_by_signal": [
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "constant"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "gaussian_noise"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "uniform_noise"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "random_walk_noise"
+          },
+          {
+            "auprc": 0.9978194236755371,
+            "auprc_layer": 13,
+            "auroc": 0.9998839497566223,
+            "auroc_layer": 13,
+            "signal": "linear_trend"
+          },
+          {
+            "auprc": 0.9854559898376465,
+            "auprc_layer": 13,
+            "auroc": 0.9984158277511597,
+            "auroc_layer": 13,
+            "signal": "quadratic_trend"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "log_trend"
+          },
+          {
+            "auprc": 0.9988247156143188,
+            "auprc_layer": 13,
+            "auroc": 0.9998821020126343,
+            "auroc_layer": 13,
+            "signal": "sigmoid_trend"
+          },
+          {
+            "auprc": 0.9999987483024597,
+            "auprc_layer": 12,
+            "auroc": 0.9999998807907104,
+            "auroc_layer": 12,
+            "signal": "sine"
+          },
+          {
+            "auprc": 0.9999976754188538,
+            "auprc_layer": 13,
+            "auroc": 0.9999997615814209,
+            "auroc_layer": 13,
+            "signal": "sawtooth"
+          },
+          {
+            "auprc": 0.9999992251396179,
+            "auprc_layer": 13,
+            "auroc": 0.9999998807907104,
+            "auroc_layer": 13,
+            "signal": "square"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "spike"
+          },
+          {
+            "auprc": 0.9999332427978516,
+            "auprc_layer": 12,
+            "auroc": 0.9999949932098389,
+            "auroc_layer": 12,
+            "signal": "level_change"
+          },
+          {
+            "auprc": 0.9981625080108643,
+            "auprc_layer": 12,
+            "auroc": 0.9999750852584839,
+            "auroc_layer": 12,
+            "signal": "gaussian"
+          }
+        ]
+      }
+    },
+    "lr_0.005": {
+      "elapsed_s": 2.814956828020513,
+      "summary": {
+        "best_auc": {
+          "best_probe_step": 1250,
+          "layer": 13,
+          "macro_auc": 0.9999120235443115,
+          "macro_auprc": 0.9989291429519653,
+          "per_class_auc": {
+            "constant": 1.0,
+            "gaussian": 0.9999710917472839,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999947547912598,
+            "linear_trend": 0.9998701810836792,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9990065693855286,
+            "random_walk_noise": 1.0,
+            "sawtooth": 0.9999999403953552,
+            "sigmoid_trend": 0.9999245405197144,
+            "sine": 0.9999999403953552,
+            "spike": 1.0,
+            "square": 1.0,
+            "uniform_noise": 1.0
+          },
+          "per_class_auprc": {
+            "constant": 1.0,
+            "gaussian": 0.9981343150138855,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999284744262695,
+            "linear_trend": 0.9970904588699341,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9904617667198181,
+            "random_walk_noise": 0.9999999403953552,
+            "sawtooth": 0.9999993443489075,
+            "sigmoid_trend": 0.9993941783905029,
+            "sine": 0.9999988079071045,
+            "spike": 1.0,
+            "square": 0.9999997615814209,
+            "uniform_noise": 1.0
+          }
+        },
+        "best_auprc": {
+          "best_probe_step": 1250,
+          "layer": 13,
+          "macro_auc": 0.9999120235443115,
+          "macro_auprc": 0.9989291429519653,
+          "per_class_auc": {
+            "constant": 1.0,
+            "gaussian": 0.9999710917472839,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999947547912598,
+            "linear_trend": 0.9998701810836792,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9990065693855286,
+            "random_walk_noise": 1.0,
+            "sawtooth": 0.9999999403953552,
+            "sigmoid_trend": 0.9999245405197144,
+            "sine": 0.9999999403953552,
+            "spike": 1.0,
+            "square": 1.0,
+            "uniform_noise": 1.0
+          },
+          "per_class_auprc": {
+            "constant": 1.0,
+            "gaussian": 0.9981343150138855,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999284744262695,
+            "linear_trend": 0.9970904588699341,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9904617667198181,
+            "random_walk_noise": 0.9999999403953552,
+            "sawtooth": 0.9999993443489075,
+            "sigmoid_trend": 0.9993941783905029,
+            "sine": 0.9999988079071045,
+            "spike": 1.0,
+            "square": 0.9999997615814209,
+            "uniform_noise": 1.0
+          }
+        },
+        "oracle_categorical_by_signal": [
+          {
+            "auprc": 1.0,
+            "auprc_layer": 13,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "constant"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "gaussian_noise"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "uniform_noise"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "random_walk_noise"
+          },
+          {
+            "auprc": 0.9974101781845093,
+            "auprc_layer": 12,
+            "auroc": 0.9998857975006104,
+            "auroc_layer": 12,
+            "signal": "linear_trend"
+          },
+          {
+            "auprc": 0.9904617667198181,
+            "auprc_layer": 13,
+            "auroc": 0.9990065693855286,
+            "auroc_layer": 13,
+            "signal": "quadratic_trend"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "log_trend"
+          },
+          {
+            "auprc": 0.9993941783905029,
+            "auprc_layer": 13,
+            "auroc": 0.9999245405197144,
+            "auroc_layer": 13,
+            "signal": "sigmoid_trend"
+          },
+          {
+            "auprc": 0.9999991655349731,
+            "auprc_layer": 12,
+            "auroc": 0.9999999403953552,
+            "auroc_layer": 12,
+            "signal": "sine"
+          },
+          {
+            "auprc": 0.9999993443489075,
+            "auprc_layer": 13,
+            "auroc": 0.9999999403953552,
+            "auroc_layer": 13,
+            "signal": "sawtooth"
+          },
+          {
+            "auprc": 0.9999997615814209,
+            "auprc_layer": 13,
+            "auroc": 1.0,
+            "auroc_layer": 13,
+            "signal": "square"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "spike"
+          },
+          {
+            "auprc": 0.999969482421875,
+            "auprc_layer": 12,
+            "auroc": 0.9999977350234985,
+            "auroc_layer": 12,
+            "signal": "level_change"
+          },
+          {
+            "auprc": 0.9981868267059326,
+            "auprc_layer": 12,
+            "auroc": 0.999971866607666,
+            "auroc_layer": 12,
+            "signal": "gaussian"
+          }
+        ]
+      }
+    },
+    "lr_0.0064": {
+      "elapsed_s": 3.2411324931308627,
+      "summary": {
+        "best_auc": {
+          "best_probe_step": 1250,
+          "layer": 13,
+          "macro_auc": 0.9999264478683472,
+          "macro_auprc": 0.9990635514259338,
+          "per_class_auc": {
+            "constant": 1.0,
+            "gaussian": 0.9999710917472839,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999960064888,
+            "linear_trend": 0.9998757839202881,
+            "log_trend": 0.9999999403953552,
+            "quadratic_trend": 0.9991921782493591,
+            "random_walk_noise": 1.0,
+            "sawtooth": 0.9999999403953552,
+            "sigmoid_trend": 0.9999349117279053,
+            "sine": 0.9999998807907104,
+            "spike": 1.0,
+            "square": 1.0,
+            "uniform_noise": 1.0
+          },
+          "per_class_auprc": {
+            "constant": 1.0,
+            "gaussian": 0.9982786774635315,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999451637268066,
+            "linear_trend": 0.9970564842224121,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9920796751976013,
+            "random_walk_noise": 1.0,
+            "sawtooth": 0.9999998807907104,
+            "sigmoid_trend": 0.9995301961898804,
+            "sine": 0.9999990463256836,
+            "spike": 1.0,
+            "square": 0.9999998211860657,
+            "uniform_noise": 1.0
+          }
+        },
+        "best_auprc": {
+          "best_probe_step": 1250,
+          "layer": 13,
+          "macro_auc": 0.9999264478683472,
+          "macro_auprc": 0.9990635514259338,
+          "per_class_auc": {
+            "constant": 1.0,
+            "gaussian": 0.9999710917472839,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999960064888,
+            "linear_trend": 0.9998757839202881,
+            "log_trend": 0.9999999403953552,
+            "quadratic_trend": 0.9991921782493591,
+            "random_walk_noise": 1.0,
+            "sawtooth": 0.9999999403953552,
+            "sigmoid_trend": 0.9999349117279053,
+            "sine": 0.9999998807907104,
+            "spike": 1.0,
+            "square": 1.0,
+            "uniform_noise": 1.0
+          },
+          "per_class_auprc": {
+            "constant": 1.0,
+            "gaussian": 0.9982786774635315,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999451637268066,
+            "linear_trend": 0.9970564842224121,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9920796751976013,
+            "random_walk_noise": 1.0,
+            "sawtooth": 0.9999998807907104,
+            "sigmoid_trend": 0.9995301961898804,
+            "sine": 0.9999990463256836,
+            "spike": 1.0,
+            "square": 0.9999998211860657,
+            "uniform_noise": 1.0
+          }
+        },
+        "oracle_categorical_by_signal": [
+          {
+            "auprc": 1.0,
+            "auprc_layer": 13,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "constant"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "gaussian_noise"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "uniform_noise"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "random_walk_noise"
+          },
+          {
+            "auprc": 0.9974637031555176,
+            "auprc_layer": 12,
+            "auroc": 0.9999034404754639,
+            "auroc_layer": 12,
+            "signal": "linear_trend"
+          },
+          {
+            "auprc": 0.9920796751976013,
+            "auprc_layer": 13,
+            "auroc": 0.9991921782493591,
+            "auroc_layer": 13,
+            "signal": "quadratic_trend"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "log_trend"
+          },
+          {
+            "auprc": 0.9995301961898804,
+            "auprc_layer": 13,
+            "auroc": 0.9999349117279053,
+            "auroc_layer": 13,
+            "signal": "sigmoid_trend"
+          },
+          {
+            "auprc": 0.9999992251396179,
+            "auprc_layer": 12,
+            "auroc": 0.9999999403953552,
+            "auroc_layer": 12,
+            "signal": "sine"
+          },
+          {
+            "auprc": 0.9999998807907104,
+            "auprc_layer": 13,
+            "auroc": 0.9999999403953552,
+            "auroc_layer": 12,
+            "signal": "sawtooth"
+          },
+          {
+            "auprc": 0.9999998211860657,
+            "auprc_layer": 13,
+            "auroc": 1.0,
+            "auroc_layer": 13,
+            "signal": "square"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "spike"
+          },
+          {
+            "auprc": 0.9999850392341614,
+            "auprc_layer": 12,
+            "auroc": 0.9999988675117493,
+            "auroc_layer": 12,
+            "signal": "level_change"
+          },
+          {
+            "auprc": 0.9983185529708862,
+            "auprc_layer": 12,
+            "auroc": 0.9999710917472839,
+            "auroc_layer": 13,
+            "signal": "gaussian"
+          }
+        ]
+      }
+    },
+    "lr_0.01": {
+      "elapsed_s": 2.903620420023799,
+      "summary": {
+        "best_auc": {
+          "best_probe_step": 1250,
+          "layer": 13,
+          "macro_auc": 0.9999490976333618,
+          "macro_auprc": 0.999299168586731,
+          "per_class_auc": {
+            "constant": 1.0,
+            "gaussian": 0.9999704957008362,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999974966049194,
+            "linear_trend": 0.9998788237571716,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9994930028915405,
+            "random_walk_noise": 1.0,
+            "sawtooth": 0.9999999403953552,
+            "sigmoid_trend": 0.9999470710754395,
+            "sine": 0.9999999403953552,
+            "spike": 1.0,
+            "square": 1.0,
+            "uniform_noise": 1.0
+          },
+          "per_class_auprc": {
+            "constant": 1.0,
+            "gaussian": 0.9985957145690918,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999660849571228,
+            "linear_trend": 0.9969056844711304,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9950411319732666,
+            "random_walk_noise": 1.0,
+            "sawtooth": 0.9999998211860657,
+            "sigmoid_trend": 0.9996798038482666,
+            "sine": 0.9999994039535522,
+            "spike": 1.0,
+            "square": 0.9999998807907104,
+            "uniform_noise": 1.0
+          }
+        },
+        "best_auprc": {
+          "best_probe_step": 1250,
+          "layer": 13,
+          "macro_auc": 0.9999490976333618,
+          "macro_auprc": 0.999299168586731,
+          "per_class_auc": {
+            "constant": 1.0,
+            "gaussian": 0.9999704957008362,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999974966049194,
+            "linear_trend": 0.9998788237571716,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9994930028915405,
+            "random_walk_noise": 1.0,
+            "sawtooth": 0.9999999403953552,
+            "sigmoid_trend": 0.9999470710754395,
+            "sine": 0.9999999403953552,
+            "spike": 1.0,
+            "square": 1.0,
+            "uniform_noise": 1.0
+          },
+          "per_class_auprc": {
+            "constant": 1.0,
+            "gaussian": 0.9985957145690918,
+            "gaussian_noise": 1.0,
+            "level_change": 0.9999660849571228,
+            "linear_trend": 0.9969056844711304,
+            "log_trend": 1.0,
+            "quadratic_trend": 0.9950411319732666,
+            "random_walk_noise": 1.0,
+            "sawtooth": 0.9999998211860657,
+            "sigmoid_trend": 0.9996798038482666,
+            "sine": 0.9999994039535522,
+            "spike": 1.0,
+            "square": 0.9999998807907104,
+            "uniform_noise": 1.0
+          }
+        },
+        "oracle_categorical_by_signal": [
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 13,
+            "signal": "constant"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "gaussian_noise"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 13,
+            "signal": "uniform_noise"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "random_walk_noise"
+          },
+          {
+            "auprc": 0.9969056844711304,
+            "auprc_layer": 13,
+            "auroc": 0.9998898506164551,
+            "auroc_layer": 12,
+            "signal": "linear_trend"
+          },
+          {
+            "auprc": 0.9950411319732666,
+            "auprc_layer": 13,
+            "auroc": 0.9994930028915405,
+            "auroc_layer": 13,
+            "signal": "quadratic_trend"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "log_trend"
+          },
+          {
+            "auprc": 0.9996798038482666,
+            "auprc_layer": 13,
+            "auroc": 0.9999470710754395,
+            "auroc_layer": 13,
+            "signal": "sigmoid_trend"
+          },
+          {
+            "auprc": 0.9999994039535522,
+            "auprc_layer": 13,
+            "auroc": 0.9999999403953552,
+            "auroc_layer": 12,
+            "signal": "sine"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "sawtooth"
+          },
+          {
+            "auprc": 0.9999998807907104,
+            "auprc_layer": 13,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "square"
+          },
+          {
+            "auprc": 1.0,
+            "auprc_layer": 12,
+            "auroc": 1.0,
+            "auroc_layer": 12,
+            "signal": "spike"
+          },
+          {
+            "auprc": 0.9999797344207764,
+            "auprc_layer": 12,
+            "auroc": 0.9999984502792358,
+            "auroc_layer": 12,
+            "signal": "level_change"
+          },
+          {
+            "auprc": 0.9990010857582092,
+            "auprc_layer": 12,
+            "auroc": 0.9999798536300659,
+            "auroc_layer": 12,
+            "signal": "gaussian"
+          }
+        ]
+      }
+    }
+  }
+}
