@@ -22,6 +22,7 @@ Ignore `README.md` when gathering agent context. It is human-facing onboarding, 
 - Treat `configs/dataset_aiono_basic_components_balanced.yaml` and `configs/probe.yaml` as the benchmark contract. Do not make silent contract changes.
 - Fail fast with human-readable errors. Do not hide missing environments or missing dependencies.
 - Do not create or keep checked-in plan Markdown under `plans/`. Historical plans belong in closed GitHub issues.
+- Do not commit one-off diagnostic scripts or raw temporary diagnostic outputs. Preserve durable architectural evidence in docs, short-lived decision evidence in the relevant GitHub issue plan, and reproducibility instructions as a concise `SPEC.md` instead of maintaining throwaway scripts.
 - After code changes, review `README.md`, `ARCHITECTURE.md`, and `DOCUMENTATION.md` in the same task.
 
 ## Canonical Checks

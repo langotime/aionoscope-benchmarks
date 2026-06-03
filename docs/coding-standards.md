@@ -23,6 +23,8 @@ This file preserves the general coding defaults that used to live in the old lon
 - Always run relevant tests or smoke checks before reporting completion.
 - Put Python unit tests under `tests/`.
 - Always clean up temporary files.
+- Do not commit one-off diagnostic scripts or raw temporary diagnostic outputs. If a temporary experiment matters, keep the benchmark-relevant numbers in documentation when they are durable architectural evidence, or in the related GitHub issue plan when they only justify a specific implementation decision.
+- For temporary experiments that need to be reproducible, commit a concise `SPEC.md` describing what was run, why it was run, inputs/configs, key commands or pseudocode, metrics collected, and expected outputs. Regenerate disposable scripts from the spec instead of maintaining those scripts as source.
 
 ## Import and Repo Hygiene
 

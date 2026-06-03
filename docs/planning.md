@@ -16,6 +16,12 @@ Use `gh` from the repository root so it picks up the authenticated host and repo
 - Split unrelated work into separate commits so each commit maps cleanly to one plan issue.
 - Close the issue when the plan is finished or superseded. Reopen it if the work becomes active again.
 
+## Evidence in Plans
+
+- If numeric results justify a specific architectural decision but are not useful long-term, record those numbers in the related issue plan or issue comments instead of checking raw diagnostic artifacts into the repo.
+- If numeric results are durable benchmark evidence, record the key numbers in repository documentation and link that documentation from the issue plan.
+- Do not commit temporary test scripts created only for diagnosis. When the diagnostic procedure must be reproducible, preserve a concise `SPEC.md` with the procedure, configs, commands or pseudocode, collected metrics, and expected outputs; disposable scripts can be regenerated from that spec.
+
 ## `gh` Workflow
 
 Create the `plan` label once for the repository:
