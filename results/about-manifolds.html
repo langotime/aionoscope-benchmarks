@@ -362,13 +362,13 @@
       <section class="block">
         <div class="col">
           <h2><span class="num">Example 2 · spike_time_frac</span>When a straight line lies</h2>
-          <p>Now slide a single spike from the start of the window to the end. The factor is the spike's position in time — a simple <em>interval</em> from 0 to 1. You might expect the representation to lay this out as a straight line. At the input-facing layer 0, it does something more interesting. <strong>Drag the spike across time</strong> and watch the dot trace the manifold.</p>
+          <p>Now slide a single spike from the start of the window to the end. The factor is just its position in time — a plain <em>interval</em> from 0 to 1, exactly the kind of thing you'd expect to come out as a tidy line. At the input-facing layer 0 it comes out as a <strong>tangled triangle</strong> instead, with almost every position crushed into one corner. <strong>Drag the spike across time</strong> and watch the dot leap around it — then read on for why.</p>
         </div>
 
         <div class="stats">
           <div class="stat"><div class="v">0.12</div><div class="l">straight-line distance order (Spearman) — looks almost random</div></div>
           <div class="stat"><div class="v">0.97</div><div class="l">distance-along-the-manifold order (geodesic) — nearly perfect</div></div>
-          <div class="stat"><div class="v">+0.85</div><div class="l">geodesic gain — the curve carries almost all the signal</div></div>
+          <div class="stat"><div class="v">+0.85</div><div class="l">geodesic gain — straight-line distance is blind to the order</div></div>
         </div>
 
         <figure class="fig scrub" data-chart="scrubber"
@@ -390,11 +390,24 @@
             <input type="range" class="slider" min="0" max="0" value="0" aria-label="sweep position">
             <span class="readout"></span>
           </div>
-          <figcaption>The spike position is encoded as a <b>curved arc</b>, not a straight line. That curvature is exactly why a naïve straight-line (Euclidean) distance between two centroids is misleading — two points on opposite ends of a horseshoe are close <em>through the air</em> but far <em>along the curve</em>. Walk along the manifold instead, and the order comes back almost perfectly.</figcaption>
+          <figcaption>This isn't a smooth arc — it's the <strong>tokenizer's patch grid</strong> showing through. Toto reads the signal in 32-sample patches, and a one-sample spike mostly tells a patch <em>where inside it</em> the spike landed. As the spike sweeps, that within-patch position cycles 0→31 over and over — about <b>eleven times</b> across the window — so the time axis folds into ~11 stacked copies. Interior positions pile into the dense corner; the two patch <em>edges</em> fly out to the far corners (fanning by which patch); and the path leaps clear across the figure every time the spike crosses a 32-sample boundary.</figcaption>
+        </figure>
+
+        <figure class="fig" data-chart="comb"
+                data-plot="Toto-2.0-2.5B/spike_time_frac/plots/Toto-2.0-2.5B__spike_time_frac__layer_0_plot_data.json"
+                data-seqlen="512" data-patch="32">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">How far the representation jumps · Toto-2.0-2.5B · spike_time_frac · layer 0</div>
+              <div class="fig-sub">Step between neighbouring spike positions. Dashed lines mark the 32-sample patch boundaries.</div>
+            </div>
+          </div>
+          <div class="chart" id="fig-spike-comb"></div>
+          <figcaption>Measured directly, the patch grid is unmistakable: between most neighbouring positions the representation barely moves, then it <b>lurches on a strict 32-sample rhythm</b> — the peaks land right on the patch boundaries (dashed). The geometry is quantised to the tokenizer's patches, not to time itself.</figcaption>
         </figure>
 
         <div class="col">
-          <p>This is the single most important idea in the whole suite, so it's worth seeing in the raw data. The distance scatter plots, for every pair of grid points, <em>true</em> spike-distance on the x-axis against <em>representation</em> distance on the y-axis. A faithful geometry would form a tight rising band.</p>
+          <p>That folding is exactly why a naïve <em>straight-line</em> distance lies — and it's the single most important idea in the suite, so it's worth seeing in the raw pairwise data. The distance scatter plots, for every pair of grid points, <em>true</em> spike-distance on the x-axis against <em>representation</em> distance on the y-axis. A faithful geometry would form a tight rising band.</p>
         </div>
 
         <figure class="fig" data-chart="scatter"
@@ -406,11 +419,11 @@
             </div>
           </div>
           <div class="chart" id="fig-spike-scatter"></div>
-          <figcaption><b style="color:#2563eb">Blue (straight-line)</b> is a scrambled cloud: Euclidean distance barely knows which spikes are near in time. <b style="color:#dc2626">Red (geodesic)</b> snaps into a clean rising band: distance measured <em>along the manifold</em> recovers the true ordering. Same activations, two rulers — and only one of them sees the structure.</figcaption>
+          <figcaption><b style="color:#2563eb">Blue (straight-line)</b> is a scrambled cloud — because the folding stacks spikes from different patches on top of each other, two positions far apart in time can sit close together in space. <b style="color:#dc2626">Red (geodesic)</b>, distance measured <em>along the path</em>, threads through the folds in time order and snaps into a clean rising band. Same activations, two rulers — and only one sees through the patch folding.</figcaption>
         </figure>
 
         <div class="col">
-          <p>Does the curve persist? The layer view tells the rest of the story: the manifold gradually <em>straightens out</em> as you go deeper.</p>
+          <p>So is the model stuck with this folded mess? No — with depth it untangles, and in a revealing way. Watch the straight-line score climb.</p>
         </div>
 
         <figure class="fig" data-chart="layers"
@@ -423,11 +436,37 @@
             </div>
           </div>
           <div class="chart" id="fig-spike-layers"></div>
-          <figcaption>Early on, <b style="color:#dc2626">geodesic</b> distance order is excellent while <b style="color:#2563eb">straight-line</b> order is poor — a big positive <b style="color:#d97706">geodesic gain</b>, the signature of a curved-but-clean manifold. By the middle of the network the two lines meet near 1.0: the model has <em>flattened</em> the spike-position manifold into something almost linear, and the geodesic gain falls to zero. Curvature is not a failure — it's a stage the representation moves through.</figcaption>
+          <figcaption>Early on, <b style="color:#dc2626">geodesic</b> order is near-perfect while <b style="color:#2563eb">straight-line</b> order is poor (the folded layer-0 picture) — a big positive <b style="color:#d97706">geodesic gain</b>. Going deeper, the straight-line score climbs to ~0.99 and the gain falls to zero: the network promotes the <em>coarse</em> position — which patch the spike is in — into a clean, dominant axis, so ordinary distance finally works. The folding doesn't vanish; it gets out-voted by a proper position ruler.</figcaption>
         </figure>
 
         <div class="col">
-          <p>The spike has a smoother cousin: <code>gaussian_time_frac</code> slides a soft bump across the same window. It's the same interval geometry, but the gentler shape is easier for the model to organize — even at layer 0 the manifold is already almost a clean line (straight-line order ≈ 0.94 vs. the spike's 0.12). Drag it and compare.</p>
+          <p>And here is where it gets pretty. By layer 21 the two things the tokenizer was really measuring have pulled apart into separate axes — and the whole manifold becomes a <strong>ring</strong>. Rotate it (it defaults to 3-D).</p>
+        </div>
+
+        <figure class="fig scrub" data-chart="scrubber"
+                data-plot="Toto-2.0-2.5B/spike_time_frac/plots/Toto-2.0-2.5B__spike_time_frac__layer_21_plot_data.json"
+                data-geometry="interval" data-signal="spike"
+                data-seqlen="512" data-fs="500" data-amp="1" data-default-mode="3d">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">Input signal ↔ manifold · Toto-2.0-2.5B · spike_time_frac · layer 21</div>
+              <div class="fig-sub">Left, the impulse; right, the disentangled patch × phase ring. Rotate it.</div>
+            </div>
+          </div>
+          <div class="scrub-grid">
+            <div class="scrub-pane"><div class="pane-label">Input signal — a single impulse</div><div class="chart short" id="sig-spike-l21" data-sig></div></div>
+            <div class="scrub-pane"><div class="pane-label pane-label-row"><span>Representation manifold (PCA)</span><span class="seg seg-sm" data-seg><button type="button" data-mode="2d" class="active">2D</button><button type="button" data-mode="3d">3D</button></span></div><div class="chart short" id="man-spike-l21" data-man></div></div>
+          </div>
+          <div class="scrub-controls">
+            <button type="button" class="play" aria-label="play / pause">▶</button>
+            <input type="range" class="slider" min="0" max="0" value="0" aria-label="sweep position">
+            <span class="readout"></span>
+          </div>
+          <figcaption>The disentangled form of the layer-0 triangle. One axis carries <b>98.5%</b> of the variance and is simply <strong>which patch</strong> the spike is in — coarse position, now a clean linear ruler; that's the axis that "straightened" the score above. Going <em>around</em> the ring is <strong>where inside the patch</strong> the spike sits — the fine position the model can only register as a repeating phase. The triangle was these two folded together; here they're orthogonal. (The ring looks this bold because each 3-D axis is auto-scaled — the phase loop is small next to the patch axis.)</figcaption>
+        </figure>
+
+        <div class="col">
+          <p>The spike has a smoother cousin: <code>gaussian_time_frac</code> slides a soft bump across the same window. The bump is wide enough to light up several patches at once, so it never gets folded onto the patch grid the way a one-sample spike does — even at layer 0 its manifold is already a clean line (straight-line order ≈ 0.94 vs. the spike's 0.12). Drag it and compare.</p>
         </div>
 
         <figure class="fig scrub" data-chart="scrubber"
@@ -449,7 +488,7 @@
             <input type="range" class="slider" min="0" max="0" value="0" aria-label="sweep position">
             <span class="readout"></span>
           </div>
-          <figcaption>Same sweep as the spike, smoother input — and the manifold is nearly a straight, well-ordered line right from layer 0. Sharp, localized features (the impulse) are harder to lay out cleanly than smooth ones; the geometry suite makes that difference visible.</figcaption>
+          <figcaption>Same sweep, smoother input — a clean, well-ordered line right from layer 0. A sharp one-sample feature gets quantised by the patch grid; a bump spread across several patches does not. Localized impulses are simply harder for a patch tokenizer to place than smooth ones — and the geometry suite makes that difference visible.</figcaption>
         </figure>
       </section>
 
@@ -1080,7 +1119,42 @@
       }).catch(function () { msg(manId, LOAD_HELP, true); msg(sigId, LOAD_HELP, true); });
     }
 
-    var LOADERS = { layers: loadLayers, loglin: loadLogLin, scatter: loadScatter, scrubber: makeScrubber, saturation: loadSaturation };
+    // ---------- step comb: how far the representation jumps between neighbouring positions ----------
+    function loadComb(fig) {
+      var id = fig.querySelector(".chart").id;
+      spin(id);
+      var L = parseFloat(fig.getAttribute("data-seqlen")) || 512;
+      var P = parseFloat(fig.getAttribute("data-patch")) || 32;
+      fetchJSON(dataUrl(fig.getAttribute("data-plot"))).then(function (plot) {
+        var coords = (plot.centroid_coordinates || []).map(Number);
+        var cents = plot.centroids || [];
+        if (coords.length < 2 || cents.length < 2) { msg(id, "No centroid data for this layer."); return; }
+        // dedupe by integer sample position (the spike is one sample, so the grid oversamples it)
+        var seen = {}, order = [], i, j, k;
+        for (i = 0; i < cents.length; i++) { var s = Math.round(coords[i] * L); if (!(s in seen)) { seen[s] = cents[i]; order.push(s); } }
+        order.sort(function (a, b) { return a - b; });
+        var data = [];
+        for (k = 1; k < order.length; k++) {
+          var a = seen[order[k]] || [], b = seen[order[k - 1]] || [], acc = 0;
+          for (j = 0; j < a.length; j++) { var dd = a[j] - b[j]; acc += dd * dd; }
+          data.push([order[k], Math.sqrt(acc)]);
+        }
+        var marks = [];
+        for (var x = Math.ceil(order[0] / P) * P; x <= order[order.length - 1]; x += P) marks.push({ xAxis: x });
+        var chart = getChart(id);
+        if (!chart) return;
+        chart.setOption({
+          animation: false,
+          grid: { left: 62, right: 18, top: 16, bottom: 48 },
+          tooltip: { trigger: "axis", valueFormatter: function (v) { return fmt(v); } },
+          xAxis: { type: "value", min: order[0], max: order[order.length - 1], name: "spike position (sample index)", nameLocation: "middle", nameGap: 28, splitLine: { show: false } },
+          yAxis: { type: "value", name: "‖Δ representation‖ between neighbours", nameGap: 14, nameTextStyle: { align: "left" }, splitLine: { lineStyle: { color: "#f0eee7" } } },
+          series: [{ type: "line", data: data, showSymbol: false, lineStyle: { width: 1.4, color: C.teal }, areaStyle: { color: "rgba(15,118,110,0.12)" }, markLine: { silent: true, symbol: "none", label: { show: false }, lineStyle: { color: "#d9b38c", type: "dashed", width: 1 }, data: marks } }]
+        }, true);
+      }).catch(function () { msg(id, LOAD_HELP, true); });
+    }
+
+    var LOADERS = { layers: loadLayers, loglin: loadLogLin, scatter: loadScatter, scrubber: makeScrubber, saturation: loadSaturation, comb: loadComb };
 
     // ---------- lazy init on scroll ----------
     function init() {
