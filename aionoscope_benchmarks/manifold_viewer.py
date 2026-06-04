@@ -32,6 +32,22 @@ def _artifact_relpath(path: str | None, *, artifact_root: Path, context_path: Pa
             continue
         if not relative.startswith(".."):
             return relative.replace(os.sep, "/")
+    # Stored visualization paths can be absolute into a *different* root than the
+    # current artifact_root (e.g. the run was produced in another worktree, then
+    # the tree was moved). The on-disk layout is stable
+    # (<root>/<model>/<target>/<artifact-tail>), so rebuild the relative path from
+    # the real metrics path under root plus the tail after the <model>/<target>
+    # segment of the stored path.
+    if context_path is not None:
+        rel_dir = os.path.relpath(context_path.parent, root)
+        if not rel_dir.startswith(".."):
+            rel_dir = rel_dir.replace(os.sep, "/")
+            marker = f"/{rel_dir}/"
+            raw_posix = str(raw).replace(os.sep, "/")
+            index = raw_posix.rfind(marker)
+            if index != -1:
+                tail = raw_posix[index + len(marker):]
+                return f"{rel_dir}/{tail}" if tail else rel_dir
     return str(raw).replace(os.sep, "/")
 
 
@@ -43,6 +59,36 @@ def _run_name_for_metrics_path(*, artifact_root: Path, metrics_path: Path) -> st
     if len(relative_parts) >= 4:
         return str(relative_parts[0])
     return artifact_root.name
+
+
+def _signal_spec(payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Compact, reproducible description of the input waveform for one controlled slice.
+
+    The browser regenerates the signal from the per-grid swept value
+    (``centroid_coordinates`` in the plot data) plus these fixed constants, so no
+    raw waveform is stored. Returns ``None`` when the metrics payload does not name a
+    component (e.g. minimal synthetic fixtures)."""
+    target = payload.get("target", {}) or {}
+    component = str(target.get("component", ""))
+    if not component:
+        return None
+    train_slice_manifest = payload.get("train_slice_manifest", {}) or {}
+    fixed_all = train_slice_manifest.get("fixed_values", {}) or {}
+    dataset_manifest = train_slice_manifest.get("dataset_manifest", {}) or {}
+    adapter = (payload.get("model", {}) or {}).get("adapter", {}) or {}
+    seq_len = adapter.get("benchmark_sequence_length")
+    if seq_len is None:
+        seq_len = dataset_manifest.get("channel_size")
+    fixed = fixed_all.get(component)
+    return {
+        "component": component,
+        "param": str(target.get("parameter", "")),
+        "coordinate_name": str(target.get("coordinate_name", "")),
+        "geometry": str(target.get("geometry", "")),
+        "seq_len": seq_len,
+        "fs": dataset_manifest.get("sampling_frequency"),
+        "fixed": fixed if isinstance(fixed, dict) else {},
+    }
 
 
 def collect_viewer_manifest_records(*, artifact_root: Path) -> list[dict[str, Any]]:
@@ -86,19 +132,21 @@ def collect_viewer_manifest_records(*, artifact_root: Path) -> list[dict[str, An
                     },
                 }
             )
-        records.append(
-            {
-                "run": run_name,
-                "model": str(model.get("name", model.get("slug", ""))),
-                "model_slug": str(model.get("slug", "")),
-                "target": target_label,
-                "target_name": target_name,
-                "sweep": sweep if isinstance(sweep, dict) else {},
-                "geometry": str(target.get("geometry", "")),
-                "metrics_json": _artifact_relpath(str(metrics_path), artifact_root=artifact_root),
-                "layers": layers,
-            }
-        )
+        record = {
+            "run": run_name,
+            "model": str(model.get("name", model.get("slug", ""))),
+            "model_slug": str(model.get("slug", "")),
+            "target": target_label,
+            "target_name": target_name,
+            "sweep": sweep if isinstance(sweep, dict) else {},
+            "geometry": str(target.get("geometry", "")),
+            "metrics_json": _artifact_relpath(str(metrics_path), artifact_root=artifact_root),
+            "layers": layers,
+        }
+        signal_spec = _signal_spec(payload)
+        if signal_spec is not None:
+            record["signal_spec"] = signal_spec
+        records.append(record)
     return records
 
 
@@ -352,6 +400,11 @@ _VIEWER_TEMPLATE = """<!doctype html>
     }
     #tip.visible { opacity: 1; transform: translateY(0); }
     .charts { display: grid; gap: 16px; min-width: 0; }
+    .pair-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; min-width: 0; }
+    .pair-row > section { min-width: 0; margin: 0; }
+    .pair-row > section:nth-child(1) { order: 2; }  /* Centroid path -> right */
+    .pair-row > section:nth-child(2) { order: 1; }  /* Input signal -> left */
+    @media (max-width: 980px) { .pair-row { grid-template-columns: 1fr; } }
     .chart-card { padding: 14px 14px 10px; overflow: hidden; }
     .chart-header {
       display: grid;
@@ -501,6 +554,19 @@ _VIEWER_TEMPLATE = """<!doctype html>
       .controls { grid-template-columns: 1fr; }
       .chart { height: 360px; }
     }
+    .signal-controls { display: flex; align-items: center; gap: 14px; margin: 12px 4px 2px; }
+    .signal-controls .signal-play {
+      flex: none; width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer;
+      background: #0f766e; color: #fff; font-size: 12px; line-height: 1;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .signal-controls .signal-play:hover { background: #0c5f58; }
+    .signal-controls input[type="range"] { flex: 1; accent-color: #0f766e; height: 4px; cursor: pointer; }
+    .signal-controls .readout {
+      flex: none; min-width: 188px; text-align: right; font-variant-numeric: tabular-nums;
+      font-size: 13px; font-weight: 600; color: #0f172a; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    }
+    @media (max-width: 720px) { .signal-controls .readout { min-width: 120px; font-size: 11px; } }
   </style>
 </head>
 <body>
@@ -537,6 +603,10 @@ _VIEWER_TEMPLATE = """<!doctype html>
     let renderToken = 0;
     let centroidMode = "3d";
     let sideCache = null;
+    let signalIndex = 0;
+    let signalPlaying = false;
+    let signalTimer = null;
+    let signalRaf = null;
     let metricsCollapsed = false;
     let distanceBlockOpen = false;
     const REMOTE_MANIFOLD_DATA_BASE_URL = "https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260603T142443Z/";
@@ -628,6 +698,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
           target_name: String(targetRecord.target_name || ""),
           sweep: targetRecord.sweep && typeof targetRecord.sweep === "object" ? targetRecord.sweep : {},
           geometry: String(targetRecord.geometry || ""),
+          signal_spec: targetRecord.signal_spec && typeof targetRecord.signal_spec === "object" ? targetRecord.signal_spec : null,
           metrics_json: String(targetRecord.metrics_json || ""),
           layer: String(layerRecord.layer === undefined || layerRecord.layer === null ? "" : layerRecord.layer),
           paths: layerRecord.paths && typeof layerRecord.paths === "object" ? layerRecord.paths : {},
@@ -648,7 +719,9 @@ _VIEWER_TEMPLATE = """<!doctype html>
       const byLayer = payload && payload.by_layer && typeof payload.by_layer === "object" ? payload.by_layer : {};
       const visualizations = payload && payload.visualizations && typeof payload.visualizations === "object" ? payload.visualizations : {};
       const summary = payload && payload.summary && typeof payload.summary === "object" ? payload.summary : {};
+      const signalSpec = signalSpecFromPayload(payload);
       sameTargetRecords(record).forEach((targetRecord) => {
+        if (signalSpec && !targetRecord.signal_spec) targetRecord.signal_spec = signalSpec;
         const layerKey = String(targetRecord.layer);
         targetRecord.metrics = byLayer[layerKey] && typeof byLayer[layerKey] === "object" ? byLayer[layerKey] : {};
         targetRecord.summary = summary;
@@ -1071,6 +1144,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
                 <div class="layer-metrics">${renderLayerMetricPanels(candidate)}</div>
               </details>
             </section>
+            <div class="pair-row">
             <section class="panel chart-card">
               <div class="chart-header">
                 <h3>Centroid path</h3>
@@ -1085,6 +1159,20 @@ _VIEWER_TEMPLATE = """<!doctype html>
               </div>
               <div class="sbs-grid" id="centroid-grid">${sbsCells("centroid-chart", items)}</div>
             </section>
+            <section class="panel chart-card">
+              <div class="chart-header">
+                <h3>Input signal</h3>
+                <p class="chart-note" id="signal-note"></p>
+                <p class="chart-copy">The exact waveform fed to the model for the selected grid point, generated in your browser from the controlled-slice spec (aiono sine / spike / gaussian / trend); no raw signal is stored. Drag the slider or press play to sweep the controlled factor: each input updates and a dark marker rides the matching centroid path to the right. The same grid index is shown across panels.</p>
+              </div>
+              <div class="sbs-grid" id="signal-grid">${sbsCells("signal-chart", items)}</div>
+              <div class="signal-controls">
+                <button type="button" class="signal-play" id="signal-play" aria-label="play or pause">▶</button>
+                <input type="range" id="signal-slider" min="0" max="0" value="0" aria-label="sweep position">
+                <span class="readout" id="signal-readout"></span>
+              </div>
+            </section>
+            </div>
             <section class="panel chart-card">
               <details id="distance-details" class="collapsible"${distanceBlockOpen ? " open" : ""}>
                 <summary class="chart-header">
@@ -1443,6 +1531,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       const use3d = centroidMode === "3d" && glReady();
       const k = use3d ? 3 : 2;
       const aligned = alignEmbeddings(items, plotDatas, k);
+      if (sideCache) { sideCache.aligned = aligned; sideCache.use3d = use3d; }
       // Axes auto-fit per panel: PCA scale differs radically between models, so a
       // shared range would squash most panels.
       const multi = items.length > 1;
@@ -1456,6 +1545,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
         if (use3d) renderCentroid3DPanel(id, it, o, badge);
         else renderCentroid2DPanel(id, it, o, badge);
       });
+      applyCentroidCursors(signalIndex);
     }
 
     function renderCentroid2DPanel(id, item, o, badge) {
@@ -1487,7 +1577,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
           { type: "line", data: lineData, showSymbol: false, lineStyle: { width: 2, color: "#0f766e" }, emphasis: { disabled: true } },
           { type: "scatter", data, symbolSize: 6 },
         ],
-        graphic: badge ? [{ type: "text", right: 8, top: 4, style: { text: badge, fill: "#9a6700", font: "600 11px IBM Plex Sans, sans-serif" } }] : [],
+        graphic: badge ? [{ id: "badge", type: "text", right: 8, top: 4, style: { text: badge, fill: "#9a6700", font: "600 11px IBM Plex Sans, sans-serif" } }] : [],
       }, true);
     }
 
@@ -1509,7 +1599,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
             },
           },
           visualMap: {
-            type: "continuous", min: low, max: high, dimension: 3,
+            type: "continuous", min: low, max: high, dimension: 3, seriesIndex: 1,
             orient: "horizontal", left: "center", bottom: 2,
             text: ["high", "low"], inRange: { color: ["#2563eb", "#14b8a6", "#f59e0b", "#dc2626"] },
           },
@@ -1526,7 +1616,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
             { type: "line3D", data: lineData, lineStyle: { width: 3, color: "#0f766e", opacity: 0.85 } },
             { type: "scatter3D", data, symbolSize: 8, itemStyle: { opacity: 0.95 } },
           ],
-          graphic: badge ? [{ type: "text", right: 8, top: 4, style: { text: badge, fill: "#9a6700", font: "600 11px IBM Plex Sans, sans-serif" } }] : [],
+          graphic: badge ? [{ id: "badge", type: "text", right: 8, top: 4, style: { text: badge, fill: "#9a6700", font: "600 11px IBM Plex Sans, sans-serif" } }] : [],
         }, true);
       } catch (error) {
         centroidMode = "2d";
@@ -1537,6 +1627,238 @@ _VIEWER_TEMPLATE = """<!doctype html>
 
     function drawCentroids() {
       if (sideCache) renderCentroidPanels(sideCache.items, sideCache.plotDatas);
+    }
+
+    // ---------- input-signal scrubber (waveform generated in-browser from the controlled-slice spec) ----------
+    function signalNum(value, fallback) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function signalSpecFromPayload(payload) {
+      if (!payload || payload.__error) return null;
+      const target = payload.target || {};
+      const component = String(target.component || "");
+      if (!component) return null;
+      const tsm = payload.train_slice_manifest || {};
+      const fixedAll = tsm.fixed_values || {};
+      const dm = tsm.dataset_manifest || {};
+      const adapter = (payload.model || {}).adapter || {};
+      let seqLen = adapter.benchmark_sequence_length;
+      if (seqLen === undefined || seqLen === null) seqLen = dm.channel_size;
+      const fixed = fixedAll[component];
+      return {
+        component,
+        param: String(target.parameter || ""),
+        coordinate_name: String(target.coordinate_name || ""),
+        geometry: String(target.geometry || ""),
+        seq_len: signalNum(seqLen, 512),
+        fs: signalNum(dm.sampling_frequency, 500),
+        fixed: fixed && typeof fixed === "object" ? fixed : {},
+      };
+    }
+
+    function signalPhysical(spec, coord) {
+      // centroid_coordinates hold the manifold coordinate; for frequency that is log-Hz.
+      if (spec.coordinate_name === "log_frequency_hz") return Math.exp(coord);
+      return coord;
+    }
+
+    function genSignal(spec, coord) {
+      const L = Math.max(2, Math.round(signalNum(spec.seq_len, 512)));
+      const fs = signalNum(spec.fs, 500);
+      const fx = spec.fixed || {};
+      const y = new Array(L);
+      const c = spec.component;
+      if (c === "sine") {
+        const pv = signalPhysical(spec, coord);
+        const A = spec.param === "amplitude" ? pv : signalNum(fx.amplitude, 1);
+        const f = spec.param === "frequency_hz" ? pv : signalNum(fx.frequency_hz, 1);
+        const ph = spec.param === "phase" ? pv : signalNum(fx.phase, 0);
+        const off = signalNum(fx.offset, 0);
+        for (let i = 0; i < L; i += 1) y[i] = A * Math.sin(2 * Math.PI * f * (i / fs) + ph) + off;
+      } else if (c === "spike") {
+        const amp = signalNum(fx.amplitude, 1);
+        const t0 = Math.round(coord * L);
+        for (let i = 0; i < L; i += 1) y[i] = i === t0 ? amp : 0;
+      } else if (c === "gaussian") {
+        const amp = signalNum(fx.amplitude, 1);
+        const sigma = Math.max(1e-6, signalNum(fx.sigma_sec, 0.02) * fs);
+        const ctr = coord * L;
+        for (let i = 0; i < L; i += 1) { const d = (i - ctr) / sigma; y[i] = amp * Math.exp(-0.5 * d * d); }
+      } else if (c === "linear_trend") {
+        const b = signalNum(fx.intercept, 0);
+        for (let i = 0; i < L; i += 1) y[i] = coord * (i / (L - 1) - 0.5) + b;
+      } else {
+        return null;
+      }
+      return y;
+    }
+
+    function signalBounds(spec, sweep) {
+      const c = spec.component;
+      const fx = spec.fixed || {};
+      if (c === "sine") {
+        const A = spec.param === "amplitude"
+          ? Math.abs(signalNum(sweep && sweep.physical_high, signalNum(fx.amplitude, 1)))
+          : Math.abs(signalNum(fx.amplitude, 1));
+        const off = signalNum(fx.offset, 0);
+        const b = A * 1.12 + Math.abs(off) + 1e-9;
+        return [off - b, off + b];
+      }
+      if (c === "spike" || c === "gaussian") {
+        const amp = Math.abs(signalNum(fx.amplitude, 1)) || 1;
+        return [-0.12 * amp, 1.15 * amp];
+      }
+      if (c === "linear_trend") {
+        const m = Math.max(Math.abs(signalNum(sweep && sweep.physical_low, 0)), Math.abs(signalNum(sweep && sweep.physical_high, 1))) * 0.5 * 1.05 + 1e-9;
+        return [-m, m];
+      }
+      return null;
+    }
+
+    function signalReadout(spec, coord) {
+      const c = spec.component;
+      const p = spec.param;
+      if (c === "sine" && p === "phase") return `phase = ${fmt(coord)} rad`;
+      if (c === "sine" && p === "frequency_hz") return `f = ${fmt(Math.exp(coord))} Hz`;
+      if (c === "sine" && p === "amplitude") return `amplitude = ${fmt(coord)}`;
+      if (c === "spike") return `spike @ t = ${fmt((coord * spec.seq_len) / spec.fs)} s`;
+      if (c === "gaussian") return `centre @ t = ${fmt((coord * spec.seq_len) / spec.fs)} s`;
+      if (c === "linear_trend") return `slope = ${fmt(coord)}`;
+      return fmt(coord);
+    }
+
+    function coordsOf(plotData) {
+      if (!plotData || plotData.__error) return [];
+      const raw = plotData.centroid_coordinates || plotData.path_centroid_coordinates || [];
+      return raw.map(Number);
+    }
+
+    function renderSignalPanels(items, plotDatas, idx) {
+      items.forEach((item, i) => {
+        const id = `signal-chart-${i}`;
+        const pd = plotDatas[i];
+        if (pd && pd.__error) { setChartStatus(id, "Plot data unavailable for this layer.", "status warning"); return; }
+        const spec = item.signal_spec;
+        const coords = coordsOf(pd);
+        if (!spec || !spec.component) { setChartStatus(id, "Input-signal preview is not available for this target."); return; }
+        if (!coords.length) { setChartStatus(id, "No grid coordinates in this artifact."); return; }
+        const j = Math.max(0, Math.min(coords.length - 1, idx | 0));
+        const y = genSignal(spec, coords[j]);
+        if (!y) { setChartStatus(id, `Input-signal preview is not available for component "${escapeHtml(spec.component)}".`); return; }
+        const chart = getChart(id);
+        if (!chart) return;
+        const L = y.length;
+        const fs = signalNum(spec.fs, 500);
+        const data = new Array(L);
+        for (let k = 0; k < L; k += 1) data[k] = [k / fs, y[k]];
+        const bounds = signalBounds(spec, item.sweep);
+        const series = {
+          type: "line", data, showSymbol: false,
+          smooth: spec.component === "sine" || spec.component === "gaussian",
+          sampling: "lttb", lineStyle: { width: 1.8, color: "#0f766e" },
+        };
+        if (spec.component === "gaussian" || spec.component === "spike") series.areaStyle = { color: "rgba(15,118,110,0.12)" };
+        chart.setOption({
+          animation: false,
+          grid: { left: 52, right: 12, top: 12, bottom: 34 },
+          tooltip: { trigger: "axis", appendToBody: true, valueFormatter: (v) => fmt(v) },
+          xAxis: { type: "value", min: 0, max: L / fs, name: "time (s)", nameLocation: "middle", nameGap: 21, axisLabel: { fontSize: 9 }, axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#edf2f7" } } },
+          yAxis: bounds
+            ? { type: "value", min: bounds[0], max: bounds[1], axisLabel: { fontSize: 9 }, axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#edf2f7" } } }
+            : { type: "value", scale: true, axisLabel: { fontSize: 9 }, splitLine: { lineStyle: { color: "#edf2f7" } } },
+          series: [series],
+        }, true);
+      });
+    }
+
+    function applyCentroidCursors(idx) {
+      if (!sideCache || !Array.isArray(sideCache.aligned)) return;
+      const use3d = sideCache.use3d;
+      sideCache.aligned.forEach((o, i) => {
+        const id = `centroid-chart-${i}`;
+        const chart = chartInstances[id];
+        if (!chart || chart.isDisposed() || !o || !Array.isArray(o.emb) || !o.emb.length) return;
+        const j = Math.max(0, Math.min(o.emb.length - 1, idx | 0));
+        const pt = o.emb[j];
+        if (!pt) return;
+        if (use3d) {
+          chart.setOption({ series: [{ id: "cursor3d", type: "scatter3D", data: [[pt[0], pt[1], pt[2]]], symbolSize: 15, itemStyle: { color: "#0f172a" } }] });
+        } else {
+          const px = chart.convertToPixel({ gridIndex: 0 }, [pt[0], pt[1]]);
+          if (px) chart.setOption({ graphic: [{ type: "circle", id: "cursor", z: 100, position: px, shape: { r: 6.5 }, style: { fill: "#0f172a", stroke: "#fff", lineWidth: 2.5 } }] });
+        }
+      });
+    }
+
+    function updateSignalReadout(items, plotDatas, idx) {
+      const el = document.getElementById("signal-readout");
+      if (!el) return;
+      for (let i = 0; i < items.length; i += 1) {
+        const spec = items[i].signal_spec;
+        const coords = coordsOf(plotDatas[i]);
+        if (spec && spec.component && coords.length) {
+          const j = Math.max(0, Math.min(coords.length - 1, idx | 0));
+          el.textContent = `grid ${j} · ${signalReadout(spec, Number(coords[j]))}`;
+          return;
+        }
+      }
+      el.textContent = `grid ${idx | 0}`;
+    }
+
+    function stopSignalPlayback() {
+      signalPlaying = false;
+      if (signalTimer) { clearTimeout(signalTimer); signalTimer = null; }
+      if (signalRaf) { cancelAnimationFrame(signalRaf); signalRaf = null; }
+    }
+
+    function setupSignalPanel(items, plotDatas) {
+      const slider = document.getElementById("signal-slider");
+      const play = document.getElementById("signal-play");
+      if (!slider) return;
+      stopSignalPlayback();
+      let N = 0;
+      plotDatas.forEach((pd) => { const c = coordsOf(pd); if (c.length > N) N = c.length; });
+      if (N < 1) N = 1;
+      signalIndex = Math.max(0, Math.min(N - 1, signalIndex | 0));
+      slider.min = 0;
+      slider.max = N - 1;
+      slider.value = signalIndex;
+      const geometry = (activeCandidate() || items[0] || {}).geometry || "interval";
+      const step = Math.max(1, Math.floor(N / 256));
+      let dir = 1;
+      const apply = (v) => {
+        signalIndex = Math.max(0, Math.min(N - 1, v | 0));
+        renderSignalPanels(items, plotDatas, signalIndex);
+        applyCentroidCursors(signalIndex);
+        updateSignalReadout(items, plotDatas, signalIndex);
+      };
+      apply(signalIndex);
+      slider.oninput = () => {
+        const v = +slider.value;
+        if (signalRaf) cancelAnimationFrame(signalRaf);
+        signalRaf = requestAnimationFrame(() => apply(v));
+      };
+      const tick = () => {
+        if (!signalPlaying) return;
+        let v = signalIndex + dir * step;
+        if (geometry === "circle") { if (v >= N) v = 0; }
+        else if (v >= N - 1) { v = N - 1; dir = -1; }
+        else if (v <= 0) { v = 0; dir = 1; }
+        slider.value = v;
+        apply(v);
+        signalTimer = setTimeout(() => requestAnimationFrame(tick), 33);
+      };
+      if (play) {
+        play.textContent = "▶";
+        play.onclick = () => {
+          signalPlaying = !signalPlaying;
+          play.textContent = signalPlaying ? "⏸" : "▶";
+          if (signalPlaying) { if (geometry !== "circle" && signalIndex >= N - 1) { signalIndex = 0; dir = 1; } tick(); }
+          else stopSignalPlayback();
+        };
+      }
     }
 
     function renderScatterPanels(items, plotDatas) {
@@ -1842,9 +2164,10 @@ _VIEWER_TEMPLATE = """<!doctype html>
       }
       const plotDatas = await Promise.all(items.map((it) => loadPlotData(it.paths && it.paths.plot_data_json)));
       if (token !== renderToken) return;
-      sideCache = { items, plotDatas, distanceDatas: null };
+      sideCache = { items, plotDatas, distanceDatas: null, aligned: null, use3d: false };
       updateNotes(items);
       renderCentroidPanels(items, plotDatas);
+      setupSignalPanel(items, plotDatas);
       if (distanceBlockOpen) renderDistancePanels(items, plotDatas, token);
     }
 
@@ -1853,6 +2176,8 @@ _VIEWER_TEMPLATE = """<!doctype html>
       refreshOptions();
       renderComparison();
       disposeCharts();
+      stopSignalPlayback();
+      signalIndex = 0;
       const content = document.getElementById("content");
       if (!records.length) {
         content.innerHTML = '<div class="empty panel">No manifold metrics found.</div>';
