@@ -11,13 +11,16 @@ They are canonical for the manifold evaluation workflow, but separate from the
 leaderboard benchmark result artifacts. This directory is ignored by Git because
 the full generated corpus is too large for the Cloudflare Pages repository
 deployment. The deployable viewer shell is checked in as `results/manifolds.html`
-and reads its large JSON payloads from Cloudflare R2. See
+and reads its generated `manifest.json` plus large JSON payloads from
+Cloudflare R2. See
 `docs/manifold-r2-pages.md` for the exact bucket, custom domain, cache rule, and
 upload contract.
 
 Manifold artifacts use `schema_version = "manifold_result_v0"` plus a dedicated
 static viewer for inspection, and `results/dashboard.html` must not discover them
-as leaderboard inputs. The manifold viewer reads each layer's `plot_data_json`
+as leaderboard inputs. The manifold viewer reads `manifest.json` to discover
+available model/target/layer records, then fetches selected per-target
+`metrics.json` files for scalar layer metrics, each layer's `plot_data_json`,
 and, on demand, its split `distance_data_json` in the browser and renders
 ECharts charts; metric computation remains in Python.
 

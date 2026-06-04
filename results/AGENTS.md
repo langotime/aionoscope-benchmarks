@@ -4,7 +4,8 @@ This folder contains two very different things:
 
 - `dashboard.html`: the only hand-maintained dashboard source file.
 - `manifolds.html`: the checked-in Cloudflare Pages shell for the standalone
-  manifold viewer; its large generated JSON data lives in Cloudflare R2.
+  manifold viewer; its generated `manifest.json` and large JSON data live in
+  Cloudflare R2.
 - `models/*.json`: generated benchmark artifacts consumed by the dashboard.
 
 ## Critical decisions
@@ -12,9 +13,11 @@ This folder contains two very different things:
 ### 0. Manifold viewer deployment is split across Pages and R2
 
 `results/manifolds.html` is intentionally checked in so the Git-backed
-Cloudflare Pages project deploys the viewer shell. The generated
-`results/manifolds/` directory is ignored and must not be committed. It is the
-local source for bulk-uploaded R2 objects under the versioned
+Cloudflare Pages project deploys the viewer shell. It should be edited as a
+normal static shell; data updates should regenerate `results/manifolds/manifest.json`
+instead of regenerating this HTML. The generated `results/manifolds/` directory
+is ignored and must not be committed. It is the local source for bulk-uploaded
+R2 objects under the versioned
 `manifolds/v.../` prefix. Read `../docs/manifold-r2-pages.md` before changing
 manifold hosting, cache rules, CORS, upload paths, or `MANIFOLD_DATA_BASE_URL`.
 

@@ -121,10 +121,14 @@ Those artifacts are not `results/models/*.json` benchmark results and are not re
 `results/dashboard.html`. The hosted static viewer is checked in as
 `results/manifolds.html` so the Git-backed Cloudflare Pages project can deploy it
 from the repository, while the generated JSON corpus stays ignored under
-`results/manifolds/` locally and is served from Cloudflare R2. The R2/Pages
-contract is documented in `docs/manifold-r2-pages.md`. That viewer is a static
-JSON reader using Apache ECharts from a CDN; Python still owns metric computation
-and plot-data serialization. Encoder models are evaluation-only here;
+`results/manifolds/` locally and is served from Cloudflare R2. The generated
+corpus includes `manifest.json`, which is the browser bootstrap index for
+available model/target/layer records. The viewer shell does not embed scalar
+metric data; it fetches `manifest.json` first, then reads the selected
+per-target `metrics.json` files on demand. The R2/Pages contract is documented
+in `docs/manifold-r2-pages.md`. That viewer is a static JSON reader using
+Apache ECharts from a CDN; Python still owns metric computation and plot-data
+serialization. Encoder models are evaluation-only here;
 future generative-model steering should be added as a separate protocol rather than
 overloading these encoder representation metrics.
 
@@ -271,8 +275,10 @@ explicitly in the top-level docs instead of being treated as an implicit fallbac
 
 `results/dashboard.html` is a static browser dashboard that reads `results/models/*.json` and visualizes the stored metrics. It must stay compatible with the JSON schema produced by `results.py`, including the explicit runtime encoder-forward totals, the total adapter parameter counts, the cumulative through-layer parameter metadata used by the bubble chart controls, and the canonical model taxonomy fields used both by the shared color-palette selector and by the independent model-selection grouping controls. Dashboard selection and hover state must key off a composite benchmark-run identity, not raw `model.name`, because `v2` intentionally produces multiple runs per canonical model.
 
-`aionoscope_benchmarks.manifold_viewer` is a separate static reader for
-`results/manifolds/**/metrics.json`. It exists for manifold review and
+`aionoscope_benchmarks.manifold_viewer` builds the standalone manifold viewer
+data manifest and local run shell. The checked-in hosted shell reads
+`results/manifolds/manifest.json` plus selected
+`results/manifolds/**/metrics.json` files. It exists for manifold review and
 must not become an implicit source of leaderboard data.
 
 ## Architectural Invariants

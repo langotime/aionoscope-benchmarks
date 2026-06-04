@@ -80,9 +80,36 @@ def test_manifold_visualization_bundle_and_viewer_are_static_artifacts(tmp_path:
     build_viewer(artifact_root=run_root, out_path=viewer_path)
 
     assert viewer_path.exists()
+    manifest_path = run_root / "manifest.json"
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == "manifold_viewer_manifest_v1"
+    assert manifest["records"] == [
+        {
+            "run": "run",
+            "model": "ToyModel",
+            "model_slug": "ToyModel",
+            "target": "linear_trend_slope",
+            "target_name": "linear_trend_slope",
+            "sweep": {},
+            "geometry": "interval",
+            "metrics_json": "ToyModel/linear_trend_slope/metrics.json",
+            "layers": [
+                {
+                    "layer": "0",
+                    "paths": {
+                        "plot_data_json": "ToyModel/linear_trend_slope/plots/toy__linear_trend_slope__layer_0_plot_data.json",
+                        "distance_data_json": "ToyModel/linear_trend_slope/plots/toy__linear_trend_slope__layer_0_distance_data.json",
+                    },
+                }
+            ],
+        }
+    ]
     html = viewer_path.read_text(encoding="utf-8")
     assert "Aionoscope Manifold Viewer" in html
-    assert "ToyModel" in html
+    assert "ToyModel" not in html
+    assert "const records =" not in html
+    assert 'const MANIFEST_PATH = "manifest.json"' in html
     assert "https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" in html
     assert "Centroid path" in html
     assert "Distance scatter" in html

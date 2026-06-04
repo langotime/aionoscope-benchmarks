@@ -62,8 +62,9 @@ uv run python scripts/run_manifold_calibration_sequential.py \
 ```
 
 This writes generated manifold JSON artifacts under `results/manifolds/`,
-including per-target `metrics.json`, `plot_data_json`, and
-`distance_data_json` files. That generated directory is ignored by Git. The
+including the viewer `manifest.json`, per-target `metrics.json`,
+`plot_data_json`, and `distance_data_json` files. That generated directory is
+ignored by Git. The
 checked-in hosted viewer is `results/manifolds.html`; Cloudflare Pages deploys
 it from the Git-backed `aionoscope-benchmarks` Pages project. When served from
 localhost or `file:`, the viewer reads local JSON from `results/manifolds/`;
@@ -73,7 +74,9 @@ See `docs/manifold-r2-pages.md` before changing the hosted manifold setup.
 
 The viewer is an Apache ECharts review page; it reads stored JSON artifacts,
 shows axis labels and metric tooltips, and is not loaded by the main benchmark
-dashboard. Centroid manifolds render in 2D or 3D PCA (`echarts-gl`), and a
+dashboard. It loads `manifest.json` first, then fetches each selected
+model/target `metrics.json` on demand for layerwise scalar metrics. Centroid
+manifolds render in 2D or 3D PCA (`echarts-gl`), and a
 comparison bar lets you pin up to four selections: the "Metrics across layers"
 panel overlays them as coloured per-(model, target) curves, while Centroid path
 / Distance scatter / Distance heatmap show one side-by-side panel per pinned

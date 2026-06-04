@@ -141,9 +141,10 @@ This encodes controlled one-factor slices through the normal
 `results/models/*.json` and is intentionally not consumed by
 `results/dashboard.html`. The generated `index.html` inside the run directory is
 the review page for inspecting metrics and ECharts visualizations before
-deciding whether this should become part of the benchmark dashboard. It reads the
-stored `plot_data_json` and lazy `distance_data_json` files in the browser, so
-serve the run directory over a static HTTP server rather than opening the file
+deciding whether this should become part of the benchmark dashboard. It reads
+the generated `manifest.json`, selected per-target `metrics.json` files, stored
+`plot_data_json`, and lazy `distance_data_json` files in the browser, so serve
+the run directory over a static HTTP server rather than opening the file
 directly when the browser blocks local `fetch()` calls.
 
 For a mixed-environment subset such as `MantisV2`, `LeNEPA-Aiono`, `Chronos-2`,
@@ -493,25 +494,28 @@ the controlled-slice manifest, layerwise metrics, summaries, timings, and paths 
 standalone JSON plot artifacts. `plot_data_json` keeps centroid path arrays at the
 full controlled-grid resolution; `distance_data_json` stores the downsampled
 distance matrices used by scatter and heatmap panels. `plot_max_points` only caps
-those distance matrices. The run-level viewer is built with:
+those distance matrices. The hosted viewer bootstrap manifest is built with:
 
 ```bash
 uv run python scripts/build_manifold_calibration_viewer.py \
   --artifact-root results/manifolds \
-  --out results/manifolds.html
+  --manifest-only
 ```
 
 `results/manifolds.html` is checked in and deployed by the Git-backed
-Cloudflare Pages project. The large generated JSON files remain under the
-ignored `results/manifolds/` directory and are uploaded to Cloudflare R2; see
+Cloudflare Pages project and should be edited as a normal static shell, not
+regenerated for data updates. The generated JSON files remain under the ignored
+`results/manifolds/` directory and are uploaded to Cloudflare R2; see
 `docs/manifold-r2-pages.md` for the current bucket, custom domain, CORS, cache
 rule, and upload procedure.
 
-The viewer renders everything in the browser from the embedded record index and
-the per-target JSON files. It loads `plot_data_json` for the visible centroid
-panels first, then fetches `distance_data_json` only when the collapsed
-scatter/heatmap block is opened. Pickers (Run/Model/Geometry/Target/Layer) select
-an active record; a comparison bar pins up to four records as colour-coded chips.
+The viewer renders in the browser from `manifest.json` plus per-target JSON
+files. It loads the manifest first to populate Run/Model/Geometry/Target/Layer
+pickers, fetches each selected model/target `metrics.json` for layerwise scalar
+metrics, loads `plot_data_json` for visible centroid panels, then fetches
+`distance_data_json` only when the collapsed scatter/heatmap block is opened.
+Pickers select an active record; a comparison bar pins up to four records as
+colour-coded chips.
 With pins present, "Metrics across layers" overlays one curve per (model, target)
 track, and Centroid path / Distance scatter / Distance heatmap show one
 side-by-side panel per pinned record. Centroid panels project to 2D or 3D PCA

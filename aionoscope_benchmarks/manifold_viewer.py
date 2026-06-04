@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import html
 import json
 import math
 import os
@@ -8,69 +7,120 @@ from pathlib import Path
 from typing import Any
 
 
-def _relpath(path: str | None, *, base: Path) -> str | None:
+MANIFOLD_VIEWER_MANIFEST = "manifest.json"
+MANIFOLD_VIEWER_MANIFEST_SCHEMA = "manifold_viewer_manifest_v1"
+
+
+def _artifact_relpath(path: str | None, *, artifact_root: Path, context_path: Path | None = None) -> str | None:
     if not path:
         return None
+    root = artifact_root.resolve()
     raw = Path(path)
-    if not raw.is_absolute():
-        raw = (Path.cwd() / raw).resolve()
+    candidates: list[Path] = []
+    if raw.is_absolute():
+        candidates.append(raw.resolve())
+    else:
+        candidates.append((Path.cwd() / raw).resolve())
+        candidates.append((root / raw).resolve())
+        if context_path is not None:
+            candidates.append((context_path.parent / raw).resolve())
+
+    for candidate in candidates:
+        try:
+            relative = os.path.relpath(candidate, root)
+        except ValueError:
+            continue
+        if not relative.startswith(".."):
+            return relative.replace(os.sep, "/")
+    return str(raw).replace(os.sep, "/")
+
+
+def _run_name_for_metrics_path(*, artifact_root: Path, metrics_path: Path) -> str:
     try:
-        return os.path.relpath(raw, base)
+        relative_parts = metrics_path.resolve().relative_to(artifact_root.resolve()).parts
     except ValueError:
-        return str(raw)
+        relative_parts = metrics_path.parts
+    if len(relative_parts) >= 4:
+        return str(relative_parts[0])
+    return artifact_root.name
 
 
-def collect_viewer_records(*, artifact_root: Path, viewer_path: Path) -> list[dict[str, Any]]:
+def collect_viewer_manifest_records(*, artifact_root: Path) -> list[dict[str, Any]]:
     records = []
-    base = viewer_path.parent.resolve()
     for metrics_path in sorted(artifact_root.glob("**/metrics.json")):
-        # Layout is <run>/<model>/<target>/metrics.json, so parents[2] is the
-        # run directory. The root viewer aggregates several runs; carrying the
-        # run name lets the page keep one run's records separate from another's.
-        run_name = metrics_path.parents[2].name if len(metrics_path.parents) >= 3 else ""
+        # Layout is usually <model>/<target>/metrics.json under one run root,
+        # but an aggregate root may contain <run>/<model>/<target>/metrics.json.
+        run_name = _run_name_for_metrics_path(
+            artifact_root=artifact_root,
+            metrics_path=metrics_path,
+        )
         payload = json.loads(metrics_path.read_text(encoding="utf-8"))
         model = payload.get("model", {})
         target = payload.get("target", {})
         train_slice_manifest = payload.get("train_slice_manifest", {})
         sweep = train_slice_manifest.get("sweep", {}) if isinstance(train_slice_manifest, dict) else {}
-        summary = payload.get("summary", {})
         by_layer = payload.get("by_layer", {})
         visualizations = payload.get("visualizations", {})
-        for layer_key, metrics in by_layer.items():
+        target_name = str(target.get("target_name", ""))
+        target_label = target_name
+        if isinstance(sweep, dict):
+            range_policy = sweep.get("range_policy")
+            grid_mode = sweep.get("grid_mode")
+            if (
+                isinstance(range_policy, str)
+                and range_policy.startswith("wide_abs_")
+                and isinstance(grid_mode, str)
+            ):
+                target_label = f"{target_name} [{range_policy}, {grid_mode}]"
+        layers = []
+        for layer_key in by_layer:
             viz = visualizations.get(str(layer_key), {})
-            target_name = str(target.get("target_name", ""))
-            target_label = target_name
-            if isinstance(sweep, dict):
-                range_policy = sweep.get("range_policy")
-                grid_mode = sweep.get("grid_mode")
-                if (
-                    isinstance(range_policy, str)
-                    and range_policy.startswith("wide_abs_")
-                    and isinstance(grid_mode, str)
-                ):
-                    target_label = f"{target_name} [{range_policy}, {grid_mode}]"
-            records.append(
+            layers.append(
                 {
-                    "run": run_name,
-                    "model": str(model.get("name", model.get("slug", ""))),
-                    "model_slug": str(model.get("slug", "")),
-                    "target": target_label,
-                    "target_name": target_name,
-                    "sweep": sweep if isinstance(sweep, dict) else {},
-                    "geometry": str(target.get("geometry", "")),
                     "layer": str(layer_key),
-                    "metrics": metrics,
-                    "summary": summary,
                     "paths": {
-                        key: _relpath(value, base=base)
+                        key: _artifact_relpath(value, artifact_root=artifact_root, context_path=metrics_path)
                         for key, value in viz.items()
                         if key in {"plot_data_json", "distance_data_json"}
                         if isinstance(value, str)
                     },
-                    "metrics_json": _relpath(str(metrics_path), base=base),
                 }
             )
+        records.append(
+            {
+                "run": run_name,
+                "model": str(model.get("name", model.get("slug", ""))),
+                "model_slug": str(model.get("slug", "")),
+                "target": target_label,
+                "target_name": target_name,
+                "sweep": sweep if isinstance(sweep, dict) else {},
+                "geometry": str(target.get("geometry", "")),
+                "metrics_json": _artifact_relpath(str(metrics_path), artifact_root=artifact_root),
+                "layers": layers,
+            }
+        )
     return records
+
+
+def collect_viewer_manifest(*, artifact_root: Path) -> dict[str, Any]:
+    records = collect_viewer_manifest_records(artifact_root=artifact_root)
+    return {
+        "schema_version": MANIFOLD_VIEWER_MANIFEST_SCHEMA,
+        "records": records,
+    }
+
+
+def collect_viewer_records(*, artifact_root: Path, viewer_path: Path | None = None) -> list[dict[str, Any]]:
+    del viewer_path
+    flat_records = []
+    for target_record in collect_viewer_manifest_records(artifact_root=artifact_root):
+        layers = target_record.get("layers", [])
+        for layer in layers:
+            record = {key: value for key, value in target_record.items() if key != "layers"}
+            record["layer"] = str(layer.get("layer", ""))
+            record["paths"] = layer.get("paths", {})
+            flat_records.append(record)
+    return flat_records
 
 
 def _json_safe(value: Any) -> Any:
@@ -83,22 +133,27 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
-def _json_for_script(payload: Any) -> str:
-    return json.dumps(_json_safe(payload), separators=(",", ":"), allow_nan=False).replace(
-        "</",
-        "<\\/",
+def _write_manifest(*, artifact_root: Path) -> Path:
+    manifest_path = artifact_root / MANIFOLD_VIEWER_MANIFEST
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_payload = collect_viewer_manifest(artifact_root=artifact_root)
+    manifest_path.write_text(
+        json.dumps(_json_safe(manifest_payload), separators=(",", ":"), allow_nan=False),
+        encoding="utf-8",
     )
+    return manifest_path
+
+
+def build_viewer_manifest(*, artifact_root: Path) -> Path:
+    artifact_root.mkdir(parents=True, exist_ok=True)
+    return _write_manifest(artifact_root=artifact_root)
 
 
 def build_viewer(*, artifact_root: Path, out_path: Path) -> None:
+    build_viewer_manifest(artifact_root=artifact_root)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    records = collect_viewer_records(artifact_root=artifact_root, viewer_path=out_path)
-    records_json = _json_for_script(records)
     title = "Aionoscope Manifold Viewer"
-    html_text = _VIEWER_TEMPLATE.replace("__TITLE__", html.escape(title)).replace(
-        "__RECORDS_JSON__",
-        records_json,
-    )
+    html_text = _VIEWER_TEMPLATE.replace("__TITLE__", title)
     out_path.write_text(html_text, encoding="utf-8")
 
 
@@ -468,7 +523,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
     <div id="content"></div>
   </main>
   <script>
-    const records = __RECORDS_JSON__;
+    const MANIFEST_PATH = "manifest.json";
     const selects = {
       run: document.getElementById("run"),
       model: document.getElementById("model"),
@@ -477,15 +532,33 @@ _VIEWER_TEMPLATE = """<!doctype html>
       layer: document.getElementById("layer"),
     };
     const chartInstances = {};
+    let records = [];
+    let metricOrder = [];
     let renderToken = 0;
     let centroidMode = "3d";
     let sideCache = null;
     let metricsCollapsed = false;
     let distanceBlockOpen = false;
+    const REMOTE_MANIFOLD_DATA_BASE_URL = "https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260603T142443Z/";
+    function defaultManifoldDataBaseUrl() {
+      const host = window.location.hostname;
+      if (
+        window.location.protocol === "file:" ||
+        host === "localhost" ||
+        host === "127.0.0.1" ||
+        host === "::1" ||
+        host === "[::1]"
+      ) {
+        return window.location.pathname.endsWith("manifolds.html") ? "manifolds/" : "";
+      }
+      return REMOTE_MANIFOLD_DATA_BASE_URL;
+    }
+    const MANIFOLD_DATA_BASE_URL = window.MANIFOLD_DATA_BASE_URL ?? defaultManifoldDataBaseUrl();
 
     const PALETTE = ["#0f766e", "#2563eb", "#d97706", "#db2777"];
     const MAX_ITEMS = 4;
     const selection = [];
+    const targetMetricsCache = new Map();
     const plotDataCache = new Map();
     const distanceDataCache = new Map();
 
@@ -495,6 +568,9 @@ _VIEWER_TEMPLATE = """<!doctype html>
 
     function recordKey(r) {
       return `${r.run}|${r.model}|${r.target}|${r.layer}`;
+    }
+    function targetDataKey(r) {
+      return `${r.run}|${r.metrics_json || ""}`;
     }
     function itemColor(idx) {
       return PALETTE[idx % PALETTE.length];
@@ -521,6 +597,114 @@ _VIEWER_TEMPLATE = """<!doctype html>
         seen.get(tkey).layers.push(it.layer);
       });
       return [...seen.values()];
+    }
+
+    function resolveDataUrl(path) {
+      if (!path) return path;
+      if (/^https?:\\/\\//.test(path)) return path;
+      if (!MANIFOLD_DATA_BASE_URL) return path;
+      const base = String(MANIFOLD_DATA_BASE_URL);
+      const normalizedBase = base.endsWith("/") ? base : `${base}/`;
+      return new URL(path, new URL(normalizedBase, window.location.href)).toString();
+    }
+
+    function fetchJson(path) {
+      const url = resolveDataUrl(path);
+      return fetch(url).then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status} while loading ${url}`);
+        return response.json();
+      });
+    }
+
+    function buildRecordsFromManifest(manifest) {
+      const targetRecords = Array.isArray(manifest && manifest.records) ? manifest.records : [];
+      return targetRecords.flatMap((targetRecord) => {
+        const layers = Array.isArray(targetRecord.layers) ? targetRecord.layers : [];
+        return layers.map((layerRecord) => ({
+          run: String(targetRecord.run || ""),
+          model: String(targetRecord.model || targetRecord.model_slug || ""),
+          model_slug: String(targetRecord.model_slug || ""),
+          target: String(targetRecord.target || targetRecord.target_name || ""),
+          target_name: String(targetRecord.target_name || ""),
+          sweep: targetRecord.sweep && typeof targetRecord.sweep === "object" ? targetRecord.sweep : {},
+          geometry: String(targetRecord.geometry || ""),
+          metrics_json: String(targetRecord.metrics_json || ""),
+          layer: String(layerRecord.layer === undefined || layerRecord.layer === null ? "" : layerRecord.layer),
+          paths: layerRecord.paths && typeof layerRecord.paths === "object" ? layerRecord.paths : {},
+          metrics: null,
+          summary: null,
+          metricsLoaded: false,
+          metricsError: null,
+        }));
+      });
+    }
+
+    function sameTargetRecords(record) {
+      const key = targetDataKey(record);
+      return records.filter((candidate) => targetDataKey(candidate) === key);
+    }
+
+    function applyTargetMetrics(record, payload) {
+      const byLayer = payload && payload.by_layer && typeof payload.by_layer === "object" ? payload.by_layer : {};
+      const visualizations = payload && payload.visualizations && typeof payload.visualizations === "object" ? payload.visualizations : {};
+      const summary = payload && payload.summary && typeof payload.summary === "object" ? payload.summary : {};
+      sameTargetRecords(record).forEach((targetRecord) => {
+        const layerKey = String(targetRecord.layer);
+        targetRecord.metrics = byLayer[layerKey] && typeof byLayer[layerKey] === "object" ? byLayer[layerKey] : {};
+        targetRecord.summary = summary;
+        const viz = visualizations[layerKey];
+        if (viz && typeof viz === "object") {
+          targetRecord.paths = {
+            ...(targetRecord.paths || {}),
+            ...(viz.plot_data_json && !targetRecord.paths.plot_data_json ? { plot_data_json: viz.plot_data_json } : {}),
+            ...(viz.distance_data_json && !targetRecord.paths.distance_data_json ? { distance_data_json: viz.distance_data_json } : {}),
+          };
+        }
+        targetRecord.metricsLoaded = true;
+        targetRecord.metricsError = null;
+      });
+    }
+
+    function markTargetMetricsError(record, error) {
+      sameTargetRecords(record).forEach((targetRecord) => {
+        targetRecord.metricsLoaded = false;
+        targetRecord.metricsError = String(error);
+      });
+    }
+
+    function loadTargetMetrics(record) {
+      if (!record || !record.metrics_json) return Promise.resolve(null);
+      if (record.metricsLoaded) return Promise.resolve(targetMetricsCache.get(targetDataKey(record)) || null);
+      if (record.metricsError) return Promise.resolve({ __error: record.metricsError });
+      const key = targetDataKey(record);
+      if (!targetMetricsCache.has(key)) {
+        const promise = fetchJson(record.metrics_json)
+          .then((payload) => {
+            applyTargetMetrics(record, payload);
+            return payload;
+          })
+          .catch((error) => {
+            markTargetMetricsError(record, error);
+            return { __error: String(error) };
+          });
+        targetMetricsCache.set(key, promise);
+      }
+      return targetMetricsCache.get(key);
+    }
+
+    function missingMetricTargets(items) {
+      const seen = new Set();
+      return items.filter((item) => {
+        if (!item || item.metricsLoaded || item.metricsError) return false;
+        const key = targetDataKey(item);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    function metricErrors(items) {
+      return items.map((item) => item && item.metricsError).filter(Boolean);
     }
 
     function renderComparison() {
@@ -697,7 +881,6 @@ _VIEWER_TEMPLATE = """<!doctype html>
         .sort((a, b) => a.localeCompare(b));
       return [...curated, ...extras];
     }
-    const metricOrder = discoverMetricKeys();
 
     function escapeHtml(value) {
       return String(value)
@@ -861,9 +1044,9 @@ _VIEWER_TEMPLATE = """<!doctype html>
         sweepParts.push(`range=[${fmt(sweep.physical_low)}, ${fmt(sweep.physical_high)}]`);
       }
       const sweepText = sweepParts.length ? sweepParts.join(", ") : "n/a";
-      const metricsLink = candidate.metrics_json ? `<a href="${escapeHtml(candidate.metrics_json)}">metrics JSON</a>` : "";
-      const plotDataLink = candidate.paths && candidate.paths.plot_data_json ? `<a href="${escapeHtml(candidate.paths.plot_data_json)}">plot data JSON</a>` : "";
-      const distanceDataLink = candidate.paths && candidate.paths.distance_data_json ? `<a href="${escapeHtml(candidate.paths.distance_data_json)}">distance data JSON</a>` : "";
+      const metricsLink = candidate.metrics_json ? `<a href="${escapeHtml(resolveDataUrl(candidate.metrics_json))}">metrics JSON</a>` : "";
+      const plotDataLink = candidate.paths && candidate.paths.plot_data_json ? `<a href="${escapeHtml(resolveDataUrl(candidate.paths.plot_data_json))}">plot data JSON</a>` : "";
+      const distanceDataLink = candidate.paths && candidate.paths.distance_data_json ? `<a href="${escapeHtml(resolveDataUrl(candidate.paths.distance_data_json))}">distance data JSON</a>` : "";
       const trackCount = tracksOf(items).length;
       const overlayNote = `${escapeHtml(candidate.model)} / ${escapeHtml(candidate.target)}${items.length > 1 ? ` &middot; ${trackCount} track${trackCount === 1 ? "" : "s"}` : ""}`;
       return `
@@ -1558,8 +1741,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
     function loadPlotData(path) {
       if (!path) return Promise.resolve(null);
       if (plotDataCache.has(path)) return plotDataCache.get(path);
-      const promise = fetch(path)
-        .then((response) => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); })
+      const promise = fetchJson(path)
         .catch((error) => ({ __error: String(error) }));
       plotDataCache.set(path, promise);
       return promise;
@@ -1568,8 +1750,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
     function loadDistanceData(path) {
       if (!path) return Promise.resolve(null);
       if (distanceDataCache.has(path)) return distanceDataCache.get(path);
-      const promise = fetch(path)
-        .then((response) => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); })
+      const promise = fetchJson(path)
         .catch((error) => ({ __error: String(error) }));
       distanceDataCache.set(path, promise);
       return promise;
@@ -1668,6 +1849,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
     }
 
     function render() {
+      const token = ++renderToken;
       refreshOptions();
       renderComparison();
       disposeCharts();
@@ -1682,10 +1864,25 @@ _VIEWER_TEMPLATE = """<!doctype html>
         content.innerHTML = '<div class="empty panel">No records match the current filters.</div>';
         return;
       }
+      const loadItems = [candidate, ...items].filter(Boolean);
+      const pending = missingMetricTargets(loadItems);
+      if (pending.length) {
+        const label = pending.length === 1 ? "target" : "targets";
+        content.innerHTML = `<div class="empty panel">Loading manifold metrics for ${pending.length} ${label}...</div>`;
+        Promise.all(pending.map(loadTargetMetrics)).then(() => {
+          if (token === renderToken) render();
+        });
+        return;
+      }
+      const errors = metricErrors(loadItems);
+      if (errors.length) {
+        content.innerHTML = `<div class="empty panel warning">Could not load manifold metrics. ${escapeHtml(errors[0])}</div>`;
+        return;
+      }
+      metricOrder = discoverMetricKeys();
       content.innerHTML = renderShell(candidate || items[0], items);
       renderLayerMetricsCharts(items);
       updateCentroidToggle();
-      const token = ++renderToken;
       attachDistanceToggle(token);
       renderSideBySide(items, token);
     }
@@ -1795,14 +1992,40 @@ _VIEWER_TEMPLATE = """<!doctype html>
       }
     });
 
-    // With a single run there is nothing to switch between, so hide the picker.
-    if (unique(records.map((r) => r.run)).length <= 1) {
+    function updateRunPickerVisibility() {
       const runLabel = selects.run.closest("label");
-      if (runLabel) runLabel.style.display = "none";
+      if (!runLabel) return;
+      runLabel.style.display = unique(records.map((r) => r.run)).length <= 1 ? "none" : "";
     }
 
-    refreshOptions();
-    render();
+    function setControlsDisabled(disabled) {
+      for (const select of Object.values(selects)) select.disabled = disabled;
+    }
+
+    function bootstrap() {
+      const content = document.getElementById("content");
+      if (content) content.innerHTML = '<div class="empty panel">Loading manifold index...</div>';
+      setControlsDisabled(true);
+      fetchJson(MANIFEST_PATH)
+        .then((manifest) => {
+          if (manifest && manifest.schema_version && manifest.schema_version !== "manifold_viewer_manifest_v1") {
+            throw new Error(`Unsupported manifest schema: ${manifest.schema_version}`);
+          }
+          records = buildRecordsFromManifest(manifest);
+          setControlsDisabled(false);
+          updateRunPickerVisibility();
+          refreshOptions();
+          render();
+        })
+        .catch((error) => {
+          setControlsDisabled(true);
+          if (content) {
+            content.innerHTML = `<div class="empty panel warning">Could not load manifold manifest. ${escapeHtml(error)}</div>`;
+          }
+        });
+    }
+
+    bootstrap();
   </script>
 </body>
 </html>

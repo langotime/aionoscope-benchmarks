@@ -66,18 +66,26 @@ The R2 object keys preserve the local relative paths under `results/manifolds/`
 inside an immutable version prefix:
 
 ```text
+manifolds/v20260603T142443Z/manifest.json
 manifolds/v20260603T142443Z/<model>/<target>/metrics.json
 manifolds/v20260603T142443Z/<model>/<target>/plots/<model>__<target>__layer_<n>_plot_data.json
 manifolds/v20260603T142443Z/<model>/<target>/plots/<model>__<target>__layer_<n>_distance_data.json
 ```
+
+`manifest.json` uses `schema_version = "manifold_viewer_manifest_v1"` and is
+the small browser bootstrap index. It stores model/target/layer identity,
+normalized per-layer plot paths, and each target's `metrics_json` path. It does
+not duplicate scalar layer metrics.
 
 Manifold plot payloads are intentionally split:
 
 - `*_plot_data.json`: centroid/path payload and a `distance_data_json` pointer.
 - `*_distance_data.json`: distance scatter and heatmap matrices.
 
-The viewer loads `*_plot_data.json` immediately for selected panels and loads
-`*_distance_data.json` only when the distance block is opened.
+The viewer loads `manifest.json` first, fetches selected model/target
+`metrics.json` files for scalar metrics, loads `*_plot_data.json` immediately
+for selected panels, and loads `*_distance_data.json` only when the distance
+block is opened.
 
 All R2 JSON objects are uploaded as gzip-compressed bytes while keeping their
 `.json` object keys. Required object metadata:
@@ -102,8 +110,9 @@ It is a pointer, not the cacheable data payload.
 
 ## Viewer Behavior
 
-`results/manifolds.html` embeds the scalar record index in the HTML and resolves
-JSON artifact paths through an optional browser global:
+`results/manifolds.html` is a checked-in shell. It does not embed manifold
+records or scalar metrics. It resolves `manifest.json`, `metrics.json`, and
+plot artifact paths through an optional browser global:
 
 ```js
 window.MANIFOLD_DATA_BASE_URL
@@ -113,14 +122,15 @@ If that global is set before the viewer script runs, it wins. Otherwise the
 viewer chooses a host-aware default:
 
 - `localhost`, `127.0.0.1`, `::1`, and `file:` use local relative base
-  `manifolds/`;
+  `manifolds/` for `results/manifolds.html`, and the current directory for
+  generated per-run `index.html` viewers;
 - all other hosts use the R2 custom-domain base:
 
 ```text
 https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260603T142443Z/
 ```
 
-Relative paths in record metadata, such as:
+Relative paths in manifest and metric metadata, such as:
 
 ```text
 Chronos-2/gaussian_time_frac/plots/Chronos-2__gaussian_time_frac__layer_0_plot_data.json
@@ -178,6 +188,13 @@ Preconditions:
 - Run `npx --yes wrangler whoami` and confirm the expected Cloudflare account.
 - Confirm no PNGs exist. PNG manifold artifacts are deprecated and must not be
   uploaded.
+- Build or refresh the viewer manifest before uploading JSON objects:
+
+```bash
+uv run python scripts/build_manifold_calibration_viewer.py \
+  --artifact-root results/manifolds \
+  --manifest-only
+```
 
 ```bash
 find results/manifolds -type f -name '*.png' | wc -l
@@ -218,6 +235,13 @@ Verify the mutable pointer:
 
 ```bash
 curl -sS https://manifolds-data.aionoscope.langotime.ai/manifolds/latest.json | jq .
+```
+
+Verify the viewer manifest:
+
+```bash
+curl -sS https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260603T142443Z/manifest.json \
+  | jq '.schema_version, (.records | length), .records[0].metrics_json'
 ```
 
 Verify a versioned split pair:
