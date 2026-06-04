@@ -675,51 +675,6 @@
     }
     var LOAD_HELP = "Could not load the live data. Local previews expect JSON under <code>results/manifolds/</code>; hosted Pages streams it from the manifold data CDN. If you're hosting your own copy, point <code>window.MANIFOLD_DATA_BASE_URL</code> at it.";
 
-    // ---------- centroid path ----------
-    function renderCentroid(id, plot, geometry, mode) {
-      var chart = getChart(id);
-      if (!chart) return;
-      var centroids = plot.path_centroids || plot.centroids || [];
-      var coords = (plot.path_centroid_coordinates || plot.centroid_coordinates || []).map(Number);
-      var counts = plot.path_centroid_counts || plot.centroid_counts || [];
-      var k = mode === "3d" ? 3 : 2;
-      var emb = project(centroids, k);
-      if (!emb.length) { msg(id, "No centroid data for this layer.", false); return; }
-      var cv = coords.filter(function (x) { return Number.isFinite(x); });
-      var low = cv.length ? Math.min.apply(null, cv) : 0, high = cv.length ? Math.max.apply(null, cv) : 1;
-
-      if (k === 3) {
-        var data3 = emb.map(function (p, i) { return [p[0], p[1], p[2], coords[i], i, counts[i] || 0]; });
-        var line3 = (geometry === "circle" && data3.length > 2 ? data3.concat([data3[0]]) : data3).map(function (d) { return [d[0], d[1], d[2]]; });
-        chart.setOption({
-          animation: false,
-          tooltip: { formatter: function (pr) { var v = pr.value || []; return "<b>grid " + v[4] + "</b><br>factor value: " + fmt(v[3]); } },
-          visualMap: { type: "continuous", min: low, max: high, dimension: 3, orient: "horizontal", left: "center", bottom: 2, text: ["high", "low"], inRange: { color: C.coord } },
-          xAxis3D: { type: "value", name: "PCA 1" }, yAxis3D: { type: "value", name: "PCA 2" }, zAxis3D: { type: "value", name: "PCA 3" },
-          grid3D: { boxWidth: 96, boxDepth: 96, boxHeight: 72, top: -10, axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#eee" } }, viewControl: { autoRotate: false, distance: 200 } },
-          series: [
-            { type: "line3D", data: line3, lineStyle: { width: 3, color: C.teal, opacity: 0.85 } },
-            { type: "scatter3D", data: data3, symbolSize: 8, itemStyle: { opacity: 0.95 } }
-          ]
-        }, true);
-        return;
-      }
-      var data = emb.map(function (p, i) { return [p[0], p[1], coords[i], i, counts[i] || 0]; });
-      var lineData = (geometry === "circle" && data.length > 2) ? data.concat([data[0]]) : data;
-      chart.setOption({
-        animation: false,
-        grid: { left: 52, right: 18, top: 24, bottom: 64 },
-        tooltip: { trigger: "item", formatter: function (pr) { var v = pr.value || []; return "<b>grid " + v[3] + "</b><br>factor value: " + fmt(v[2]); } },
-        visualMap: { type: "continuous", min: low, max: high, dimension: 2, orient: "horizontal", left: "center", bottom: 6, text: ["high", "low"], inRange: { color: C.coord } },
-        xAxis: { type: "value", scale: true, name: "PCA 1", nameLocation: "middle", nameGap: 24, axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#f0eee7" } } },
-        yAxis: { type: "value", scale: true, name: "PCA 2", nameLocation: "middle", nameGap: 38, axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#f0eee7" } } },
-        series: [
-          { type: "line", data: lineData, showSymbol: false, lineStyle: { width: 2, color: C.teal }, emphasis: { disabled: true }, silent: true },
-          { type: "scatter", data: data, symbolSize: 6 }
-        ]
-      }, true);
-    }
-
     // ---------- layer curves ----------
     function layerSeries(metrics, keys) {
       var byLayer = metrics.by_layer || {};
@@ -790,29 +745,6 @@
     }
 
     // ---------- per-figure loaders ----------
-    function loadCentroid(fig) {
-      var id = fig.querySelector(".chart").id;
-      var url = dataUrl(fig.getAttribute("data-plot"));
-      var geometry = fig.getAttribute("data-geometry");
-      spin(id);
-      fetchJSON(url).then(function (plot) {
-        fig.__plot = plot; fig.__geometry = geometry; fig.__mode = "2d";
-        renderCentroid(id, plot, geometry, "2d");
-        var seg = fig.querySelector("[data-seg]");
-        if (seg) seg.addEventListener("click", function (ev) {
-          var btn = ev.target.closest("button[data-mode]"); if (!btn) return;
-          var mode = btn.getAttribute("data-mode");
-          if (mode === "3d" && !glReady()) { return; }
-          if (mode === fig.__mode) return;
-          fig.__mode = mode;
-          seg.querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b === btn); });
-          disposeChart(id);
-          try { renderCentroid(id, fig.__plot, fig.__geometry, mode); }
-          catch (e) { fig.__mode = "2d"; seg.querySelectorAll("button").forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-mode") === "2d"); }); disposeChart(id); renderCentroid(id, fig.__plot, fig.__geometry, "2d"); }
-        });
-      }).catch(function () { msg(id, LOAD_HELP, true); });
-    }
-
     function loadLayers(fig) {
       var id = fig.querySelector(".chart").id;
       var url = dataUrl(fig.getAttribute("data-metrics"));
@@ -1044,7 +976,7 @@
       }).catch(function () { msg(manId, LOAD_HELP, true); msg(sigId, LOAD_HELP, true); });
     }
 
-    var LOADERS = { centroid: loadCentroid, layers: loadLayers, loglin: loadLogLin, scatter: loadScatter, scrubber: makeScrubber };
+    var LOADERS = { layers: loadLayers, loglin: loadLogLin, scatter: loadScatter, scrubber: makeScrubber };
 
     // ---------- lazy init on scroll ----------
     function init() {
