@@ -162,6 +162,29 @@
     }
     .seg button.active { background: var(--accent); color: #fff; }
 
+    /* scrubber: input signal <-> manifold */
+    .scrub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: stretch; }
+    @media (max-width: 720px) { .scrub-grid { grid-template-columns: 1fr; } }
+    .scrub-pane { display: flex; flex-direction: column; }
+    .pane-label { font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-faint); margin: 2px 4px 6px; }
+    .pane-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .seg-sm button { padding: 3px 10px; font-size: 12px; }
+    .seg button[disabled] { opacity: 0.4; cursor: not-allowed; }
+    .scrub-controls { display: flex; align-items: center; gap: 14px; margin: 16px 6px 2px; }
+    .scrub-controls .play {
+      flex: none; width: 38px; height: 38px; border-radius: 50%; border: 0;
+      background: var(--accent); color: #fff; font-size: 13px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; line-height: 1;
+    }
+    .scrub-controls .play:hover { background: #0c5f58; }
+    .scrub-controls .slider { flex: 1; accent-color: var(--accent); height: 4px; cursor: pointer; }
+    .scrub-controls .readout {
+      flex: none; min-width: 176px; text-align: right; font-variant-numeric: tabular-nums;
+      font-size: 14px; font-weight: 600; color: var(--ink);
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    }
+    @media (max-width: 720px) { .scrub-controls .readout { min-width: 116px; font-size: 12px; } }
+
     .chart-msg {
       display: flex; align-items: center; justify-content: center; height: 100%;
       text-align: center; color: var(--ink-faint); font-size: 14px; padding: 24px; line-height: 1.5;
@@ -269,7 +292,7 @@
             <li><strong>Measure the geometry.</strong> Does the path preserve distances? Local neighbourhoods? The cyclic topology of a phase, or the monotone order of a spike position? Does it close into a loop when it should?</li>
           </ul>
 
-          <p>We do this for <strong>45 foundation models</strong> (Toto, Moirai, Chronos, TiRex, Mantis, TimesFM, Sundial, LeNEPA and more) across <strong>seven generative factors</strong>, at every layer. The dashboard is a static reader over the results: all the heavy lifting happens in Python, and the page just plots what was stored.</p>
+          <p>We do this for <strong>45 foundation models</strong> (Toto, Moirai, Chronos, TiRex, Mantis, TimesFM, Sundial, LeNEPA and more) across <strong>seven generative factors</strong>, at every layer.</p>
         </div>
       </section>
 
@@ -283,7 +306,7 @@
             <li><strong>Metrics across layers</strong> — line charts of each geometry score against depth, so you can see <em>where</em> in the network the structure lives and how it changes.</li>
             <li><strong>Distance scatter &amp; heatmap</strong> — the raw evidence behind the scores: for every pair of grid points, true distance in factor-space vs. distance in the representation, measured both as a straight line and as a walk along the manifold.</li>
           </ul>
-          <p class="smallprint">The charts below are live: they stream the very same JSON artifacts the dashboard reads, and render as you scroll. Local previews read from <code>results/manifolds/</code>; hosted Pages reads from the manifold data CDN. (Hosting your own copy of the data? Point <code>window.MANIFOLD_DATA_BASE_URL</code> at it before the page script runs.)</p>
+          <p class="smallprint">The charts below are live: they stream the very same JSON artifacts the dashboard reads, and render as you scroll.</p>
         </div>
       </section>
 
@@ -292,24 +315,33 @@
         <div class="col">
           <h2><span class="num">Example 1 · sine_phase</span>A phase is a circle</h2>
           <p>Start with the cleanest case. The phase of a sine wave is a <em>circular</em> quantity: phase 0 and phase 2π are the same signal. If a model truly understands phase, its centroids should trace a closed loop — and points near the start should sit right next to points near the end.</p>
-          <p>Here is Toto-2.0-2.5B at layer 4, sweeping phase across a full cycle. Drag to rotate the 3D view; the colour runs from low phase (blue) to high (red).</p>
+          <p>Here is Toto-2.0-2.5B at layer 4, sweeping phase across a full cycle. <strong>Drag the slider</strong> (or hit play): on the left, the input sine slides along; on the right, a dot rides around the manifold. Colour runs from low phase (blue) to high (red).</p>
         </div>
 
-        <figure class="fig" data-chart="centroid"
+        <figure class="fig scrub" data-chart="scrubber"
                 data-plot="Toto-2.0-2.5B/sine_phase/plots/Toto-2.0-2.5B__sine_phase__layer_4_plot_data.json"
-                data-geometry="circle">
+                data-geometry="circle" data-signal="sine"
+                data-seqlen="512" data-fs="500" data-amp="0.7" data-freq="14.837673529667448" data-offset="0">
           <div class="fig-head">
             <div>
-              <div class="fig-title">Centroid path · Toto-2.0-2.5B · sine_phase · layer 4</div>
-              <div class="fig-sub">1,024 centroids, browser-side PCA. Colour = phase.</div>
+              <div class="fig-title">Input signal ↔ manifold · Toto-2.0-2.5B · sine_phase · layer 4</div>
+              <div class="fig-sub">Sweep one factor; watch the representation move.</div>
             </div>
-            <div class="seg" data-seg>
-              <button type="button" data-mode="2d" class="active">2D</button>
-              <button type="button" data-mode="3d">3D</button>
+            <div class="seg" data-zoom>
+              <button type="button" data-zoom-mode="full" class="active">Full window</button>
+              <button type="button" data-zoom-mode="zoom">Zoom ~3 periods</button>
             </div>
           </div>
-          <div class="chart tall" id="fig-sine-centroid"></div>
-          <figcaption>The sweep closes into a near-perfect ring. <b>Cycle-closure error is 0.000</b> and the <b>circular-order score is 1.000</b> — the loop is traversed in the right order and returns exactly to where it started. Distance along the loop tracks the true phase distance with a Spearman correlation of essentially 1.0. Phase, for Toto, really is a circle.</figcaption>
+          <div class="scrub-grid">
+            <div class="scrub-pane"><div class="pane-label">Input signal (1.024 s @ 500 Hz)</div><div class="chart short" id="sig-sine" data-sig></div></div>
+            <div class="scrub-pane"><div class="pane-label pane-label-row"><span>Representation manifold (PCA)</span><span class="seg seg-sm" data-seg><button type="button" data-mode="2d" class="active">2D</button><button type="button" data-mode="3d">3D</button></span></div><div class="chart short" id="man-sine" data-man></div></div>
+          </div>
+          <div class="scrub-controls">
+            <button type="button" class="play" aria-label="play / pause">▶</button>
+            <input type="range" class="slider" min="0" max="0" value="0" aria-label="sweep position">
+            <span class="readout"></span>
+          </div>
+          <figcaption>As phase advances 0 → 2π the wave slides by exactly one period and the dot travels once around a near-perfect ring, returning to its start (<b>cycle-closure error 0.000</b>, <b>circular-order 1.000</b>, isometry ≈ 1.0). Phase, for Toto, really is a circle.</figcaption>
         </figure>
 
         <div class="col">
@@ -334,7 +366,7 @@
       <section class="block">
         <div class="col">
           <h2><span class="num">Example 2 · spike_time_frac</span>When a straight line lies</h2>
-          <p>Now slide a single spike from the start of the window to the end. The factor is the spike's position in time — a simple <em>interval</em> from 0 to 1. You might expect the representation to lay this out as a straight line. At the input-facing layer 0, it does something more interesting.</p>
+          <p>Now slide a single spike from the start of the window to the end. The factor is the spike's position in time — a simple <em>interval</em> from 0 to 1. You might expect the representation to lay this out as a straight line. At the input-facing layer 0, it does something more interesting. <strong>Drag the spike across time</strong> and watch the dot trace the manifold.</p>
         </div>
 
         <div class="stats">
@@ -343,20 +375,25 @@
           <div class="stat"><div class="v">+0.85</div><div class="l">geodesic gain — the curve carries almost all the signal</div></div>
         </div>
 
-        <figure class="fig" data-chart="centroid"
+        <figure class="fig scrub" data-chart="scrubber"
                 data-plot="Toto-2.0-2.5B/spike_time_frac/plots/Toto-2.0-2.5B__spike_time_frac__layer_0_plot_data.json"
-                data-geometry="interval">
+                data-geometry="interval" data-signal="spike"
+                data-seqlen="512" data-fs="500" data-amp="1">
           <div class="fig-head">
             <div>
-              <div class="fig-title">Centroid path · Toto-2.0-2.5B · spike_time_frac · layer 0</div>
+              <div class="fig-title">Input signal ↔ manifold · Toto-2.0-2.5B · spike_time_frac · layer 0</div>
               <div class="fig-sub">Colour = spike position in time.</div>
             </div>
-            <div class="seg" data-seg>
-              <button type="button" data-mode="2d" class="active">2D</button>
-              <button type="button" data-mode="3d">3D</button>
-            </div>
           </div>
-          <div class="chart tall" id="fig-spike-centroid"></div>
+          <div class="scrub-grid">
+            <div class="scrub-pane"><div class="pane-label">Input signal — a single impulse</div><div class="chart short" id="sig-spike" data-sig></div></div>
+            <div class="scrub-pane"><div class="pane-label pane-label-row"><span>Representation manifold (PCA)</span><span class="seg seg-sm" data-seg><button type="button" data-mode="2d" class="active">2D</button><button type="button" data-mode="3d">3D</button></span></div><div class="chart short" id="man-spike" data-man></div></div>
+          </div>
+          <div class="scrub-controls">
+            <button type="button" class="play" aria-label="play / pause">▶</button>
+            <input type="range" class="slider" min="0" max="0" value="0" aria-label="sweep position">
+            <span class="readout"></span>
+          </div>
           <figcaption>The spike position is encoded as a <b>curved arc</b>, not a straight line. That curvature is exactly why a naïve straight-line (Euclidean) distance between two centroids is misleading — two points on opposite ends of a horseshoe are close <em>through the air</em> but far <em>along the curve</em>. Walk along the manifold instead, and the order comes back almost perfectly.</figcaption>
         </figure>
 
@@ -392,6 +429,32 @@
           <div class="chart" id="fig-spike-layers"></div>
           <figcaption>Early on, <b style="color:#dc2626">geodesic</b> distance order is excellent while <b style="color:#2563eb">straight-line</b> order is poor — a big positive <b style="color:#d97706">geodesic gain</b>, the signature of a curved-but-clean manifold. By the middle of the network the two lines meet near 1.0: the model has <em>flattened</em> the spike-position manifold into something almost linear, and the geodesic gain falls to zero. Curvature is not a failure — it's a stage the representation moves through.</figcaption>
         </figure>
+
+        <div class="col">
+          <p>The spike has a smoother cousin: <code>gaussian_time_frac</code> slides a soft bump across the same window. It's the same interval geometry, but the gentler shape is easier for the model to organize — even at layer 0 the manifold is already almost a clean line (straight-line order ≈ 0.94 vs. the spike's 0.12). Drag it and compare.</p>
+        </div>
+
+        <figure class="fig scrub" data-chart="scrubber"
+                data-plot="Toto-2.0-2.5B/gaussian_time_frac/plots/Toto-2.0-2.5B__gaussian_time_frac__layer_0_plot_data.json"
+                data-geometry="interval" data-signal="gaussian"
+                data-seqlen="512" data-fs="500" data-amp="1" data-sigma="17.5">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">Input signal ↔ manifold · Toto-2.0-2.5B · gaussian_time_frac · layer 0</div>
+              <div class="fig-sub">A smooth bump (σ ≈ 0.035 s) sliding across time.</div>
+            </div>
+          </div>
+          <div class="scrub-grid">
+            <div class="scrub-pane"><div class="pane-label">Input signal — a Gaussian bump</div><div class="chart short" id="sig-gauss" data-sig></div></div>
+            <div class="scrub-pane"><div class="pane-label pane-label-row"><span>Representation manifold (PCA)</span><span class="seg seg-sm" data-seg><button type="button" data-mode="2d" class="active">2D</button><button type="button" data-mode="3d">3D</button></span></div><div class="chart short" id="man-gauss" data-man></div></div>
+          </div>
+          <div class="scrub-controls">
+            <button type="button" class="play" aria-label="play / pause">▶</button>
+            <input type="range" class="slider" min="0" max="0" value="0" aria-label="sweep position">
+            <span class="readout"></span>
+          </div>
+          <figcaption>Same sweep as the spike, smoother input — and the manifold is nearly a straight, well-ordered line right from layer 0. Sharp, localized features (the impulse) are harder to lay out cleanly than smooth ones; the geometry suite makes that difference visible.</figcaption>
+        </figure>
       </section>
 
       <!-- EXAMPLE 3: LINEAR VS LOG -->
@@ -417,6 +480,32 @@
             <div class="chart short" id="fig-slope-r2"></div>
           </div>
           <figcaption>Under the <b style="color:#d97706">linear ruler</b>, geodesic distance order peaks at a feeble <b>~0.16</b> and 5-NN recall sits near 0.04 — the slope manifold looks nearly geometry-free. Switch to the <b style="color:#0f766e">signed-log ruler</b> and the very same representation reveals real structure: isometry climbs to <b>~0.54</b> and neighbour recall jumps several-fold. Note the nuance in the right-hand panel: <em>decodability</em> (projection R²) is comparable under both rulers — the slope is recoverable either way — but the <em>geometry</em> only lines up when you measure it on the scale the model actually uses.</figcaption>
+        </figure>
+
+        <div class="col">
+          <p>You can feel the ruler problem by hand. Below is the slope sweep on the <strong>signed-log</strong> grid (layer 36): drag it and watch the input ramp tilt. Near the middle the slopes are tiny and the lines look almost flat at this scale; only toward the ends do they become steep. The linear ruler, with its grid points evenly spaced in raw units, spends almost all of its resolution out at those steep extremes — which is exactly why it can't see the near-zero structure that the signed-log ruler lays out cleanly.</p>
+        </div>
+
+        <figure class="fig scrub" data-chart="scrubber"
+                data-plot="Toto-2.0-2.5B/linear_trend_slope__signed_log/plots/Toto-2.0-2.5B__linear_trend_slope__layer_36_plot_data.json"
+                data-geometry="interval" data-signal="linear"
+                data-seqlen="512" data-fs="500" data-intercept="0">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">Input signal ↔ manifold · Toto-2.0-2.5B · linear_trend_slope (signed-log) · layer 36</div>
+              <div class="fig-sub">Colour = slope. Y-axis fixed across the full ±10⁶ range.</div>
+            </div>
+          </div>
+          <div class="scrub-grid">
+            <div class="scrub-pane"><div class="pane-label">Input signal — a linear ramp</div><div class="chart short" id="sig-slope" data-sig></div></div>
+            <div class="scrub-pane"><div class="pane-label pane-label-row"><span>Representation manifold (PCA)</span><span class="seg seg-sm" data-seg><button type="button" data-mode="2d" class="active">2D</button><button type="button" data-mode="3d">3D</button></span></div><div class="chart short" id="man-slope" data-man></div></div>
+          </div>
+          <div class="scrub-controls">
+            <button type="button" class="play" aria-label="play / pause">▶</button>
+            <input type="range" class="slider" min="0" max="0" value="0" aria-label="sweep position">
+            <span class="readout"></span>
+          </div>
+          <figcaption>On a fixed ±10⁶ y-axis, the huge dynamic range of the slope is obvious: most of the sweep produces lines that look nearly flat, and only the extremes tilt hard. That's the geometry the model has to encode — and why the choice of ruler decides whether its structure shows up as a clean manifold.</figcaption>
         </figure>
 
         <div class="col">
@@ -560,6 +649,7 @@
 
     // ---------- chart plumbing ----------
     var instances = {};
+    var scrubbers = [];
     function getChart(id) {
       var el = document.getElementById(id);
       if (!el) return null;
@@ -771,7 +861,190 @@
         .catch(function () { msg(id, LOAD_HELP, true); });
     }
 
-    var LOADERS = { centroid: loadCentroid, layers: loadLayers, loglin: loadLogLin, scatter: loadScatter };
+    // ---------- input-signal scrubber (signal generated in-browser, structurally faithful to aiono) ----------
+    function genSignal(kind, coord, p) {
+      var L = p.L, y = new Array(L), i;
+      if (kind === "sine") {
+        for (i = 0; i < L; i++) y[i] = p.amp * Math.sin(2 * Math.PI * p.freq * (i / p.fs) + coord) + p.offset;
+      } else if (kind === "spike") {
+        var t0 = Math.round(coord * L);
+        for (i = 0; i < L; i++) y[i] = (i === t0) ? p.amp : 0;
+      } else if (kind === "gaussian") {
+        var c = coord * L;
+        for (i = 0; i < L; i++) { var d = (i - c) / p.sigma; y[i] = p.amp * Math.exp(-0.5 * d * d); }
+      } else if (kind === "linear") {
+        for (i = 0; i < L; i++) y[i] = coord * (i / (L - 1) - 0.5) + p.intercept;
+      } else {
+        for (i = 0; i < L; i++) y[i] = 0;
+      }
+      return y;
+    }
+
+    function signalYBounds(kind, p) {
+      if (kind === "sine") { var a = Math.abs(p.amp) * 1.08; return [p.offset - a, p.offset + a]; }
+      if (kind === "spike" || kind === "gaussian") return [-0.1 * p.amp, 1.12 * p.amp];
+      if (kind === "linear") { var m = (p.maxAbs || 1) * 1.04; return [-m, m]; }
+      return [-1, 1];
+    }
+
+    function renderSignal(id, kind, y, p, zoom) {
+      var chart = getChart(id);
+      if (!chart) return;
+      var L = p.L, fs = p.fs, n = L, i;
+      if (kind === "sine" && zoom) n = Math.min(L, Math.max(16, Math.round((p.zoomPeriods / p.freq) * fs)));
+      var data = new Array(n);
+      for (i = 0; i < n; i++) data[i] = [i / fs, y[i]];
+      var yb = signalYBounds(kind, p);
+      var series = { type: "line", data: data, showSymbol: false, smooth: (kind === "sine" || kind === "gaussian"), sampling: "lttb", lineStyle: { width: 2, color: C.teal } };
+      if (kind === "gaussian" || kind === "spike") series.areaStyle = { color: "rgba(15,118,110,0.12)" };
+      chart.setOption({
+        animation: false,
+        grid: { left: 58, right: 14, top: 14, bottom: 40 },
+        tooltip: { trigger: "axis", valueFormatter: function (v) { return fmt(v); } },
+        xAxis: { type: "value", min: 0, max: n / fs, name: "time (s)", nameLocation: "middle", nameGap: 24, splitLine: { lineStyle: { color: "#f0eee7" } } },
+        yAxis: { type: "value", min: yb[0], max: yb[1], scale: false, splitLine: { lineStyle: { color: "#f0eee7" } } },
+        series: [series]
+      }, true);
+    }
+
+    function renderManifold2D(id, emb, coords, geometry) {
+      var chart = getChart(id);
+      if (!chart) return;
+      var data = emb.map(function (pt, idx) { return [pt[0], pt[1], coords[idx], idx]; });
+      var lineData = (geometry === "circle" && data.length > 2) ? data.concat([data[0]]) : data;
+      var cv = coords.filter(function (x) { return Number.isFinite(x); });
+      var low = cv.length ? Math.min.apply(null, cv) : 0, high = cv.length ? Math.max.apply(null, cv) : 1;
+      chart.setOption({
+        animation: false,
+        grid: { left: 46, right: 14, top: 14, bottom: 52 },
+        tooltip: { trigger: "item", formatter: function (pr) { var v = pr.value || []; return "grid " + v[3] + "<br>value: " + fmt(v[2]); } },
+        visualMap: { type: "continuous", min: low, max: high, dimension: 2, orient: "horizontal", left: "center", bottom: 2, text: ["high", "low"], inRange: { color: C.coord } },
+        xAxis: { type: "value", scale: true, name: "PCA 1", nameLocation: "middle", nameGap: 20, axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#f0eee7" } } },
+        yAxis: { type: "value", scale: true, name: "PCA 2", nameLocation: "middle", nameGap: 30, axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#f0eee7" } } },
+        series: [
+          { type: "line", data: lineData, showSymbol: false, silent: true, emphasis: { disabled: true }, lineStyle: { width: 1.2, color: "#b8c2cc" }, z: 1 },
+          { type: "scatter", data: data, symbolSize: 5, itemStyle: { opacity: 0.5 }, z: 2 }
+        ]
+      }, true);
+    }
+
+    function placeCursor2D(id, pt) {
+      var chart = getChart(id);
+      if (!chart || !pt) return;
+      var px = chart.convertToPixel({ gridIndex: 0 }, pt);
+      if (!px) return;
+      chart.setOption({ graphic: [{ type: "circle", id: "cursor", z: 100, position: px, shape: { r: 7 }, style: { fill: "#0f172a", stroke: "#fff", lineWidth: 2.5 } }] });
+    }
+
+    function renderManifold3D(id, emb, coords, geometry) {
+      var chart = getChart(id);
+      if (!chart) return;
+      var data = emb.map(function (pt, idx) { return [pt[0], pt[1], pt[2], coords[idx], idx]; });
+      var lineData = (geometry === "circle" && data.length > 2 ? data.concat([data[0]]) : data).map(function (d) { return [d[0], d[1], d[2]]; });
+      var cv = coords.filter(function (x) { return Number.isFinite(x); });
+      var low = cv.length ? Math.min.apply(null, cv) : 0, high = cv.length ? Math.max.apply(null, cv) : 1;
+      chart.setOption({
+        animation: false,
+        tooltip: { formatter: function (pr) { var v = pr.value || []; return "grid " + v[4] + "<br>value: " + fmt(v[3]); } },
+        visualMap: { type: "continuous", min: low, max: high, dimension: 3, seriesIndex: 1, orient: "horizontal", left: "center", bottom: 2, text: ["high", "low"], inRange: { color: C.coord } },
+        xAxis3D: { type: "value", name: "PCA 1" }, yAxis3D: { type: "value", name: "PCA 2" }, zAxis3D: { type: "value", name: "PCA 3" },
+        grid3D: { boxWidth: 90, boxDepth: 90, boxHeight: 68, top: -12, viewControl: { autoRotate: false, distance: 200 }, axisLine: { lineStyle: { color: "#94a3b8" } }, splitLine: { lineStyle: { color: "#eef1f5" } } },
+        series: [
+          { id: "path3d", type: "line3D", data: lineData, lineStyle: { width: 2.5, color: "#aab3bd", opacity: 0.85 } },
+          { id: "pts3d", type: "scatter3D", data: data, symbolSize: 6, itemStyle: { opacity: 0.85 } },
+          { id: "cursor3d", type: "scatter3D", data: [], symbolSize: 15, itemStyle: { color: "#0f172a" } }
+        ]
+      }, true);
+    }
+
+    function placeCursor3D(id, pt) {
+      var chart = getChart(id);
+      if (!chart || !pt) return;
+      chart.setOption({ series: [{ id: "cursor3d", type: "scatter3D", data: [[pt[0], pt[1], pt[2]]] }] });
+    }
+
+    function scrubReadout(kind, coord, p) {
+      if (kind === "sine") return "φ = " + (Math.round(coord * 100) / 100) + " rad";
+      if (kind === "spike") return "spike @ t = " + (Math.round(coord * p.L / p.fs * 1000) / 1000) + " s";
+      if (kind === "gaussian") return "centre @ t = " + (Math.round(coord * p.L / p.fs * 1000) / 1000) + " s";
+      if (kind === "linear") return "slope = " + Number(coord).toExponential(1);
+      return "";
+    }
+
+    function makeScrubber(fig) {
+      var sigId = fig.querySelector("[data-sig]").id;
+      var manId = fig.querySelector("[data-man]").id;
+      spin(sigId); spin(manId);
+      var kind = fig.getAttribute("data-signal");
+      var geometry = fig.getAttribute("data-geometry");
+      var num = function (a, d) { var v = parseFloat(fig.getAttribute(a)); return Number.isFinite(v) ? v : d; };
+      var p = { L: num("data-seqlen", 512), fs: num("data-fs", 500), amp: num("data-amp", 1), freq: num("data-freq", 1), offset: num("data-offset", 0), sigma: num("data-sigma", 10), intercept: num("data-intercept", 0), zoomPeriods: 3 };
+      fetchJSON(dataUrl(fig.getAttribute("data-plot"))).then(function (plot) {
+        var centroids = plot.centroids || plot.path_centroids || [];
+        var coords = (plot.centroid_coordinates || plot.path_centroid_coordinates || []).map(Number);
+        var emb2 = project(centroids, 2), emb3 = null;
+        if (!emb2.length || !coords.length) { msg(manId, "No centroid data for this layer."); msg(sigId, "No signal data."); return; }
+        if (kind === "linear") { var mx = 0; for (var k = 0; k < coords.length; k++) { var a = Math.abs(coords[k]); if (a > mx) mx = a; } p.maxAbs = (mx || 1) * 0.5; }
+        var mode = "2d";
+        var modeSeg = fig.querySelector("[data-seg]");
+        function setSeg(m) { if (modeSeg) modeSeg.querySelectorAll("button").forEach(function (x) { x.classList.toggle("active", x.getAttribute("data-mode") === m); }); }
+        function emb() { if (mode === "3d") { if (!emb3) emb3 = project(centroids, 3); return emb3; } return emb2; }
+        function renderBase() {
+          if (mode === "3d") { if (glReady()) { renderManifold3D(manId, emb(), coords, geometry); return; } mode = "2d"; setSeg("2d"); }
+          renderManifold2D(manId, emb2, coords, geometry);
+        }
+        function placeAt(i) { if (mode === "3d") placeCursor3D(manId, emb()[i]); else placeCursor2D(manId, emb2[i]); }
+        var N = coords.length;
+        var slider = fig.querySelector(".slider"); slider.min = 0; slider.max = N - 1; slider.value = 0;
+        var readout = fig.querySelector(".readout");
+        var zoom = false, raf = null;
+        function update(i) {
+          i = Math.max(0, Math.min(N - 1, i | 0));
+          var coord = coords[i];
+          renderSignal(sigId, kind, genSignal(kind, coord, p), p, zoom);
+          placeAt(i);
+          readout.textContent = scrubReadout(kind, coord, p);
+        }
+        slider.addEventListener("input", function () { var v = +slider.value; if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(function () { update(v); }); });
+        var playing = false, dir = 1, idx = 0, step = Math.max(1, Math.floor(N / 256)), timer = null;
+        var playBtn = fig.querySelector(".play");
+        function tick() {
+          if (!playing) return;
+          idx += dir * step;
+          if (geometry === "circle") { if (idx >= N) idx = 0; }
+          else { if (idx >= N - 1) { idx = N - 1; dir = -1; } else if (idx <= 0) { idx = 0; dir = 1; } }
+          slider.value = idx; update(idx);
+          timer = setTimeout(function () { requestAnimationFrame(tick); }, 33);
+        }
+        playBtn.addEventListener("click", function () {
+          playing = !playing; playBtn.textContent = playing ? "⏸" : "▶";
+          if (playing) { idx = +slider.value; if (geometry !== "circle" && idx >= N - 1) { idx = 0; dir = 1; } tick(); }
+          else if (timer) { clearTimeout(timer); }
+        });
+        var zoomSeg = fig.querySelector("[data-zoom]");
+        if (zoomSeg) zoomSeg.addEventListener("click", function (ev) {
+          var b = ev.target.closest("button[data-zoom-mode]"); if (!b) return;
+          zoom = b.getAttribute("data-zoom-mode") === "zoom";
+          zoomSeg.querySelectorAll("button").forEach(function (x) { x.classList.toggle("active", x === b); });
+          update(+slider.value);
+        });
+        if (modeSeg) modeSeg.addEventListener("click", function (ev) {
+          var b = ev.target.closest("button[data-mode]"); if (!b) return;
+          var m = b.getAttribute("data-mode");
+          if (m === mode || (m === "3d" && !glReady())) return;
+          mode = m; setSeg(m);
+          disposeChart(manId);
+          renderBase(); placeAt(+slider.value);
+        });
+        if (!glReady() && modeSeg) { var b3 = modeSeg.querySelector('[data-mode="3d"]'); if (b3) { b3.disabled = true; b3.title = "3D needs echarts-gl"; } }
+        fig.__redraw = function () { renderBase(); update(+slider.value); };
+        scrubbers.push(fig);
+        renderBase();
+        update(0);
+      }).catch(function () { msg(manId, LOAD_HELP, true); msg(sigId, LOAD_HELP, true); });
+    }
+
+    var LOADERS = { centroid: loadCentroid, layers: loadLayers, loglin: loadLogLin, scatter: loadScatter, scrubber: makeScrubber };
 
     // ---------- lazy init on scroll ----------
     function init() {
@@ -794,6 +1067,7 @@
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(function () {
           Object.keys(instances).forEach(function (k) { if (instances[k] && !instances[k].isDisposed()) instances[k].resize(); });
+          scrubbers.forEach(function (f) { if (f.__redraw) { try { f.__redraw(); } catch (e) { /* ignore */ } } });
         }, 150);
       });
     }
