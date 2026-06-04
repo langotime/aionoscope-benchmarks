@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +58,18 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(_json_safe(payload), indent=2, allow_nan=False), encoding="utf-8")
 
 
+def _artifact_ref(path: Path, root: Path | None) -> str:
+    """Portable artifact reference for JSON. Relative to ``root`` (the manifold
+    artifact root) when given, so stored paths survive moving/renaming the tree
+    and resolve directly against the data base URL; absolute only as a fallback."""
+    if root is None:
+        return str(path)
+    try:
+        return str(path.resolve().relative_to(root.resolve())).replace(os.sep, "/")
+    except ValueError:
+        return os.path.relpath(path.resolve(), root.resolve()).replace(os.sep, "/")
+
+
 def write_visualization_bundle(
     *,
     out_dir: Path,
@@ -64,6 +77,7 @@ def write_visualization_bundle(
     plot_data: dict[str, Any],
     metrics: dict[str, Any],
     title: str,
+    root: Path | None = None,
 ) -> dict[str, str]:
     del metrics, title
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -86,10 +100,10 @@ def write_visualization_bundle(
         for key, value in plot_data.items()
         if key not in _PLOT_DATA_DROP_KEYS
     }
-    path_data["distance_data_json"] = str(distance_data_path)
+    path_data["distance_data_json"] = _artifact_ref(distance_data_path, root)
     write_json(plot_data_path, path_data)
     write_json(distance_data_path, distance_data)
     return {
-        "plot_data_json": str(plot_data_path),
-        "distance_data_json": str(distance_data_path),
+        "plot_data_json": _artifact_ref(plot_data_path, root),
+        "distance_data_json": _artifact_ref(distance_data_path, root),
     }

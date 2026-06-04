@@ -283,6 +283,7 @@ def run_calibration(
                         plot_data=evaluation.plot_data,
                         metrics=evaluation.metrics,
                         title=f"{spec.name} / {target_name} / layer {int(layer)}",
+                        root=run_root,
                     )
 
             summary = summarize_layer_metrics(by_layer=by_layer)
