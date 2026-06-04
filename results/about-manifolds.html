@@ -251,10 +251,6 @@
         <h1>The shape of a signal</h1>
         <p class="lede">Neural networks don't just memorize — they build geometry. Days of the week curl into a circle; colours arrange themselves on a wheel. We asked a simpler question of time-series foundation models: when you sweep the <em>phase</em> of a sine wave, or slide a <em>spike</em> across time, do the model's frozen activations trace out the right shape?</p>
         <div class="byline">
-          <span>Aionoscope manifold suite</span>
-          <span class="dot"></span>
-          <span>A walkthrough of the manifold dashboard</span>
-          <span class="dot"></span>
           <a href="manifolds.html">Open the live dashboard →</a>
         </div>
       </div>
@@ -457,13 +453,13 @@
         </figure>
       </section>
 
-      <!-- EXAMPLE 3: LINEAR VS LOG -->
+      <!-- EXAMPLE 3: WHAT THE TOKENIZER THROWS AWAY -->
       <section class="block">
         <div class="col">
-          <h2><span class="num">Example 3 · linear_trend_slope</span>The ruler matters too</h2>
-          <p>The last example is a twist: sometimes the geometry looks broken only because we measured it with the wrong ruler.</p>
-          <p>The trend-slope factor sweeps from <code>−1,000,000</code> to <code>+1,000,000</code>. Measured on a <strong>linear</strong> grid, the steps are evenly spaced in raw slope units — which means almost every grid point is an enormous slope, and the interesting near-zero region (the difference between a slope of 1 and a slope of 100) is crushed into a sliver. Distances are dominated by the few giant extremes. Measured on a <strong>signed-log</strong> grid instead, the points spread evenly across orders of magnitude and across the sign change, so a step from 1→10 counts the same as 100k→1M.</p>
-          <p>Crucially, the <em>representation never changes</em> between these two views — only the notion of distance we hold it to. Here is the same factor, scored both ways, across all 49 layers.</p>
+          <h2><span class="num">Example 3 · linear_trend_slope</span>What the tokenizer throws away</h2>
+          <p>The last example is the most subtle, because the geometry doesn't look broken — it looks <em>empty</em>, for a reason that has nothing to do with attention or depth. Before the first transformer layer runs, a time-series model has to turn raw numbers into tokens, and nearly all of them begin the same way: <strong>standardize</strong> the window — subtract a location, divide by a scale. Toto then squashes the result through <code>asinh</code>, its own signed-log, before patching. That front-end is what lets one model swallow temperatures, prices and megawatts interchangeably. The price is that it erases the absolute scale of the input.</p>
+          <p>For most factors that is a harmless convenience. Trend <strong>slope</strong> is the pathological case, because slope is <em>pure</em> scale — exactly what standardization is built to remove. Standardize a clean ramp <code>y = slope·(t − t̄)</code> by its own standard deviation and the slope cancels exactly: every magnitude collapses onto one and the same normalized ramp, and only the <strong>sign</strong> survives. Sweep from <code>−10⁶</code> to <code>+10⁶</code> and the model effectively sees one descending ramp, then one ascending ramp, and — across more than four orders of magnitude — almost nothing in between.</p>
+          <p>You might first blame the measurement. Scored across all 49 layers, the same representation looks nearly geometry-free under a <strong>linear</strong> ruler yet structured under a <strong>signed-log</strong> one — so perhaps we were only holding it to the wrong scale.</p>
         </div>
 
         <figure class="fig" data-chart="loglin"
@@ -479,21 +475,38 @@
             <div class="chart short" id="fig-slope-iso"></div>
             <div class="chart short" id="fig-slope-r2"></div>
           </div>
-          <figcaption>Under the <b style="color:#d97706">linear ruler</b>, geodesic distance order peaks at a feeble <b>~0.16</b> and 5-NN recall sits near 0.04 — the slope manifold looks nearly geometry-free. Switch to the <b style="color:#0f766e">signed-log ruler</b> and the very same representation reveals real structure: isometry climbs to <b>~0.54</b> and neighbour recall jumps several-fold. Note the nuance in the right-hand panel: <em>decodability</em> (projection R²) is comparable under both rulers — the slope is recoverable either way — but the <em>geometry</em> only lines up when you measure it on the scale the model actually uses.</figcaption>
+          <figcaption>Under the <b style="color:#d97706">linear ruler</b>, geodesic isometry peaks at a feeble <b>~0.16</b> and 5-NN recall near <b>0.06</b> — the slope manifold looks nearly geometry-free. Under the <b style="color:#0f766e">signed-log ruler</b> the very same activations climb to <b>~0.54</b> with recall several times higher. Decodability is similar either way (projection R² ~0.72 vs ~0.67, right) — a probe can read the slope out — so it is tempting to declare that signed-log simply reveals the real geometry. Hold that thought.</figcaption>
         </figure>
 
         <div class="col">
-          <p>You can feel the ruler problem by hand. Below is the slope sweep on the <strong>signed-log</strong> grid (layer 36): drag it and watch the input ramp tilt. Near the middle the slopes are tiny and the lines look almost flat at this scale; only toward the ends do they become steep. The linear ruler, with its grid points evenly spaced in raw units, spends almost all of its resolution out at those steep extremes — which is exactly why it can't see the near-zero structure that the signed-log ruler lays out cleanly.</p>
+          <p>Before trusting either number, ask a blunter question: <em>how much does the representation move at all</em> as the slope sweeps? And ask it at <em>layer 0</em> — the tokenizer's own output, before a single transformer block — so whatever we see is the front-end's doing, not something the network pieced together later. Walk the centroids in grid order and measure the jump between neighbours.</p>
+        </div>
+
+        <figure class="fig" data-chart="saturation"
+                data-plot="Toto-2.0-2.5B/linear_trend_slope__signed_log/plots/Toto-2.0-2.5B__linear_trend_slope__layer_0_plot_data.json"
+                data-logminabs="1e-6">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">How far the representation moves · Toto-2.0-2.5B · linear_trend_slope · layer 0 (tokenizer output)</div>
+              <div class="fig-sub">Neighbour-to-neighbour change in the centroid, across the full ±10⁶ sweep.</div>
+            </div>
+          </div>
+          <div class="chart" id="fig-slope-sat"></div>
+          <figcaption>Outside a thin band the step size sits at the floating-point floor — neighbouring slopes give <em>identical</em> activations (matching to better than <code>10⁻¹⁰</code> once <code>|slope|</code> exceeds about <code>10⁻⁴</code>). All the motion lives inside <code>|slope| ≲ 5×10⁻⁵</code> — about <b>99%</b> of the manifold's whole arc length, crammed into the centre — and it is the scaler's fingerprint, not slope geometry. A standardizer can't divide by zero, so it pins its divisor at a small floor: while the ramp is steep its own spread sets the scale and the slope cancels perfectly, but once the ramp is shallow enough to slip under that floor the division stops cancelling and a shrinking, slope-proportional residue leaks back in. The two <em>ragged shoulders</em> are that residue — the model's jittery response to a ramp dwindling into the floor — while the lone tall spike is the <strong>sign flip</strong> at dead centre, where the grid steps from the smallest negative slope straight to the smallest positive one and the residual ramp inverts. Every layer tells the same story.</figcaption>
+        </figure>
+
+        <div class="col">
+          <p>You can feel it by hand. Drag the sweep below: the raw ramp swings from dead flat to a <code>10⁶</code> cliff — an enormous, obvious change — while the representation cursor stays pinned to one of two points and only comes alive as you cross the centre. Your eye tracks the full dynamic range; the model is holding on to a single sign bit.</p>
         </div>
 
         <figure class="fig scrub" data-chart="scrubber"
-                data-plot="Toto-2.0-2.5B/linear_trend_slope__signed_log/plots/Toto-2.0-2.5B__linear_trend_slope__layer_36_plot_data.json"
-                data-geometry="interval" data-signal="linear"
+                data-plot="Toto-2.0-2.5B/linear_trend_slope__signed_log/plots/Toto-2.0-2.5B__linear_trend_slope__layer_0_plot_data.json"
+                data-geometry="interval" data-signal="linear" data-coordmode="signed_log" data-logminabs="1e-6"
                 data-seqlen="512" data-fs="500" data-intercept="0">
           <div class="fig-head">
             <div>
-              <div class="fig-title">Input signal ↔ manifold · Toto-2.0-2.5B · linear_trend_slope (signed-log) · layer 36</div>
-              <div class="fig-sub">Colour = slope. Y-axis fixed across the full ±10⁶ range.</div>
+              <div class="fig-title">Input signal ↔ manifold · Toto-2.0-2.5B · linear_trend_slope (signed-log) · layer 0</div>
+              <div class="fig-sub">Left, the literal waveform; right, where it lands in the representation. Drag across the whole sweep.</div>
             </div>
           </div>
           <div class="scrub-grid">
@@ -505,11 +518,54 @@
             <input type="range" class="slider" min="0" max="0" value="0" aria-label="sweep position">
             <span class="readout"></span>
           </div>
-          <figcaption>On a fixed ±10⁶ y-axis, the huge dynamic range of the slope is obvious: most of the sweep produces lines that look nearly flat, and only the extremes tilt hard. That's the geometry the model has to encode — and why the choice of ruler decides whether its structure shows up as a clean manifold.</figcaption>
+          <figcaption>For almost the entire slider the ramp changes dramatically while the centroid does not move at all — the two are anti-correlated <em>by construction</em>. Only near zero, where standardization stops washing the slope out, does the manifold open up. (The signal y-axis is fixed across the sweep, sized so the steepest ±10⁶ ramps fill the panel; colour on the right = slope.)</figcaption>
         </figure>
 
         <div class="col">
-          <p>The lesson generalizes well beyond trend slope: a geometry score is a statement about a representation <em>and</em> the metric you put on the target. For factors that span many orders of magnitude, the natural ruler is logarithmic — and the dashboard lets you flip between them so a low score never gets mistaken for an absent structure.</p>
+          <p>Because layer 0 is the tokenizer's output with no transformer block behind it, what collapsed above is the <em>tokenizer's</em> doing — which means a model that tokenizes differently should leave a different trace at the very same stage. Toto's front-end divides the whole window by a single global scale, and for a pure ramp that scale <em>is</em> the slope, so it cancels. Our <strong>LeNEPA</strong> model never takes that global quotient: instead of rescaling the whole series at once, it cuts the signal into short patches and embeds each one with a small convolution, normalizing only locally — so the overall size of the trend is never divided away. Here is the identical measurement, same ±10⁶ sweep, at LeNEPA's <em>layer 0</em>: its own tokenizer output, the very stage where Toto's slope had already vanished.</p>
+        </div>
+
+        <figure class="fig" data-chart="saturation"
+                data-plot="LeNEPA-CauKer2M/linear_trend_slope__signed_log/plots/LeNEPA-CauKer2M__linear_trend_slope__layer_0_plot_data.json"
+                data-logminabs="1e-6">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">How far the representation moves · LeNEPA-CauKer2M · linear_trend_slope · layer 0 (tokenizer output)</div>
+              <div class="fig-sub">Same measurement, same ±10⁶ sweep — a tokenizer that keeps the scale.</div>
+            </div>
+          </div>
+          <div class="chart" id="fig-slope-sat-lenepa"></div>
+          <figcaption>The mirror image of Toto: the step never falls to the floor. The representation moves at <em>every</em> slope across all twelve orders of magnitude, the jump growing smoothly as the slope gets larger (the gentle rise toward the edges). It is not a perfectly even ruler — the spacing compresses near zero and the path is curved rather than straight — but the slope is encoded <em>continuously, everywhere</em>, not collapsed to a sign. (The y-scale is LeNEPA's own embedding units; what matters is the shape, not its height next to Toto's.)</figcaption>
+        </figure>
+
+        <div class="col">
+          <p>And you can feel that by hand, the same way. Drag the sweep below: this time the cursor never freezes — as the slope scans from one <code>10⁶</code> cliff to the other, it slides along the manifold the whole way, the dead extremes included.</p>
+        </div>
+
+        <figure class="fig scrub" data-chart="scrubber"
+                data-plot="LeNEPA-CauKer2M/linear_trend_slope__signed_log/plots/LeNEPA-CauKer2M__linear_trend_slope__layer_0_plot_data.json"
+                data-geometry="interval" data-signal="linear" data-coordmode="signed_log" data-logminabs="1e-6"
+                data-seqlen="5000" data-fs="500" data-intercept="0" data-default-mode="3d">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">Input signal ↔ manifold · LeNEPA-CauKer2M · linear_trend_slope (signed-log) · layer 0</div>
+              <div class="fig-sub">Left, the literal waveform; right, where it lands in the representation. Drag across the whole sweep.</div>
+            </div>
+          </div>
+          <div class="scrub-grid">
+            <div class="scrub-pane"><div class="pane-label">Input signal — a linear ramp</div><div class="chart short" id="sig-slope-lenepa" data-sig></div></div>
+            <div class="scrub-pane"><div class="pane-label pane-label-row"><span>Representation manifold (PCA)</span><span class="seg seg-sm" data-seg><button type="button" data-mode="2d" class="active">2D</button><button type="button" data-mode="3d">3D</button></span></div><div class="chart short" id="man-slope-lenepa" data-man></div></div>
+          </div>
+          <div class="scrub-controls">
+            <button type="button" class="play" aria-label="play / pause">▶</button>
+            <input type="range" class="slider" min="0" max="0" value="0" aria-label="sweep position">
+            <span class="readout"></span>
+          </div>
+          <figcaption>The companion to Toto's frozen panel — same factor, same sweep. The input ramp behaves identically (nearly flat near zero, a 10⁶ cliff at the ends), but LeNEPA keeps a distinct place for every slope, so the cursor travels continuously instead of sitting pinned at two points. The whole difference is the tokenizer.</figcaption>
+        </figure>
+
+        <div class="col">
+          <p>The lesson is about the <em>tokenizer</em>, not the ruler. Any factor that <em>is</em> a scale — trend slope, amplitude, a DC offset — is partly or wholly removed by a <em>standardizing</em> front-end before the transformer sees a thing, whereas a tokenizer that keeps the raw scale, like LeNEPA's, encodes it across the entire range. A flat geometry score under one model can be a genuine signal under another; it depends on what the front-end threw away. Reading these manifolds well means knowing what each model keeps at its door — and treating scale-like factors with suspicion, however clean a logarithmic ruler can make them look.</p>
         </div>
       </section>
 
@@ -793,7 +849,51 @@
         .catch(function () { msg(id, LOAD_HELP, true); });
     }
 
+    // ---------- saturation: how far the representation moves per slope step ----------
+    function loadSaturation(fig) {
+      var id = fig.querySelector(".chart").id;
+      spin(id);
+      var eps = parseFloat(fig.getAttribute("data-logminabs")) || 1e-6;
+      // signed-log grid coordinate -> physical slope (inverse of the dataset's ruler)
+      function slopeOf(coord) { return Math.sign(coord) * eps * (Math.exp(Math.abs(coord)) - 1); }
+      function slopeLabel(coord) {
+        var s = slopeOf(coord), a = Math.abs(s);
+        if (a < 1e-9) return "0";
+        var t = (a >= 1e4 || a < 1e-2) ? a.toExponential(0).replace("e+", "e") : String(Math.round(a * 100) / 100);
+        return (s < 0 ? "−" : "") + t;
+      }
+      fetchJSON(dataUrl(fig.getAttribute("data-plot"))).then(function (plot) {
+        var coords = (plot.centroid_coordinates || plot.path_centroid_coordinates || []).map(Number);
+        var cents = plot.centroids || plot.path_centroids || [];
+        if (coords.length < 2 || cents.length < 2) { msg(id, "No centroid data for this layer."); return; }
+        var data = [], i, k;
+        for (i = 1; i < cents.length; i++) {
+          var a = cents[i] || [], b = cents[i - 1] || [], acc = 0;
+          for (k = 0; k < a.length; k++) { var dd = a[k] - b[k]; acc += dd * dd; }
+          data.push([coords[i], Math.sqrt(acc)]);
+        }
+        var xm = Math.max(Math.abs(coords[0]), Math.abs(coords[coords.length - 1])) || 1;
+        var chart = getChart(id);
+        if (!chart) return;
+        chart.setOption({
+          animation: false,
+          grid: { left: 64, right: 18, top: 16, bottom: 48 },
+          tooltip: { trigger: "axis", formatter: function (ps) { var p = ps && ps[0]; if (!p) return ""; return "slope ≈ " + slopeLabel(p.value[0]) + "<br>step = " + fmt(p.value[1]); } },
+          xAxis: { type: "value", min: -xm, max: xm, interval: xm / 2, name: "slope fed to the model (signed-log axis)", nameLocation: "middle", nameGap: 28, axisLabel: { formatter: slopeLabel }, splitLine: { lineStyle: { color: "#f0eee7" } } },
+          yAxis: { type: "value", name: "‖Δ representation‖ between neighbours", nameGap: 14, nameTextStyle: { align: "left" }, splitLine: { lineStyle: { color: "#f0eee7" } } },
+          series: [{ type: "line", data: data, showSymbol: false, lineStyle: { width: 1.6, color: C.teal }, areaStyle: { color: "rgba(15,118,110,0.12)" } }]
+        }, true);
+      }).catch(function () { msg(id, LOAD_HELP, true); });
+    }
+
     // ---------- input-signal scrubber (signal generated in-browser, structurally faithful to aiono) ----------
+    function physCoord(coord, p) {
+      // manifold coordinate -> physical factor (inverse of manifold_slices._latent_coordinates):
+      //   signed_log: coord = sign(x) * log1p(|x| / eps)  ->  x = sign(coord) * eps * (e^|coord| - 1)
+      if (p.coordMode === "signed_log") { var e = p.logMinAbs || 1e-6; return Math.sign(coord) * e * (Math.exp(Math.abs(coord)) - 1); }
+      if (p.coordMode === "log") return Math.exp(coord);
+      return coord;
+    }
     function genSignal(kind, coord, p) {
       var L = p.L, y = new Array(L), i;
       if (kind === "sine") {
@@ -805,7 +905,8 @@
         var c = coord * L;
         for (i = 0; i < L; i++) { var d = (i - c) / p.sigma; y[i] = p.amp * Math.exp(-0.5 * d * d); }
       } else if (kind === "linear") {
-        for (i = 0; i < L; i++) y[i] = coord * (i / (L - 1) - 0.5) + p.intercept;
+        var slope = physCoord(coord, p);
+        for (i = 0; i < L; i++) y[i] = slope * (i / (L - 1) - 0.5) + p.intercept;
       } else {
         for (i = 0; i < L; i++) y[i] = 0;
       }
@@ -899,7 +1000,7 @@
       if (kind === "sine") return "φ = " + (Math.round(coord * 100) / 100) + " rad";
       if (kind === "spike") return "spike @ t = " + (Math.round(coord * p.L / p.fs * 1000) / 1000) + " s";
       if (kind === "gaussian") return "centre @ t = " + (Math.round(coord * p.L / p.fs * 1000) / 1000) + " s";
-      if (kind === "linear") return "slope = " + Number(coord).toExponential(1);
+      if (kind === "linear") return "slope = " + Number(physCoord(coord, p)).toExponential(1);
       return "";
     }
 
@@ -910,16 +1011,19 @@
       var kind = fig.getAttribute("data-signal");
       var geometry = fig.getAttribute("data-geometry");
       var num = function (a, d) { var v = parseFloat(fig.getAttribute(a)); return Number.isFinite(v) ? v : d; };
-      var p = { L: num("data-seqlen", 512), fs: num("data-fs", 500), amp: num("data-amp", 1), freq: num("data-freq", 1), offset: num("data-offset", 0), sigma: num("data-sigma", 10), intercept: num("data-intercept", 0), zoomPeriods: 3 };
+      var p = { L: num("data-seqlen", 512), fs: num("data-fs", 500), amp: num("data-amp", 1), freq: num("data-freq", 1), offset: num("data-offset", 0), sigma: num("data-sigma", 10), intercept: num("data-intercept", 0), zoomPeriods: 3, coordMode: fig.getAttribute("data-coordmode") || "", logMinAbs: num("data-logminabs", 1e-6) };
       fetchJSON(dataUrl(fig.getAttribute("data-plot"))).then(function (plot) {
         var centroids = plot.centroids || plot.path_centroids || [];
         var coords = (plot.centroid_coordinates || plot.path_centroid_coordinates || []).map(Number);
         var emb2 = project(centroids, 2), emb3 = null;
         if (!emb2.length || !coords.length) { msg(manId, "No centroid data for this layer."); msg(sigId, "No signal data."); return; }
-        if (kind === "linear") { var mx = 0; for (var k = 0; k < coords.length; k++) { var a = Math.abs(coords[k]); if (a > mx) mx = a; } p.maxAbs = (mx || 1) * 0.5; }
-        var mode = "2d";
+        // A ramp of physical slope s spans +/- s/2 over the window, so fit the y-axis to half
+        // the largest slope -> the steepest ramps fill the panel instead of sitting in the centre.
+        if (kind === "linear") { var mx = 0; for (var k = 0; k < coords.length; k++) { var a = Math.abs(physCoord(coords[k], p)); if (a > mx) mx = a; } p.maxAbs = (mx || 1) * 0.5; }
+        var mode = (fig.getAttribute("data-default-mode") === "3d" && glReady()) ? "3d" : "2d";
         var modeSeg = fig.querySelector("[data-seg]");
         function setSeg(m) { if (modeSeg) modeSeg.querySelectorAll("button").forEach(function (x) { x.classList.toggle("active", x.getAttribute("data-mode") === m); }); }
+        setSeg(mode);
         function emb() { if (mode === "3d") { if (!emb3) emb3 = project(centroids, 3); return emb3; } return emb2; }
         function renderBase() {
           if (mode === "3d") { if (glReady()) { renderManifold3D(manId, emb(), coords, geometry); return; } mode = "2d"; setSeg("2d"); }
@@ -976,7 +1080,7 @@
       }).catch(function () { msg(manId, LOAD_HELP, true); msg(sigId, LOAD_HELP, true); });
     }
 
-    var LOADERS = { layers: loadLayers, loglin: loadLogLin, scatter: loadScatter, scrubber: makeScrubber };
+    var LOADERS = { layers: loadLayers, loglin: loadLogLin, scatter: loadScatter, scrubber: makeScrubber, saturation: loadSaturation };
 
     // ---------- lazy init on scroll ----------
     function init() {
