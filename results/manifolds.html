@@ -462,13 +462,24 @@
       return [...seen.values()];
     }
 
+    function normalizeManifoldDataPath(path) {
+      const raw = String(path);
+      const embeddedRoot = "/results/manifolds/";
+      const embeddedIndex = raw.lastIndexOf(embeddedRoot);
+      if (embeddedIndex !== -1) return raw.slice(embeddedIndex + embeddedRoot.length);
+      const relativeRoot = "results/manifolds/";
+      if (raw.startsWith(relativeRoot)) return raw.slice(relativeRoot.length);
+      return raw;
+    }
+
     function resolveDataUrl(path) {
       if (!path) return path;
       if (/^https?:\/\//.test(path)) return path;
-      if (!MANIFOLD_DATA_BASE_URL) return path;
+      const dataPath = normalizeManifoldDataPath(path);
+      if (!MANIFOLD_DATA_BASE_URL) return dataPath;
       const base = String(MANIFOLD_DATA_BASE_URL);
       const normalizedBase = base.endsWith("/") ? base : `${base}/`;
-      return new URL(path, new URL(normalizedBase, window.location.href)).toString();
+      return new URL(dataPath, new URL(normalizedBase, window.location.href)).toString();
     }
 
     function fetchJson(path) {
