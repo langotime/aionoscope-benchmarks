@@ -249,7 +249,7 @@
       <div class="col">
         <p class="eyebrow">Aionoscope&nbsp;·&nbsp;Representation Geometry</p>
         <h1>The shape of a signal</h1>
-        <p class="lede">Neural networks don't just memorize — they build geometry. Days of the week curl into a circle; colours arrange themselves on a wheel. We asked a simpler question of time-series foundation models: when you sweep the <em>phase</em> of a sine wave, or slide a <em>spike</em> across time, do the model's frozen activations trace out the right shape?</p>
+        <p class="lede">We all love colourful pictures, but interpretability isn't just that — it's an engineering tool. The better you understand how a model represents the world, the better you can fix it. Neural networks build their representations as <em>geometry</em>, and time-series foundation models are a particularly easy place to watch it happen. Sweep the <em>phase</em> of a sine wave or slide a <em>spike</em> across time, and you can read straight off the frozen activations whether the model traced the right shape — and where it fell short. Spot exactly where it breaks, and you can design a pointed fix — and make sure nothing else breaks in the process.</p>
         <div class="byline">
           <a href="manifolds.html">Open full dashboard with manifolds for 45 time-series foundation models →</a>
         </div>
@@ -263,11 +263,11 @@
       <!-- INTRO -->
       <section class="block">
         <div class="col">
-          <p>A growing body of interpretability work shows that neural networks lay out concepts as <em>geometry</em>. The structure of the world leaks into the structure of the activations: representations of days of the week form a loop, colours form a wheel, and the relationships between genomes recover the tree of life. Goodfire's <a href="https://www.goodfire.ai/research/neural-geometry" target="_blank" rel="noopener">Neural Geometry</a> series makes this case beautifully for language models — and inspired this work. (Hat tip: go read it.)</p>
+          <p>What does that look like? When a model truly grasps a factor, the shape of the data shows up as the shape of the activations: the phase of a sine closes into a loop, a spike's position stretches into a line, a trend's slope fans out along an axis. (That framing — world-structure as activation-geometry — comes from Goodfire's <a href="https://www.goodfire.ai/research/neural-geometry" target="_blank" rel="noopener">Neural Geometry</a> series, made for language models; we highly recommend reading it.)</p>
 
-          <p>Time-series foundation models are a natural place to ask the same question, because here we know the ground truth. Every signal in our benchmark is <em>generated</em> from a handful of knobs — the phase and frequency of a sine, the position of a spike, the slope of a trend. So we can sweep one knob at a time and watch, layer by layer, what the model's internal representation does in response.</p>
+          <p>Time series are the natural place to look. Language interpretability has to hunt for structure in a discrete, tangled space of tokens and concepts; time series hand it to you. The generative factors are <em>continuous</em> — the phase and frequency of a sine, the position of a spike, the slope of a trend — and a perfectly controlled sweep is free to make: step one knob across a fine grid, switch everything else off, and watch, layer by layer, what the representation does. Ground truth isn't inferred from correlations; it's the dial you turned.</p>
 
-          <p>That is what the <strong>Aionoscope manifold suite</strong> measures, and what its dashboard lets you explore. This post explains what the project is, why we built it, and how to read the charts — using <strong>Toto-2.0-2.5B</strong> (Datadog's 2.5-billion-parameter forecasting model) as our running example.</p>
+          <p>That turns geometry into a practical diagnostic — which is what the <strong>Aionoscope manifold suite</strong> measures and its dashboard lets you explore. Using <strong>Toto-2.0-2.5B</strong> (Datadog's 2.5-billion-parameter forecasting model) as the first running example, this post explains the project, how to read the charts, and where the geometry exposes a model's blind spots — like a factor Toto's tokenizer quietly discards.</p>
         </div>
       </section>
 
