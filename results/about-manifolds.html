@@ -356,6 +356,66 @@
           <div class="chart" id="fig-sine-layers"></div>
           <figcaption>Distance preservation (<b>Spearman vs. linear</b> and <b>vs. geodesic</b>) stays pinned near 1.0 from the very first layer to the last — the circle is robust. But <b>5-NN recall</b> peaks early (≈0.90 at layer 0) and sags toward the middle and end of the network: the manifold keeps its shape while the model trades away some local resolution for whatever the forecasting objective needs downstream.</figcaption>
         </figure>
+
+        <div class="col">
+          <p>None of this is automatic. A clean ring is something a model has to <em>build</em> — and not every one does. Here is <strong>NuTime-Bias9</strong> on the identical phase sweep, at layer 1. <strong>Drag the slider</strong> (or rotate the 3-D view) and watch the same dot try to ride the same loop.</p>
+        </div>
+
+        <figure class="fig scrub" data-chart="scrubber"
+                data-plot="NuTime-Bias9/sine_phase/plots/NuTime-Bias9__sine_phase__layer_1_plot_data.json"
+                data-geometry="circle" data-signal="sine"
+                data-seqlen="176" data-fs="500" data-amp="0.7" data-freq="25.3546276418555" data-offset="0" data-default-mode="3d">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">Input signal ↔ manifold · NuTime-Bias9 · sine_phase · layer 1</div>
+              <div class="fig-sub">Same sweep, a very different shape. Rotate it.</div>
+            </div>
+            <div class="seg" data-zoom>
+              <button type="button" data-zoom-mode="full" class="active">Full window</button>
+              <button type="button" data-zoom-mode="zoom">Zoom ~3 periods</button>
+            </div>
+          </div>
+          <div class="scrub-grid">
+            <div class="scrub-pane"><div class="pane-label">Input signal (0.352 s @ 500 Hz)</div><div class="chart short" id="sig-sine-nutime" data-sig></div></div>
+            <div class="scrub-pane"><div class="pane-label pane-label-row"><span>Representation manifold (PCA)</span><span class="seg seg-sm" data-seg><button type="button" data-mode="2d" class="active">2D</button><button type="button" data-mode="3d">3D</button></span></div><div class="chart short" id="man-sine-nutime" data-man></div></div>
+          </div>
+          <div class="scrub-controls">
+            <button type="button" class="play" aria-label="play / pause">▶</button>
+            <input type="range" class="slider" min="0" max="0" value="0" aria-label="sweep position">
+            <span class="readout"></span>
+          </div>
+          <figcaption>Same sweep, same colours — but the dot threads through a tangle instead of riding a ring. The phase is still <em>in</em> there: immediate neighbours are mostly preserved (5-NN recall ≈ 0.86). It just isn't the dominant shape. The single biggest axis of variation — 63% of it — has nothing to do with phase, and the loop is folded across four separate directions, so the cleanest projection you can draw is a knot, not a circle (<b>circular-order 0.82</b> vs Toto's 1.000). NuTime even starts a step further back: its tokenizer at layer 0 flattens every phase onto the <em>same</em> point, and the network spends its first layers re-inflating the circle. It does untangle with depth — but watch how far it actually gets (next figure). Same factor, same probe; the geometry here is just a lot messier, and the shape tells you so at a glance.</figcaption>
+        </figure>
+
+        <div class="col">
+          <p>Give it a few layers, though, and it recovers. By layer 4 NuTime has found the circle again — just not Toto's circle.</p>
+        </div>
+
+        <figure class="fig scrub" data-chart="scrubber"
+                data-plot="NuTime-Bias9/sine_phase/plots/NuTime-Bias9__sine_phase__layer_4_plot_data.json"
+                data-geometry="circle" data-signal="sine"
+                data-seqlen="176" data-fs="500" data-amp="0.7" data-freq="25.3546276418555" data-offset="0" data-default-mode="3d">
+          <div class="fig-head">
+            <div>
+              <div class="fig-title">Input signal ↔ manifold · NuTime-Bias9 · sine_phase · layer 4</div>
+              <div class="fig-sub">Three layers later: a loop again — but a lumpy one. Rotate it.</div>
+            </div>
+            <div class="seg" data-zoom>
+              <button type="button" data-zoom-mode="full" class="active">Full window</button>
+              <button type="button" data-zoom-mode="zoom">Zoom ~3 periods</button>
+            </div>
+          </div>
+          <div class="scrub-grid">
+            <div class="scrub-pane"><div class="pane-label">Input signal (0.352 s @ 500 Hz)</div><div class="chart short" id="sig-sine-nutime-l4" data-sig></div></div>
+            <div class="scrub-pane"><div class="pane-label pane-label-row"><span>Representation manifold (PCA)</span><span class="seg seg-sm" data-seg><button type="button" data-mode="2d" class="active">2D</button><button type="button" data-mode="3d">3D</button></span></div><div class="chart short" id="man-sine-nutime-l4" data-man></div></div>
+          </div>
+          <div class="scrub-controls">
+            <button type="button" class="play" aria-label="play / pause">▶</button>
+            <input type="range" class="slider" min="0" max="0" value="0" aria-label="sweep position">
+            <span class="readout"></span>
+          </div>
+          <figcaption>Three layers on, the tangle has resolved into a loop: the colours now run in order all the way around (<b>circular-order 0.99</b>, up from 0.82), and NuTime has even swung phase onto its <em>main</em> axis — the direction that was pure noise at layer 1. But put it next to Toto and the gap is obvious. This is a <strong>lumpy, three-dimensional loop</strong>, not a flat ring — you need a third axis to see it whole (the top two capture only half of it), and it <em>overshoots</em> its own start: the ends miss each other by about twice a normal step (<b>closure ratio 2.0</b> vs Toto's 1.0). NuTime does get to a circle — it just takes a few layers, and never lands as clean as Toto, which already had a flat, closed ring at layer 0.</figcaption>
+        </figure>
       </section>
 
       <!-- EXAMPLE 2: SPIKE -->
