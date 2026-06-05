@@ -251,7 +251,7 @@
         <h1>The shape of a signal</h1>
         <p class="lede">Neural networks don't just memorize — they build geometry. Days of the week curl into a circle; colours arrange themselves on a wheel. We asked a simpler question of time-series foundation models: when you sweep the <em>phase</em> of a sine wave, or slide a <em>spike</em> across time, do the model's frozen activations trace out the right shape?</p>
         <div class="byline">
-          <a href="manifolds.html">Open the live dashboard →</a>
+          <a href="manifolds.html">Open full dashboard with 45 models →</a>
         </div>
       </div>
     </div>
@@ -279,7 +279,7 @@
 
           <p class="pull">Does the representation arrange examples according to the true shape of the process that generated them?</p>
 
-          <p>A probe can succeed while the underlying geometry is a tangled mess, and it can fail on structure that is perfectly real but <em>curved</em>. We wanted to see the shape directly. So for each model we run a controlled experiment:</p>
+          <p>Linear decodability can't settle that. A probe only needs <em>one</em> direction where the factor reads out — so it can score high while the manifold is curved, folded, or has its neighbours scrambled in every other direction, and it can score low on structure that's perfectly real but nonlinear, like a circle. Decodable and geometrically clean are different questions. We wanted to see the shape directly, so for each model we run a controlled experiment:</p>
 
           <ul>
             <li><strong>Sweep one factor.</strong> Pick a generative knob (say, <code>sine_phase</code>) and step it across a fine 1,024-point grid, holding everything else fixed. Every other component is switched off (<code>num_enabled = 1</code>), so the only thing changing is the factor we care about.</li>
@@ -651,7 +651,7 @@
       <div class="col" style="max-width:760px;">
         <h2 style="margin-top:0;">Go explore the geometry</h2>
         <p style="color:var(--ink-soft);">We showed three targets on one model. The dashboard has seven generative factors across forty-five foundation models, every layer, with the 2D/3D centroid views, layer curves, and distance diagnostics you've just learned to read. Pin up to four selections side by side to compare a small model against a large one, or one family against another.</p>
-        <p><a class="cta" href="manifolds.html">Open the manifold dashboard →</a></p>
+        <p><a class="cta" href="manifolds.html">Open full dashboard with 45 models →</a></p>
         <p class="respect">With gratitude to Goodfire's <a href="https://www.goodfire.ai/research/neural-geometry" target="_blank" rel="noopener">Neural Geometry</a> series, whose framing — that the structure of the world shows up as the geometry of activations — set the direction for this work. The manifold-steering paper in that series is the direct inspiration for treating curved representation geometry, rather than a single linear direction, as the object of study.</p>
         <p class="smallprint">Aionoscope manifold suite · controlled-factor-slice protocol <code>manifold_v0</code> · <code>num_enabled = 1</code> · metrics computed in Python, this page only plots stored artifacts. Example model: Toto-2.0-2.5B (<code>Datadog/Toto-2.0-2.5B</code>).</p>
       </div>
