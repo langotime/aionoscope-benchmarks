@@ -12,4 +12,5 @@ __pycache__/
 /external
 /results/datasets/
 /results/manifolds/
+/results/about-manifolds-assets/
 *.egg-info/
