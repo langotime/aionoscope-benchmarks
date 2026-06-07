@@ -134,6 +134,96 @@
             .byline a:hover {
                 text-decoration: underline;
             }
+            .read-time {
+                font-weight: 500;
+                color: var(--ink-soft);
+            }
+            .read-time:empty,
+            .read-time:empty + .read-dot {
+                display: none;
+            }
+
+            /* ---- contents card ---- */
+            .toc {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 14px;
+                padding: 20px 26px;
+                margin: 30px auto 8px;
+                max-width: 720px;
+            }
+            .toc-head {
+                font-family: var(--sans);
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                color: var(--accent);
+                margin: 0 0 6px;
+            }
+            .toc ol {
+                margin: 0;
+                padding: 0;
+                list-style: none;
+                counter-reset: toc;
+            }
+            .toc li {
+                border-top: 1px solid var(--line);
+                counter-increment: toc;
+            }
+            .toc li:first-child {
+                border-top: 0;
+            }
+            .toc a {
+                display: flex;
+                gap: 14px;
+                align-items: baseline;
+                padding: 10px 0;
+                text-decoration: none;
+                color: var(--ink);
+            }
+            .toc a::before {
+                content: counter(toc, decimal-leading-zero);
+                flex: 0 0 auto;
+                font-family: var(--sans);
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--accent);
+                font-variant-numeric: tabular-nums;
+            }
+            .toc-text {
+                display: flex;
+                flex-direction: column;
+                gap: 1px;
+            }
+            .toc-kicker {
+                font-family: var(--sans);
+                font-size: 11px;
+                font-weight: 600;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--ink-faint);
+            }
+            .toc-title {
+                font-family: var(--serif);
+                font-size: 1.05rem;
+            }
+            .toc-min {
+                flex: 0 0 auto;
+                margin-left: auto;
+                font-family: var(--sans);
+                font-size: 12px;
+                font-weight: 500;
+                color: var(--ink-faint);
+                font-variant-numeric: tabular-nums;
+                white-space: nowrap;
+            }
+            .toc a:hover .toc-title {
+                color: var(--accent);
+            }
+            section[id] {
+                scroll-margin-top: 18px;
+            }
 
             /* ---- article body ---- */
             main {
@@ -636,6 +726,8 @@
                         fix — and make sure nothing else breaks in the process.
                     </p>
                     <div class="byline">
+                        <span id="read-time" class="read-time"></span>
+                        <span class="dot read-dot" aria-hidden="true"></span>
                         <a href="manifolds.html"
                             >Open full dashboard with manifolds for 45
                             time-series foundation models →</a
@@ -697,8 +789,14 @@
                     </div>
                 </section>
 
+                <!-- CONTENTS -->
+                <nav class="toc" aria-label="Contents">
+                    <p class="toc-head">Contents</p>
+                    <ol id="toc-list"></ol>
+                </nav>
+
                 <!-- WHY -->
-                <section class="block">
+                <section class="block" id="why-we-built-it">
                     <div class="col">
                         <h2>
                             <span class="num">Why we built it</span>Decodable is
@@ -782,7 +880,7 @@
                 </section>
 
                 <!-- HOW TO READ -->
-                <section class="block">
+                <section class="block" id="how-to-read">
                     <div class="col">
                         <h2>
                             <span class="num">How to read the dashboard</span
@@ -828,7 +926,7 @@
                 </section>
 
                 <!-- EXAMPLE 1: SINE PHASE -->
-                <section class="block">
+                <section class="block" id="example-sine-phase">
                     <div class="col">
                         <h2>
                             <span class="num">Example 1 · sine_phase</span>A
@@ -1230,7 +1328,7 @@
                 </section>
 
                 <!-- EXAMPLE 2: SPIKE -->
-                <section class="block">
+                <section class="block" id="example-spike-time">
                     <div class="col">
                         <h2>
                             <span class="num">Example 2 · spike_time_frac</span
@@ -1681,7 +1779,7 @@
                 </section>
 
                 <!-- EXAMPLE 3: WHAT THE TOKENIZER THROWS AWAY -->
-                <section class="block">
+                <section class="block" id="example-trend-slope">
                     <div class="col">
                         <h2>
                             <span class="num"
@@ -2108,7 +2206,7 @@
                 </section>
 
                 <!-- EXAMPLE 4: FREQUENCY ACROSS LAYERS -->
-                <section class="block">
+                <section class="block" id="example-frequency">
                     <div class="col">
                         <h2>
                             <span class="num"
@@ -2410,10 +2508,10 @@
                 </section>
 
                 <!-- WHAT IT IS / ISN'T -->
-                <section class="block">
+                <section class="block" id="what-this-measures">
                     <div class="note">
                         <div class="col" style="max-width: none">
-                            <h3>What this measures — and what it doesn't</h3>
+                            <h3>What Langotime Aionoscope measures — and what it doesn't</h3>
                             <ul>
                                 <li>
                                     This is a
@@ -2453,7 +2551,7 @@
                 </section>
 
                 <!-- GET INVOLVED -->
-                <section class="block">
+                <section class="block" id="get-involved">
                     <div class="collab">
                         <p class="eyebrow">
                             Open research · a community effort
@@ -4634,8 +4732,83 @@
                     unfold: loadUnfold,
                 };
 
+                // ---------- contents + reading time ----------
+                function slugify(s) {
+                    return s
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/^-+|-+$/g, "");
+                }
+                // Reading estimate for a subtree, recomputed from the live DOM on
+                // every load: prose words at 200 wpm + 15 seconds per figure.
+                function readMinutes(root) {
+                    var words = 0;
+                    root.querySelectorAll("p, li, h2, h3, figcaption").forEach(
+                        function (n) {
+                            if (n.closest(".toc")) return;
+                            var t = n.textContent.replace(/\s+/g, " ").trim();
+                            if (t) words += t.split(" ").length;
+                        },
+                    );
+                    var figures = root.querySelectorAll("figure").length;
+                    return Math.max(1, Math.round(words / 200 + figures * 0.25));
+                }
+                function buildMeta() {
+                    var main = document.querySelector("main");
+                    if (!main) return;
+
+                    var rt = document.getElementById("read-time");
+                    if (rt)
+                        rt.textContent = "≈ " + readMinutes(main) + " min read";
+
+                    // Table of contents, built from the section headings.
+                    var list = document.getElementById("toc-list");
+                    if (!list) return;
+                    main.querySelectorAll("h2, .note h3").forEach(function (h) {
+                        var num = h.querySelector(".num");
+                        var rawNum = num ? num.textContent : "";
+                        var label = rawNum.replace(/\s+/g, " ").trim();
+                        var title = (
+                            rawNum
+                                ? h.textContent.replace(rawNum, "")
+                                : h.textContent
+                        )
+                            .replace(/\s+/g, " ")
+                            .trim();
+                        var sec = h.closest("section") || h;
+                        if (!sec.id) sec.id = slugify(label || title);
+
+                        var a = document.createElement("a");
+                        a.href = "#" + sec.id;
+
+                        var box = document.createElement("span");
+                        box.className = "toc-text";
+                        if (label) {
+                            var kn = document.createElement("span");
+                            kn.className = "toc-kicker";
+                            kn.textContent = label;
+                            box.appendChild(kn);
+                        }
+                        var tn = document.createElement("span");
+                        tn.className = "toc-title";
+                        tn.textContent = title;
+                        box.appendChild(tn);
+                        a.appendChild(box);
+
+                        var mn = document.createElement("span");
+                        mn.className = "toc-min";
+                        mn.textContent = readMinutes(sec) + " min";
+                        a.appendChild(mn);
+
+                        var li = document.createElement("li");
+                        li.appendChild(a);
+                        list.appendChild(li);
+                    });
+                }
+
                 // ---------- lazy init on scroll ----------
                 function init() {
+                    buildMeta();
                     var figs = Array.prototype.slice.call(
                         document.querySelectorAll("figure.fig[data-chart]"),
                     );
