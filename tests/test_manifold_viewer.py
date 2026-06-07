@@ -110,6 +110,10 @@ def test_manifold_visualization_bundle_and_viewer_are_static_artifacts(tmp_path:
     assert "ToyModel" not in html
     assert "const records =" not in html
     assert 'const MANIFEST_PATH = "manifest.json"' in html
+    assert 'const MANIFEST_CACHE_BUSTER = "refresh=20260607-checkpoints"' in html
+    assert "fetchJson(manifestPath())" in html
+    assert "enrichSignalSpec" in html
+    assert 'name.indexOf("signed_log_") === 0' in html
     assert "https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js" in html
     assert "Centroid path" in html
     assert "Distance scatter" in html

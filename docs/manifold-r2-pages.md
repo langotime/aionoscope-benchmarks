@@ -230,6 +230,11 @@ gzip -n -6 -c results/manifolds/manifest.json \
       --force
 ```
 
+The checked-in Pages shell may append a short manifest-only query string when a
+same-prefix manifest refresh is required. That query must not be added to
+`metrics.json`, plot data, or distance data paths; those remain immutable
+versioned object keys.
+
 Example for one long-lived payload object:
 
 ```bash

@@ -629,6 +629,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
   </main>
   <script>
     const MANIFEST_PATH = "manifest.json";
+    const MANIFEST_CACHE_BUSTER = "refresh=20260607-checkpoints";
     const selects = {
       run: document.getElementById("run"),
       model: document.getElementById("model"),
@@ -664,6 +665,12 @@ _VIEWER_TEMPLATE = """<!doctype html>
       return REMOTE_MANIFOLD_DATA_BASE_URL;
     }
     const MANIFOLD_DATA_BASE_URL = window.MANIFOLD_DATA_BASE_URL ?? defaultManifoldDataBaseUrl();
+
+    function manifestPath() {
+      const base = String(MANIFOLD_DATA_BASE_URL || "");
+      if (!base || base === "manifolds/") return MANIFEST_PATH;
+      return `${MANIFEST_PATH}?${MANIFEST_CACHE_BUSTER}`;
+    }
 
     const PALETTE = ["#0f766e", "#2563eb", "#d97706", "#db2777"];
     const MAX_ITEMS = 4;
@@ -749,6 +756,17 @@ _VIEWER_TEMPLATE = """<!doctype html>
       });
     }
 
+    function enrichSignalSpec(spec, sweep) {
+      // The manifest's signal_spec carries coordinate_name but not log_min_abs; copy it in
+      // from the sweep so signalPhysical() can invert the signed-log slope coordinate.
+      if (!spec || typeof spec !== "object") return null;
+      const sw = sweep && typeof sweep === "object" ? sweep : {};
+      if (spec.log_min_abs === undefined && sw.log_min_abs !== undefined) {
+        return { ...spec, log_min_abs: sw.log_min_abs };
+      }
+      return spec;
+    }
+
     function buildRecordsFromManifest(manifest) {
       const targetRecords = Array.isArray(manifest && manifest.records) ? manifest.records : [];
       return targetRecords.flatMap((targetRecord) => {
@@ -764,7 +782,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
           target_name: String(targetRecord.target_name || ""),
           sweep: targetRecord.sweep && typeof targetRecord.sweep === "object" ? targetRecord.sweep : {},
           geometry: String(targetRecord.geometry || ""),
-          signal_spec: targetRecord.signal_spec && typeof targetRecord.signal_spec === "object" ? targetRecord.signal_spec : null,
+          signal_spec: enrichSignalSpec(targetRecord.signal_spec, targetRecord.sweep),
           metrics_json: String(targetRecord.metrics_json || ""),
           layer: String(layerRecord.layer === undefined || layerRecord.layer === null ? "" : layerRecord.layer),
           paths: layerRecord.paths && typeof layerRecord.paths === "object" ? layerRecord.paths : {},
@@ -1741,6 +1759,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       let seqLen = adapter.benchmark_sequence_length;
       if (seqLen === undefined || seqLen === null) seqLen = dm.channel_size;
       const fixed = fixedAll[component];
+      const sweep = tsm.sweep && typeof tsm.sweep === "object" ? tsm.sweep : {};
       return {
         component,
         param: String(target.parameter || ""),
@@ -1749,12 +1768,21 @@ _VIEWER_TEMPLATE = """<!doctype html>
         seq_len: signalNum(seqLen, 512),
         fs: signalNum(dm.sampling_frequency, 500),
         fixed: fixed && typeof fixed === "object" ? fixed : {},
+        log_min_abs: signalNum(sweep.log_min_abs, 1e-6),
       };
     }
 
     function signalPhysical(spec, coord) {
-      // centroid_coordinates hold the manifold coordinate; for frequency that is log-Hz.
-      if (spec.coordinate_name === "log_frequency_hz") return Math.exp(coord);
+      // centroid_coordinates hold the manifold coordinate; convert it back to the physical
+      // factor the waveform generator expects. Frequency is stored as log-Hz; wide-range
+      // slope is stored as signed-log. Inverse of manifold_slices._latent_coordinates:
+      //   signed_log: coord = sign(x) * log1p(|x| / eps)  ->  x = sign(coord) * eps * (e^|coord| - 1)
+      const name = spec.coordinate_name || "";
+      if (name.indexOf("signed_log_") === 0) {
+        const eps = signalNum(spec.log_min_abs, 1e-6);
+        return Math.sign(coord) * eps * (Math.exp(Math.abs(coord)) - 1);
+      }
+      if (name.indexOf("log_") === 0) return Math.exp(coord);
       return coord;
     }
 
@@ -1781,8 +1809,9 @@ _VIEWER_TEMPLATE = """<!doctype html>
         const ctr = coord * L;
         for (let i = 0; i < L; i += 1) { const d = (i - ctr) / sigma; y[i] = amp * Math.exp(-0.5 * d * d); }
       } else if (c === "linear_trend") {
+        const slope = signalPhysical(spec, coord);
         const b = signalNum(fx.intercept, 0);
-        for (let i = 0; i < L; i += 1) y[i] = coord * (i / (L - 1) - 0.5) + b;
+        for (let i = 0; i < L; i += 1) y[i] = slope * (i / (L - 1) - 0.5) + b;
       } else {
         return null;
       }
@@ -1819,7 +1848,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       if (c === "sine" && p === "amplitude") return `amplitude = ${fmt(coord)}`;
       if (c === "spike") return `spike @ t = ${fmt((coord * spec.seq_len) / spec.fs)} s`;
       if (c === "gaussian") return `centre @ t = ${fmt((coord * spec.seq_len) / spec.fs)} s`;
-      if (c === "linear_trend") return `slope = ${fmt(coord)}`;
+      if (c === "linear_trend") return `slope = ${fmt(signalPhysical(spec, coord))}`;
       return fmt(coord);
     }
 
@@ -2442,7 +2471,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       const content = document.getElementById("content");
       if (content) content.innerHTML = '<div class="empty panel">Loading manifold index...</div>';
       setControlsDisabled(true);
-      fetchJson(MANIFEST_PATH)
+      fetchJson(manifestPath())
         .then((manifest) => {
           if (manifest && manifest.schema_version && manifest.schema_version !== "manifold_viewer_manifest_v1") {
             throw new Error(`Unsupported manifest schema: ${manifest.schema_version}`);

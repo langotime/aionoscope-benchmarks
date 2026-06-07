@@ -384,6 +384,7 @@
   </main>
   <script>
     const MANIFEST_PATH = "manifest.json";
+    const MANIFEST_CACHE_BUSTER = "refresh=20260607-checkpoints";
     const selects = {
       run: document.getElementById("run"),
       model: document.getElementById("model"),
@@ -419,6 +420,12 @@
       return REMOTE_MANIFOLD_DATA_BASE_URL;
     }
     const MANIFOLD_DATA_BASE_URL = window.MANIFOLD_DATA_BASE_URL ?? defaultManifoldDataBaseUrl();
+
+    function manifestPath() {
+      const base = String(MANIFOLD_DATA_BASE_URL || "");
+      if (!base || base === "manifolds/") return MANIFEST_PATH;
+      return `${MANIFEST_PATH}?${MANIFEST_CACHE_BUSTER}`;
+    }
 
     const PALETTE = ["#0f766e", "#2563eb", "#d97706", "#db2777"];
     const MAX_ITEMS = 4;
@@ -2219,7 +2226,7 @@
       const content = document.getElementById("content");
       if (content) content.innerHTML = '<div class="empty panel">Loading manifold index...</div>';
       setControlsDisabled(true);
-      fetchJson(MANIFEST_PATH)
+      fetchJson(manifestPath())
         .then((manifest) => {
           if (manifest && manifest.schema_version && manifest.schema_version !== "manifold_viewer_manifest_v1") {
             throw new Error(`Unsupported manifest schema: ${manifest.schema_version}`);
