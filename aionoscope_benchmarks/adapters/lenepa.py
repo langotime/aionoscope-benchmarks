@@ -14,6 +14,12 @@ from huggingface_hub import hf_hub_download
 from .base import FrozenTimeSeriesAdapter
 
 
+def _format_checkpoint_step(step: int) -> str:
+    if step % 1000 == 0:
+        return f"{step // 1000}k"
+    return str(step)
+
+
 class _LeNEPABaseAdapter(FrozenTimeSeriesAdapter):
     env_name = "core"
     import_path = "published inference.py via huggingface_hub"
@@ -21,6 +27,9 @@ class _LeNEPABaseAdapter(FrozenTimeSeriesAdapter):
 
     def __init__(self) -> None:
         super().__init__()
+        self.local_checkpoint_path: Path | None = None
+        self.local_checkpoint_step: int | None = None
+        self.local_checkpoint_index: int | None = None
         inference_path = self._download_bundle_file("inference.py")
         weights_path = self._download_bundle_file("lenepa_encoder.safetensors")
         config_path = self._download_bundle_file("lenepa_encoder_config.json")
@@ -66,6 +75,18 @@ class _LeNEPABaseAdapter(FrozenTimeSeriesAdapter):
         payload["tokenizer"] = str(self.config.get("nepa_static_tokenizer", "conv_patch_embed"))
         if "nepa_patch_embed_scalar_stats_mode" in self.config:
             payload["patch_stats_mode"] = str(self.config["nepa_patch_embed_scalar_stats_mode"])
+        if self.local_checkpoint_path is not None:
+            payload["checkpoint_source"] = "local_training_checkpoint"
+            payload["checkpoint_path"] = str(self.local_checkpoint_path)
+            payload["checkpoint_step"] = self.local_checkpoint_step
+            payload["checkpoint_index"] = self.local_checkpoint_index
+            if self.local_checkpoint_index is not None and self.local_checkpoint_step is not None:
+                payload["checkpoint_label"] = (
+                    f"#{int(self.local_checkpoint_index):03d} / "
+                    f"{_format_checkpoint_step(int(self.local_checkpoint_step))}"
+                )
+            elif self.local_checkpoint_step is not None:
+                payload["checkpoint_label"] = _format_checkpoint_step(int(self.local_checkpoint_step))
         payload["preprocess"] = "pass through exact published benchmark waveform without temporal length normalization"
         payload["layer_layout"] = (
             "layer 0 is the mean-pooled tokenizer output; "
@@ -130,6 +151,79 @@ class _LeNEPABaseAdapter(FrozenTimeSeriesAdapter):
         if not hasattr(model, "blocks"):
             raise ValueError(f"{self.model_name} encoder is missing the expected 'blocks' attribute")
         return model
+
+    def _validate_training_checkpoint_config(self, raw_config: object, *, checkpoint_path: Path) -> None:
+        if not isinstance(raw_config, dict):
+            return
+        expected_fields = (
+            "channel_size",
+            "patch_size",
+            "dim",
+            "depth",
+            "num_heads",
+            "mlp_ratio",
+            "nepa_patch_embed_scalar_stats_mode",
+        )
+        for field in expected_fields:
+            if field not in raw_config or field not in self.config:
+                continue
+            expected = self.config[field]
+            actual = raw_config[field]
+            if actual != expected:
+                raise ValueError(
+                    f"{self.model_name} local checkpoint config mismatch for {field!r} in "
+                    f"{checkpoint_path}: expected {expected!r}, got {actual!r}"
+                )
+
+    def _extract_encoder_state_dict(
+        self,
+        payload: object,
+        *,
+        checkpoint_path: Path,
+    ) -> tuple[dict[str, torch.Tensor], int | None, object]:
+        if not isinstance(payload, dict):
+            raise ValueError(
+                f"{self.model_name} local checkpoint must be a dict, got {type(payload).__name__}: "
+                f"{checkpoint_path}"
+            )
+        raw_state = payload.get("model", payload.get("state_dict"))
+        if not isinstance(raw_state, dict):
+            raise ValueError(
+                f"{self.model_name} local checkpoint is missing a model/state_dict mapping: "
+                f"{checkpoint_path}"
+            )
+        encoder_state = {
+            str(key).removeprefix("encoder."): value
+            for key, value in raw_state.items()
+            if str(key).startswith("encoder.") and isinstance(value, torch.Tensor)
+        }
+        if not encoder_state:
+            raise ValueError(
+                f"{self.model_name} local checkpoint has no tensor keys with the 'encoder.' prefix: "
+                f"{checkpoint_path}"
+            )
+        step = payload.get("step")
+        return encoder_state, int(step) if isinstance(step, int) and not isinstance(step, bool) else None, payload.get("config")
+
+    def load_training_checkpoint(
+        self,
+        checkpoint_path: Path,
+        *,
+        checkpoint_index: int | None = None,
+    ) -> None:
+        checkpoint_path = Path(checkpoint_path)
+        payload = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        encoder_state, checkpoint_step, raw_config = self._extract_encoder_state_dict(
+            payload,
+            checkpoint_path=checkpoint_path,
+        )
+        self._validate_training_checkpoint_config(raw_config, checkpoint_path=checkpoint_path)
+        self.model.load_state_dict(encoder_state, strict=True)
+        self.model.eval()
+        self.model.requires_grad_(False)
+        self.local_checkpoint_path = checkpoint_path
+        self.local_checkpoint_step = checkpoint_step
+        self.local_checkpoint_index = checkpoint_index
 
     def _validate_inputs(self, x: torch.Tensor) -> None:
         expected_channels = len(self.config["channels"])

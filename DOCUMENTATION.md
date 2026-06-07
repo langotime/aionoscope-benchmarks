@@ -489,6 +489,24 @@ Each target artifact lives under the ignored local data directory:
 results/manifolds/<model-slug>/<target>/metrics.json
 ```
 
+Checkpoint sweeps insert a checkpoint directory between model and target:
+
+```text
+results/manifolds/<model-slug>/ckpt_<step>/<target>/metrics.json
+```
+
+The LeNEPA-CauKer2M training-checkpoint sweep uses this layout and preserves the
+ordinal and training step in every target payload as `model.checkpoint_index`,
+`model.checkpoint_step`, and `model.checkpoint_path`. The default sweep command
+matches the published manifold corpus density (`grid_size=1024`, one repeat,
+`pca_dim=64`, `plot_max_points=256`):
+
+```bash
+uv run python scripts/run_lenepa_cauker2m_checkpoint_manifolds.py \
+  --start-index 1 \
+  --end-index 220
+```
+
 The payload uses `schema_version = "manifold_result_v0"` and stores
 the controlled-slice manifest, layerwise metrics, summaries, timings, and paths to
 standalone JSON plot artifacts. `plot_data_json` keeps centroid path arrays at the
@@ -510,10 +528,12 @@ regenerated for data updates. The generated JSON files remain under the ignored
 rule, and upload procedure.
 
 The viewer renders in the browser from `manifest.json` plus per-target JSON
-files. It loads the manifest first to populate Run/Model/Geometry/Target/Layer
-pickers, fetches each selected model/target `metrics.json` for layerwise scalar
-metrics, loads `plot_data_json` for visible centroid panels, then fetches
-`distance_data_json` only when the collapsed scatter/heatmap block is opened.
+files. It loads the manifest first to populate Run/Model/Checkpoint/Geometry/
+Target/Layer pickers, fetches each selected model/target `metrics.json` for
+layerwise scalar metrics, loads `plot_data_json` for visible centroid panels,
+then fetches `distance_data_json` only when the collapsed scatter/heatmap block
+is opened. The checkpoint picker is hidden for models whose manifest records do
+not include checkpoint identity.
 Pickers select an active record; a comparison bar pins up to four records as
 colour-coded chips.
 With pins present, "Metrics across layers" overlays one curve per (model, target)

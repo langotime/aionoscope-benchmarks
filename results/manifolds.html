@@ -374,6 +374,7 @@
     <div class="controls">
       <label>Run<select id="run"></select></label>
       <label>Model<select id="model"></select></label>
+      <label id="checkpoint-control">Checkpoint<select id="checkpoint"></select></label>
       <label>Geometry<select id="geometry"></select></label>
       <label>Target<select id="target"></select></label>
       <label>Layer<select id="layer"></select></label>
@@ -386,6 +387,7 @@
     const selects = {
       run: document.getElementById("run"),
       model: document.getElementById("model"),
+      checkpoint: document.getElementById("checkpoint"),
       target: document.getElementById("target"),
       geometry: document.getElementById("geometry"),
       layer: document.getElementById("layer"),
@@ -430,13 +432,19 @@
     }
 
     function recordKey(r) {
-      return `${r.run}|${r.model}|${r.target}|${r.layer}`;
+      return `${r.run}|${r.model}|${r.checkpoint || ""}|${r.target}|${r.layer}`;
     }
     function targetDataKey(r) {
       return `${r.run}|${r.metrics_json || ""}`;
     }
     function itemColor(idx) {
       return PALETTE[idx % PALETTE.length];
+    }
+    function modelDisplay(record) {
+      return record && record.checkpoint ? `${record.model} / ${record.checkpoint}` : String(record && record.model || "");
+    }
+    function trackLabel(track) {
+      return `${track.model_label || track.model} / ${track.target}`;
     }
     function activeCandidate() {
       const matches = filtered();
@@ -447,28 +455,45 @@
       const candidate = activeCandidate();
       return candidate ? [candidate] : [];
     }
-    function trackLabel(model, target) {
-      return `${model} / ${target}`;
-    }
     function tracksOf(items) {
       const seen = new Map();
       items.forEach((it, idx) => {
-        const tkey = `${it.run}|${it.model}|${it.target}`;
+        const tkey = `${it.run}|${it.model}|${it.checkpoint || ""}|${it.target}`;
         if (!seen.has(tkey)) {
-          seen.set(tkey, { tkey, color: itemColor(idx), record: it, model: it.model, target: it.target, layers: [] });
+          seen.set(tkey, {
+            tkey,
+            color: itemColor(idx),
+            record: it,
+            model: it.model,
+            model_label: modelDisplay(it),
+            checkpoint: it.checkpoint || "",
+            target: it.target,
+            layers: [],
+          });
         }
         seen.get(tkey).layers.push(it.layer);
       });
       return [...seen.values()];
     }
 
+    function normalizeManifoldDataPath(path) {
+      const raw = String(path);
+      const embeddedRoot = "/results/manifolds/";
+      const embeddedIndex = raw.lastIndexOf(embeddedRoot);
+      if (embeddedIndex !== -1) return raw.slice(embeddedIndex + embeddedRoot.length);
+      const relativeRoot = "results/manifolds/";
+      if (raw.startsWith(relativeRoot)) return raw.slice(relativeRoot.length);
+      return raw;
+    }
+
     function resolveDataUrl(path) {
       if (!path) return path;
       if (/^https?:\/\//.test(path)) return path;
-      if (!MANIFOLD_DATA_BASE_URL) return path;
+      const dataPath = normalizeManifoldDataPath(path);
+      if (!MANIFOLD_DATA_BASE_URL) return dataPath;
       const base = String(MANIFOLD_DATA_BASE_URL);
       const normalizedBase = base.endsWith("/") ? base : `${base}/`;
-      return new URL(path, new URL(normalizedBase, window.location.href)).toString();
+      return new URL(dataPath, new URL(normalizedBase, window.location.href)).toString();
     }
 
     function fetchJson(path) {
@@ -498,6 +523,9 @@
           run: String(targetRecord.run || ""),
           model: String(targetRecord.model || targetRecord.model_slug || ""),
           model_slug: String(targetRecord.model_slug || ""),
+          checkpoint: String(targetRecord.checkpoint_label || ""),
+          checkpoint_index: targetRecord.checkpoint_index === undefined ? null : targetRecord.checkpoint_index,
+          checkpoint_step: targetRecord.checkpoint_step === undefined ? null : targetRecord.checkpoint_step,
           target: String(targetRecord.target || targetRecord.target_name || ""),
           target_name: String(targetRecord.target_name || ""),
           sweep: targetRecord.sweep && typeof targetRecord.sweep === "object" ? targetRecord.sweep : {},
@@ -598,7 +626,7 @@
       const chips = selection.map((it, idx) => `
         <span class="chip">
           <span class="chip-dot" style="--chip:${itemColor(idx)}"></span>
-          <span class="chip-label">${escapeHtml(it.model)} / ${escapeHtml(it.target)} &middot; L${escapeHtml(it.layer)}</span>
+          <span class="chip-label">${escapeHtml(modelDisplay(it))} / ${escapeHtml(it.target)} &middot; L${escapeHtml(it.layer)}</span>
           <button type="button" class="chip-x" data-remove="${escapeHtml(recordKey(it))}" aria-label="remove">&times;</button>
         </span>`).join("");
       host.innerHTML = `
@@ -772,6 +800,29 @@
       return [...new Set(values.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b)));
     }
 
+    function checkpointValues(pool) {
+      const rows = pool
+        .filter((r) => r.checkpoint)
+        .slice()
+        .sort((a, b) => {
+          const ai = Number(a.checkpoint_index);
+          const bi = Number(b.checkpoint_index);
+          if (Number.isFinite(ai) && Number.isFinite(bi)) return ai - bi;
+          const as = Number(a.checkpoint_step);
+          const bs = Number(b.checkpoint_step);
+          if (Number.isFinite(as) && Number.isFinite(bs)) return as - bs;
+          return String(a.checkpoint).localeCompare(String(b.checkpoint));
+        });
+      const seen = new Set();
+      const values = [];
+      for (const row of rows) {
+        if (seen.has(row.checkpoint)) continue;
+        seen.add(row.checkpoint);
+        values.push(row.checkpoint);
+      }
+      return values;
+    }
+
     function sortLayers(values) {
       return [...new Set(values.filter(Boolean))].sort((a, b) => {
         const an = Number(a);
@@ -804,6 +855,7 @@
       return records.filter((r) =>
         (except === "run" || !selects.run.value || r.run === selects.run.value) &&
         (except === "model" || !selects.model.value || r.model === selects.model.value) &&
+        (except === "checkpoint" || !selects.checkpoint.value || r.checkpoint === selects.checkpoint.value) &&
         (except === "target" || !selects.target.value || r.target === selects.target.value) &&
         (except === "geometry" || !selects.geometry.value || r.geometry === selects.geometry.value) &&
         (except === "layer" || !selects.layer.value || r.layer === selects.layer.value)
@@ -813,7 +865,7 @@
     // Coarse-to-fine hierarchy. Each selector is narrowed only by the
     // selectors above it, never below: Run stays a full list regardless of the
     // model/target/layer in view, so sparse runs never drop out of the picker.
-    const selectOrder = ["run", "model", "geometry", "target", "layer"];
+    const selectOrder = ["run", "model", "checkpoint", "geometry", "target", "layer"];
 
     function refreshOptions() {
       const current = Object.fromEntries(Object.entries(selects).map(([k, s]) => [k, s.value]));
@@ -821,14 +873,17 @@
         const pool = records.filter((r) =>
           selectOrder.slice(0, idx).every((k) => !selects[k].value || r[k] === selects[k].value),
         );
-        const values = key === "layer"
-          ? sortLayers(pool.map((r) => r[key]))
-          : unique(pool.map((r) => r[key]));
+        const values = key === "checkpoint"
+          ? checkpointValues(pool)
+          : key === "layer"
+            ? sortLayers(pool.map((r) => r[key]))
+            : unique(pool.map((r) => r[key]));
         const options = key === "geometry"
           ? { includeAll: true, allLabel: "all geometries" }
           : {};
         fill(selects[key], values, current[key], options);
       });
+      updateCheckpointPickerVisibility();
     }
 
     function fmt(value) {
@@ -907,7 +962,7 @@
     function sbsCells(prefix, items) {
       return items.map((it, i) => `
         <div class="sbs-cell">
-          <div class="sbs-title"><span class="chip-dot" style="--chip:${itemColor(i)}"></span>${escapeHtml(it.model)} / ${escapeHtml(it.target)} &middot; L${escapeHtml(it.layer)}</div>
+          <div class="sbs-title"><span class="chip-dot" style="--chip:${itemColor(i)}"></span>${escapeHtml(modelDisplay(it))} / ${escapeHtml(it.target)} &middot; L${escapeHtml(it.layer)}</div>
           <div class="chart sbs-chart" id="${prefix}-${i}"></div>
         </div>`).join("");
     }
@@ -925,12 +980,13 @@
       const plotDataLink = candidate.paths && candidate.paths.plot_data_json ? `<a href="${escapeHtml(resolveDataUrl(candidate.paths.plot_data_json))}">plot data JSON</a>` : "";
       const distanceDataLink = candidate.paths && candidate.paths.distance_data_json ? `<a href="${escapeHtml(resolveDataUrl(candidate.paths.distance_data_json))}">distance data JSON</a>` : "";
       const trackCount = tracksOf(items).length;
-      const overlayNote = `${escapeHtml(candidate.model)} / ${escapeHtml(candidate.target)}${items.length > 1 ? ` &middot; ${trackCount} track${trackCount === 1 ? "" : "s"}` : ""}`;
+      const overlayNote = `${escapeHtml(modelDisplay(candidate))} / ${escapeHtml(candidate.target)}${items.length > 1 ? ` &middot; ${trackCount} track${trackCount === 1 ? "" : "s"}` : ""}`;
       return `
         <div class="layout">
           <section class="panel summary-panel">
-            <h2 class="record-title">${escapeHtml(candidate.model)} / ${escapeHtml(candidate.target)} / layer ${escapeHtml(candidate.layer)}</h2>
+            <h2 class="record-title">${escapeHtml(modelDisplay(candidate))} / ${escapeHtml(candidate.target)} / layer ${escapeHtml(candidate.layer)}</h2>
             <div class="record-meta">
+              ${candidate.checkpoint ? `<div class="meta-row"><span>Checkpoint</span><span>${escapeHtml(candidate.checkpoint)}</span></div>` : ""}
               <div class="meta-row"><span>Geometry</span><span>${escapeHtml(candidate.geometry || "n/a")}</span></div>
               <div class="meta-row"><span>Sweep</span><span>${escapeHtml(sweepText)}</span></div>
               <div class="meta-row"><span>Selected geodesic k</span><span>${escapeHtml(fmt(candidate.metrics && candidate.metrics.selected_geodesic_k))}</span></div>
@@ -1768,7 +1824,12 @@
     function layerRecords(record) {
       const seen = new Set();
       return records
-        .filter((r) => r.run === record.run && r.model === record.model && r.target === record.target)
+        .filter((r) => (
+          r.run === record.run &&
+          r.model === record.model &&
+          (r.checkpoint || "") === (record.checkpoint || "") &&
+          r.target === record.target
+        ))
         .filter((r) => {
           if (seen.has(r.layer)) return false;
           seen.add(r.layer);
@@ -1809,7 +1870,7 @@
             return Number.isFinite(v) ? { coord: [xOf(row), v] } : null;
           }).filter(Boolean);
           return {
-            name: trackLabel(track.model, track.target),
+            name: trackLabel(track),
             type: "line",
             data: points,
             color: track.color,
@@ -2136,6 +2197,18 @@
       const runLabel = selects.run.closest("label");
       if (!runLabel) return;
       runLabel.style.display = unique(records.map((r) => r.run)).length <= 1 ? "none" : "";
+    }
+
+    function updateCheckpointPickerVisibility() {
+      const checkpointLabel = selects.checkpoint.closest("label");
+      if (!checkpointLabel) return;
+      const pool = records.filter((r) =>
+        (!selects.run.value || r.run === selects.run.value) &&
+        (!selects.model.value || r.model === selects.model.value)
+      );
+      const visible = checkpointValues(pool).length > 0;
+      checkpointLabel.style.display = visible ? "" : "none";
+      if (!visible) selects.checkpoint.value = "";
     }
 
     function setControlsDisabled(disabled) {

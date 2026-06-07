@@ -11,6 +11,12 @@ MANIFOLD_VIEWER_MANIFEST = "manifest.json"
 MANIFOLD_VIEWER_MANIFEST_SCHEMA = "manifold_viewer_manifest_v1"
 
 
+def _format_checkpoint_step(step: int) -> str:
+    if step % 1000 == 0:
+        return f"{step // 1000}k"
+    return str(step)
+
+
 def _artifact_relpath(path: str | None, *, artifact_root: Path, context_path: Path | None = None) -> str | None:
     if not path:
         return None
@@ -51,11 +57,18 @@ def _artifact_relpath(path: str | None, *, artifact_root: Path, context_path: Pa
     return str(raw).replace(os.sep, "/")
 
 
-def _run_name_for_metrics_path(*, artifact_root: Path, metrics_path: Path) -> str:
+def _run_name_for_metrics_path(
+    *,
+    artifact_root: Path,
+    metrics_path: Path,
+    model_slug: str,
+) -> str:
     try:
         relative_parts = metrics_path.resolve().relative_to(artifact_root.resolve()).parts
     except ValueError:
         relative_parts = metrics_path.parts
+    if relative_parts and str(relative_parts[0]) == str(model_slug):
+        return artifact_root.name
     if len(relative_parts) >= 4:
         return str(relative_parts[0])
     return artifact_root.name
@@ -94,14 +107,18 @@ def _signal_spec(payload: dict[str, Any]) -> dict[str, Any] | None:
 def collect_viewer_manifest_records(*, artifact_root: Path) -> list[dict[str, Any]]:
     records = []
     for metrics_path in sorted(artifact_root.glob("**/metrics.json")):
+        payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+        model = payload.get("model", {})
+        model_slug = str(model.get("slug", ""))
         # Layout is usually <model>/<target>/metrics.json under one run root,
         # but an aggregate root may contain <run>/<model>/<target>/metrics.json.
+        # Checkpoint sweeps add <model>/<checkpoint>/<target>/metrics.json,
+        # which is still part of the aggregate root rather than a separate run.
         run_name = _run_name_for_metrics_path(
             artifact_root=artifact_root,
             metrics_path=metrics_path,
+            model_slug=model_slug,
         )
-        payload = json.loads(metrics_path.read_text(encoding="utf-8"))
-        model = payload.get("model", {})
         target = payload.get("target", {})
         train_slice_manifest = payload.get("train_slice_manifest", {})
         sweep = train_slice_manifest.get("sweep", {}) if isinstance(train_slice_manifest, dict) else {}
@@ -135,7 +152,7 @@ def collect_viewer_manifest_records(*, artifact_root: Path) -> list[dict[str, An
         record = {
             "run": run_name,
             "model": str(model.get("name", model.get("slug", ""))),
-            "model_slug": str(model.get("slug", "")),
+            "model_slug": model_slug,
             "target": target_label,
             "target_name": target_name,
             "sweep": sweep if isinstance(sweep, dict) else {},
@@ -143,6 +160,27 @@ def collect_viewer_manifest_records(*, artifact_root: Path) -> list[dict[str, An
             "metrics_json": _artifact_relpath(str(metrics_path), artifact_root=artifact_root),
             "layers": layers,
         }
+        adapter = model.get("adapter", {}) if isinstance(model, dict) else {}
+        if not isinstance(adapter, dict):
+            adapter = {}
+        checkpoint_index = model.get("checkpoint_index", adapter.get("checkpoint_index"))
+        checkpoint_step = model.get("checkpoint_step", adapter.get("checkpoint_step"))
+        if checkpoint_index is not None or checkpoint_step is not None:
+            record["checkpoint_index"] = checkpoint_index
+            record["checkpoint_step"] = checkpoint_step
+            record["checkpoint_path"] = model.get("checkpoint_path", adapter.get("checkpoint_path"))
+            checkpoint_label = adapter.get("checkpoint_label")
+            if not checkpoint_label:
+                if checkpoint_index is not None and checkpoint_step is not None:
+                    checkpoint_label = (
+                        f"#{int(checkpoint_index):03d} / "
+                        f"{_format_checkpoint_step(int(checkpoint_step))}"
+                    )
+                elif checkpoint_step is not None:
+                    checkpoint_label = _format_checkpoint_step(int(checkpoint_step))
+                else:
+                    checkpoint_label = f"#{int(checkpoint_index):03d}"
+            record["checkpoint_label"] = checkpoint_label
         signal_spec = _signal_spec(payload)
         if signal_spec is not None:
             record["signal_spec"] = signal_spec
@@ -581,6 +619,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
     <div class="controls">
       <label>Run<select id="run"></select></label>
       <label>Model<select id="model"></select></label>
+      <label id="checkpoint-control">Checkpoint<select id="checkpoint"></select></label>
       <label>Geometry<select id="geometry"></select></label>
       <label>Target<select id="target"></select></label>
       <label>Layer<select id="layer"></select></label>
@@ -593,6 +632,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
     const selects = {
       run: document.getElementById("run"),
       model: document.getElementById("model"),
+      checkpoint: document.getElementById("checkpoint"),
       target: document.getElementById("target"),
       geometry: document.getElementById("geometry"),
       layer: document.getElementById("layer"),
@@ -637,13 +677,19 @@ _VIEWER_TEMPLATE = """<!doctype html>
     }
 
     function recordKey(r) {
-      return `${r.run}|${r.model}|${r.target}|${r.layer}`;
+      return `${r.run}|${r.model}|${r.checkpoint || ""}|${r.target}|${r.layer}`;
     }
     function targetDataKey(r) {
       return `${r.run}|${r.metrics_json || ""}`;
     }
     function itemColor(idx) {
       return PALETTE[idx % PALETTE.length];
+    }
+    function modelDisplay(record) {
+      return record && record.checkpoint ? `${record.model} / ${record.checkpoint}` : String(record && record.model || "");
+    }
+    function trackLabel(track) {
+      return `${track.model_label || track.model} / ${track.target}`;
     }
     function activeCandidate() {
       const matches = filtered();
@@ -654,28 +700,45 @@ _VIEWER_TEMPLATE = """<!doctype html>
       const candidate = activeCandidate();
       return candidate ? [candidate] : [];
     }
-    function trackLabel(model, target) {
-      return `${model} / ${target}`;
-    }
     function tracksOf(items) {
       const seen = new Map();
       items.forEach((it, idx) => {
-        const tkey = `${it.run}|${it.model}|${it.target}`;
+        const tkey = `${it.run}|${it.model}|${it.checkpoint || ""}|${it.target}`;
         if (!seen.has(tkey)) {
-          seen.set(tkey, { tkey, color: itemColor(idx), record: it, model: it.model, target: it.target, layers: [] });
+          seen.set(tkey, {
+            tkey,
+            color: itemColor(idx),
+            record: it,
+            model: it.model,
+            model_label: modelDisplay(it),
+            checkpoint: it.checkpoint || "",
+            target: it.target,
+            layers: [],
+          });
         }
         seen.get(tkey).layers.push(it.layer);
       });
       return [...seen.values()];
     }
 
+    function normalizeManifoldDataPath(path) {
+      const raw = String(path);
+      const embeddedRoot = "/results/manifolds/";
+      const embeddedIndex = raw.lastIndexOf(embeddedRoot);
+      if (embeddedIndex !== -1) return raw.slice(embeddedIndex + embeddedRoot.length);
+      const relativeRoot = "results/manifolds/";
+      if (raw.startsWith(relativeRoot)) return raw.slice(relativeRoot.length);
+      return raw;
+    }
+
     function resolveDataUrl(path) {
       if (!path) return path;
       if (/^https?:\\/\\//.test(path)) return path;
-      if (!MANIFOLD_DATA_BASE_URL) return path;
+      const dataPath = normalizeManifoldDataPath(path);
+      if (!MANIFOLD_DATA_BASE_URL) return dataPath;
       const base = String(MANIFOLD_DATA_BASE_URL);
       const normalizedBase = base.endsWith("/") ? base : `${base}/`;
-      return new URL(path, new URL(normalizedBase, window.location.href)).toString();
+      return new URL(dataPath, new URL(normalizedBase, window.location.href)).toString();
     }
 
     function fetchJson(path) {
@@ -694,6 +757,9 @@ _VIEWER_TEMPLATE = """<!doctype html>
           run: String(targetRecord.run || ""),
           model: String(targetRecord.model || targetRecord.model_slug || ""),
           model_slug: String(targetRecord.model_slug || ""),
+          checkpoint: String(targetRecord.checkpoint_label || ""),
+          checkpoint_index: targetRecord.checkpoint_index === undefined ? null : targetRecord.checkpoint_index,
+          checkpoint_step: targetRecord.checkpoint_step === undefined ? null : targetRecord.checkpoint_step,
           target: String(targetRecord.target || targetRecord.target_name || ""),
           target_name: String(targetRecord.target_name || ""),
           sweep: targetRecord.sweep && typeof targetRecord.sweep === "object" ? targetRecord.sweep : {},
@@ -794,7 +860,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       const chips = selection.map((it, idx) => `
         <span class="chip">
           <span class="chip-dot" style="--chip:${itemColor(idx)}"></span>
-          <span class="chip-label">${escapeHtml(it.model)} / ${escapeHtml(it.target)} &middot; L${escapeHtml(it.layer)}</span>
+          <span class="chip-label">${escapeHtml(modelDisplay(it))} / ${escapeHtml(it.target)} &middot; L${escapeHtml(it.layer)}</span>
           <button type="button" class="chip-x" data-remove="${escapeHtml(recordKey(it))}" aria-label="remove">&times;</button>
         </span>`).join("");
       host.innerHTML = `
@@ -968,6 +1034,29 @@ _VIEWER_TEMPLATE = """<!doctype html>
       return [...new Set(values.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b)));
     }
 
+    function checkpointValues(pool) {
+      const rows = pool
+        .filter((r) => r.checkpoint)
+        .slice()
+        .sort((a, b) => {
+          const ai = Number(a.checkpoint_index);
+          const bi = Number(b.checkpoint_index);
+          if (Number.isFinite(ai) && Number.isFinite(bi)) return ai - bi;
+          const as = Number(a.checkpoint_step);
+          const bs = Number(b.checkpoint_step);
+          if (Number.isFinite(as) && Number.isFinite(bs)) return as - bs;
+          return String(a.checkpoint).localeCompare(String(b.checkpoint));
+        });
+      const seen = new Set();
+      const values = [];
+      for (const row of rows) {
+        if (seen.has(row.checkpoint)) continue;
+        seen.add(row.checkpoint);
+        values.push(row.checkpoint);
+      }
+      return values;
+    }
+
     function sortLayers(values) {
       return [...new Set(values.filter(Boolean))].sort((a, b) => {
         const an = Number(a);
@@ -1000,6 +1089,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       return records.filter((r) =>
         (except === "run" || !selects.run.value || r.run === selects.run.value) &&
         (except === "model" || !selects.model.value || r.model === selects.model.value) &&
+        (except === "checkpoint" || !selects.checkpoint.value || r.checkpoint === selects.checkpoint.value) &&
         (except === "target" || !selects.target.value || r.target === selects.target.value) &&
         (except === "geometry" || !selects.geometry.value || r.geometry === selects.geometry.value) &&
         (except === "layer" || !selects.layer.value || r.layer === selects.layer.value)
@@ -1009,7 +1099,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
     // Coarse-to-fine hierarchy. Each selector is narrowed only by the
     // selectors above it, never below: Run stays a full list regardless of the
     // model/target/layer in view, so sparse runs never drop out of the picker.
-    const selectOrder = ["run", "model", "geometry", "target", "layer"];
+    const selectOrder = ["run", "model", "checkpoint", "geometry", "target", "layer"];
 
     function refreshOptions() {
       const current = Object.fromEntries(Object.entries(selects).map(([k, s]) => [k, s.value]));
@@ -1017,14 +1107,17 @@ _VIEWER_TEMPLATE = """<!doctype html>
         const pool = records.filter((r) =>
           selectOrder.slice(0, idx).every((k) => !selects[k].value || r[k] === selects[k].value),
         );
-        const values = key === "layer"
-          ? sortLayers(pool.map((r) => r[key]))
-          : unique(pool.map((r) => r[key]));
+        const values = key === "checkpoint"
+          ? checkpointValues(pool)
+          : key === "layer"
+            ? sortLayers(pool.map((r) => r[key]))
+            : unique(pool.map((r) => r[key]));
         const options = key === "geometry"
           ? { includeAll: true, allLabel: "all geometries" }
           : {};
         fill(selects[key], values, current[key], options);
       });
+      updateCheckpointPickerVisibility();
     }
 
     function fmt(value) {
@@ -1103,7 +1196,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
     function sbsCells(prefix, items) {
       return items.map((it, i) => `
         <div class="sbs-cell">
-          <div class="sbs-title"><span class="chip-dot" style="--chip:${itemColor(i)}"></span>${escapeHtml(it.model)} / ${escapeHtml(it.target)} &middot; L${escapeHtml(it.layer)}</div>
+          <div class="sbs-title"><span class="chip-dot" style="--chip:${itemColor(i)}"></span>${escapeHtml(modelDisplay(it))} / ${escapeHtml(it.target)} &middot; L${escapeHtml(it.layer)}</div>
           <div class="chart sbs-chart" id="${prefix}-${i}"></div>
         </div>`).join("");
     }
@@ -1121,12 +1214,13 @@ _VIEWER_TEMPLATE = """<!doctype html>
       const plotDataLink = candidate.paths && candidate.paths.plot_data_json ? `<a href="${escapeHtml(resolveDataUrl(candidate.paths.plot_data_json))}">plot data JSON</a>` : "";
       const distanceDataLink = candidate.paths && candidate.paths.distance_data_json ? `<a href="${escapeHtml(resolveDataUrl(candidate.paths.distance_data_json))}">distance data JSON</a>` : "";
       const trackCount = tracksOf(items).length;
-      const overlayNote = `${escapeHtml(candidate.model)} / ${escapeHtml(candidate.target)}${items.length > 1 ? ` &middot; ${trackCount} track${trackCount === 1 ? "" : "s"}` : ""}`;
+      const overlayNote = `${escapeHtml(modelDisplay(candidate))} / ${escapeHtml(candidate.target)}${items.length > 1 ? ` &middot; ${trackCount} track${trackCount === 1 ? "" : "s"}` : ""}`;
       return `
         <div class="layout">
           <section class="panel summary-panel">
-            <h2 class="record-title">${escapeHtml(candidate.model)} / ${escapeHtml(candidate.target)} / layer ${escapeHtml(candidate.layer)}</h2>
+            <h2 class="record-title">${escapeHtml(modelDisplay(candidate))} / ${escapeHtml(candidate.target)} / layer ${escapeHtml(candidate.layer)}</h2>
             <div class="record-meta">
+              ${candidate.checkpoint ? `<div class="meta-row"><span>Checkpoint</span><span>${escapeHtml(candidate.checkpoint)}</span></div>` : ""}
               <div class="meta-row"><span>Geometry</span><span>${escapeHtml(candidate.geometry || "n/a")}</span></div>
               <div class="meta-row"><span>Sweep</span><span>${escapeHtml(sweepText)}</span></div>
               <div class="meta-row"><span>Selected geodesic k</span><span>${escapeHtml(fmt(candidate.metrics && candidate.metrics.selected_geodesic_k))}</span></div>
@@ -1953,7 +2047,12 @@ _VIEWER_TEMPLATE = """<!doctype html>
     function layerRecords(record) {
       const seen = new Set();
       return records
-        .filter((r) => r.run === record.run && r.model === record.model && r.target === record.target)
+        .filter((r) => (
+          r.run === record.run &&
+          r.model === record.model &&
+          (r.checkpoint || "") === (record.checkpoint || "") &&
+          r.target === record.target
+        ))
         .filter((r) => {
           if (seen.has(r.layer)) return false;
           seen.add(r.layer);
@@ -1994,7 +2093,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
             return Number.isFinite(v) ? { coord: [xOf(row), v] } : null;
           }).filter(Boolean);
           return {
-            name: trackLabel(track.model, track.target),
+            name: trackLabel(track),
             type: "line",
             data: points,
             color: track.color,
@@ -2321,6 +2420,18 @@ _VIEWER_TEMPLATE = """<!doctype html>
       const runLabel = selects.run.closest("label");
       if (!runLabel) return;
       runLabel.style.display = unique(records.map((r) => r.run)).length <= 1 ? "none" : "";
+    }
+
+    function updateCheckpointPickerVisibility() {
+      const checkpointLabel = selects.checkpoint.closest("label");
+      if (!checkpointLabel) return;
+      const pool = records.filter((r) =>
+        (!selects.run.value || r.run === selects.run.value) &&
+        (!selects.model.value || r.model === selects.model.value)
+      );
+      const visible = checkpointValues(pool).length > 0;
+      checkpointLabel.style.display = visible ? "" : "none";
+      if (!visible) selects.checkpoint.value = "";
     }
 
     function setControlsDisabled(disabled) {

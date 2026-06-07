@@ -132,6 +132,14 @@ serialization. Encoder models are evaluation-only here;
 future generative-model steering should be added as a separate protocol rather than
 overloading these encoder representation metrics.
 
+Training-checkpoint manifold sweeps keep checkpoint identity in both the path and
+JSON payload. The LeNEPA-CauKer2M sweep writes
+`results/manifolds/LeNEPA-CauKer2M/ckpt_<step>/<target>/metrics.json`, with
+`model.checkpoint_index`, `model.checkpoint_step`, and `model.checkpoint_path`
+recorded per target. The viewer manifest carries those fields and exposes a
+checkpoint picker only for models that provide them, so the model picker remains
+bounded by published model names.
+
 ### Calibration baselines share the result schema
 
 `run_baseline.py` runs non-pretrained calibration baselines against the same

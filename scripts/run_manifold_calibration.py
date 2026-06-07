@@ -94,6 +94,28 @@ def _artifact_run_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
+def _target_artifact_name(
+    *,
+    target_name: str,
+    target_payload: dict[str, Any],
+    config: ManifoldEvalConfig,
+) -> str:
+    coordinate_name = str(target_payload.get("coordinate_name", ""))
+    if config.view_grid_mode == "signed_log" and coordinate_name.startswith("signed_log_"):
+        return f"{target_name}__signed_log"
+    if config.view_grid_mode == "log" and coordinate_name.startswith("log_"):
+        return f"{target_name}__log"
+    return target_name
+
+
+def _checkpoint_artifact_name(*, checkpoint_index: int | None, checkpoint_step: int | None) -> str | None:
+    if checkpoint_index is None and checkpoint_step is None:
+        return None
+    if checkpoint_step is None:
+        return f"ckpt_{int(checkpoint_index):03d}"
+    return f"ckpt_{int(checkpoint_step):06d}"
+
+
 def run_calibration(
     *,
     config: ManifoldEvalConfig,
@@ -108,6 +130,8 @@ def run_calibration(
     run_id: str | None,
     skip_plots: bool,
     skip_viewer: bool,
+    lenepa_training_checkpoint: Path | None = None,
+    checkpoint_index: int | None = None,
 ) -> Path:
     config.validate()
     active_run_id = run_id or _artifact_run_id()
@@ -121,6 +145,21 @@ def run_calibration(
         model_start = perf_counter()
         _log(f"[{model_name}] load adapter on {device}")
         spec, adapter = create_adapter(model_name)
+        if lenepa_training_checkpoint is not None:
+            load_training_checkpoint = getattr(adapter, "load_training_checkpoint", None)
+            if load_training_checkpoint is None:
+                raise ValueError(
+                    "--lenepa-training-checkpoint can only be used with a LeNEPA adapter "
+                    f"that exposes load_training_checkpoint(), got {model_name!r}"
+                )
+            _log(
+                f"[{model_name}] load local training checkpoint "
+                f"{lenepa_training_checkpoint} index={checkpoint_index}"
+            )
+            load_training_checkpoint(
+                Path(lenepa_training_checkpoint),
+                checkpoint_index=checkpoint_index,
+            )
         adapter = adapter.to(device)
         adapter.eval()
         seq_len = int(adapter.exact_benchmark_sequence_length())
@@ -256,7 +295,20 @@ def run_calibration(
             target_payload = train_slice.manifest["target"]
             geometry = str(target_payload["geometry"])
             period = target_payload.get("period")
-            target_dir = run_root / spec.slug / target_name
+            target_artifact_name = _target_artifact_name(
+                target_name=target_name,
+                target_payload=target_payload,
+                config=config,
+            )
+            checkpoint_step = getattr(adapter, "local_checkpoint_step", None)
+            checkpoint_dir_name = _checkpoint_artifact_name(
+                checkpoint_index=checkpoint_index,
+                checkpoint_step=checkpoint_step,
+            )
+            model_dir = run_root / spec.slug
+            if checkpoint_dir_name is not None:
+                model_dir = model_dir / checkpoint_dir_name
+            target_dir = model_dir / target_artifact_name
             plot_dir = target_dir / "plots"
             by_layer: dict[int, dict[str, Any]] = {}
             visualizations: dict[str, dict[str, str]] = {}
@@ -276,7 +328,11 @@ def run_calibration(
                 )
                 by_layer[int(layer)] = evaluation.metrics
                 if not skip_plots and config.write_plots:
-                    stem = f"{spec.slug}__{target_name}__layer_{int(layer)}"
+                    stem_parts = [spec.slug]
+                    if checkpoint_dir_name is not None:
+                        stem_parts.append(checkpoint_dir_name)
+                    stem_parts.extend([target_artifact_name, f"layer_{int(layer)}"])
+                    stem = "__".join(stem_parts)
                     visualizations[str(int(layer))] = write_visualization_bundle(
                         out_dir=plot_dir,
                         stem=stem,
@@ -295,6 +351,13 @@ def run_calibration(
                     "name": spec.name,
                     "slug": spec.slug,
                     "checkpoint": spec.checkpoint,
+                    "checkpoint_index": getattr(adapter, "local_checkpoint_index", None),
+                    "checkpoint_step": checkpoint_step,
+                    "checkpoint_path": (
+                        None
+                        if getattr(adapter, "local_checkpoint_path", None) is None
+                        else str(getattr(adapter, "local_checkpoint_path"))
+                    ),
                     **model_taxonomy(spec.name).to_payload(),
                     "layers_evaluated": [int(layer) for layer in selected_layers],
                     "adapter": adapter.adapter_metadata(),
@@ -323,7 +386,10 @@ def run_calibration(
                 {
                     "model": spec.name,
                     "model_slug": spec.slug,
-                    "target": target_name,
+                    "target": target_artifact_name,
+                    "target_name": target_name,
+                    "checkpoint_index": getattr(adapter, "local_checkpoint_index", None),
+                    "checkpoint_step": checkpoint_step,
                     "metrics_json": str(metrics_path),
                     "summary": summary,
                 }
@@ -385,6 +451,18 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--run-id", type=str, default=None)
     parser.add_argument("--out-root", type=Path, default=None)
     parser.add_argument(
+        "--lenepa-training-checkpoint",
+        type=Path,
+        default=None,
+        help="Optional local LeNEPA training .pt checkpoint to load before manifold evaluation.",
+    )
+    parser.add_argument(
+        "--checkpoint-index",
+        type=int,
+        default=None,
+        help="Ordinal checkpoint number to store in emitted manifold JSON.",
+    )
+    parser.add_argument(
         "--device",
         type=str,
         default="cuda" if torch.cuda.is_available() else "cpu",
@@ -443,6 +521,8 @@ def main() -> None:
         run_id=args.run_id,
         skip_plots=bool(args.skip_plots or args.no_plots),
         skip_viewer=bool(args.no_viewer),
+        lenepa_training_checkpoint=args.lenepa_training_checkpoint,
+        checkpoint_index=args.checkpoint_index,
     )
     print(out_path)
 

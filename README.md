@@ -72,6 +72,21 @@ when served from Pages, it fetches the large JSON corpus from Cloudflare R2 at
 `https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260603T142443Z/`.
 See `docs/manifold-r2-pages.md` before changing the hosted manifold setup.
 
+The LeNEPA-CauKer2M training-checkpoint sweep is generated separately so each
+checkpoint keeps its own subdirectory and JSON identity:
+
+```bash
+uv run python scripts/run_lenepa_cauker2m_checkpoint_manifolds.py \
+  --start-index 1 \
+  --end-index 220
+```
+
+Those artifacts live under
+`results/manifolds/LeNEPA-CauKer2M/ckpt_<step>/<target>/metrics.json`; each
+payload stores `model.checkpoint_index`, `model.checkpoint_step`, and
+`model.checkpoint_path`. The viewer shows a compact checkpoint picker only for
+models that have checkpoint-sweep records.
+
 The viewer is an Apache ECharts review page; it reads stored JSON artifacts,
 shows axis labels and metric tooltips, and is not loaded by the main benchmark
 dashboard. It loads `manifest.json` first, then fetches each selected

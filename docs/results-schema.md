@@ -24,6 +24,14 @@ available model/target/layer records, then fetches selected per-target
 and, on demand, its split `distance_data_json` in the browser and renders
 ECharts charts; metric computation remains in Python.
 
+Standard manifold artifacts use
+`results/manifolds/<model-slug>/<target>/metrics.json`. Training-checkpoint
+sweeps use `results/manifolds/<model-slug>/ckpt_<step>/<target>/metrics.json`
+and store checkpoint identity in every payload under `model.checkpoint_index`,
+`model.checkpoint_step`, and `model.checkpoint_path`. `manifest.json` mirrors
+those fields as `checkpoint_index`, `checkpoint_step`, `checkpoint_path`, and
+`checkpoint_label`; the viewer uses them for the optional checkpoint selector.
+
 Calibration baselines write to `results/models/`. They must set
 `model.type = "baseline"` and use synthetic layer `0`; foundational model runs
 keep `model.type = "foundational"`.

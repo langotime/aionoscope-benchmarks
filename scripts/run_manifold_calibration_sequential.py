@@ -63,6 +63,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset-config", type=Path, default=DATASET_CONFIG_PATH)
     parser.add_argument("--out-root", type=Path, default=RESULTS_ROOT / "manifolds")
     parser.add_argument("--run-id", type=str, default=None)
+    parser.add_argument("--lenepa-training-checkpoint", type=Path, default=None)
+    parser.add_argument("--checkpoint-index", type=int, default=None)
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--generation-device", type=str, default="cpu")
     parser.add_argument(
@@ -155,6 +157,8 @@ def main() -> None:
         _extend_flag(cmd, "--view-log-min-abs", args.view_log_min_abs)
         _extend_flag(cmd, "--plot-max-points", args.plot_max_points)
         _extend_flag(cmd, "--encode-batch-size", args.encode_batch_size)
+        _extend_flag(cmd, "--lenepa-training-checkpoint", args.lenepa_training_checkpoint)
+        _extend_flag(cmd, "--checkpoint-index", args.checkpoint_index)
         if args.skip_plots or args.no_plots:
             cmd.append("--no-plots")
 

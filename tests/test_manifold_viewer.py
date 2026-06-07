@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 
 from aionoscope_benchmarks.manifold_eval import compute_manifold_layer_evaluation
-from aionoscope_benchmarks.manifold_viewer import build_viewer
+from aionoscope_benchmarks.manifold_viewer import build_viewer, build_viewer_manifest
 from aionoscope_benchmarks.manifold_viz import write_json, write_visualization_bundle
 
 
@@ -126,6 +126,9 @@ def test_manifold_visualization_bundle_and_viewer_are_static_artifacts(tmp_path:
     assert 'class="sbs-grid"' in html
     assert "renderSideBySide" in html
     assert "procrustesRotation" in html
+    assert 'id="checkpoint-control"' in html
+    assert html.index('<select id="model">') < html.index('<select id="checkpoint">')
+    assert html.index('<select id="checkpoint">') < html.index('<select id="geometry">')
     assert html.index('<select id="geometry">') < html.index('<select id="target">')
     assert "all geometries" in html
     plot_data_path = Path(visualizations["plot_data_json"])
@@ -147,3 +150,62 @@ def test_manifold_visualization_bundle_and_viewer_are_static_artifacts(tmp_path:
     assert "linear_distance" in distance_payload
     assert distance_payload["distance_grid_points"] == coords.size
     assert not list((target_dir / "plots").glob("*.png"))
+
+
+def test_manifold_manifest_preserves_lenepa_checkpoint_identity(tmp_path: Path) -> None:
+    artifact_root = tmp_path / "manifolds"
+    metrics_path = (
+        artifact_root
+        / "LeNEPA-CauKer2M"
+        / "ckpt_001000"
+        / "sine_phase"
+        / "metrics.json"
+    )
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics_path.write_text(
+        json.dumps(
+            {
+                "model": {
+                    "name": "LeNEPA-CauKer2M",
+                    "slug": "LeNEPA-CauKer2M",
+                    "checkpoint_index": 1,
+                    "checkpoint_step": 1000,
+                    "checkpoint_path": "/tmp/chkpt_1000.pt",
+                    "adapter": {
+                        "checkpoint_index": 1,
+                        "checkpoint_step": 1000,
+                        "checkpoint_label": "#001 / 1k",
+                    },
+                },
+                "target": {
+                    "target_name": "sine_phase",
+                    "geometry": "circle",
+                },
+                "summary": {},
+                "by_layer": {"0": {}},
+                "visualizations": {"0": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manifest_path = build_viewer_manifest(artifact_root=artifact_root)
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    assert manifest["records"] == [
+        {
+            "run": "manifolds",
+            "model": "LeNEPA-CauKer2M",
+            "model_slug": "LeNEPA-CauKer2M",
+            "target": "sine_phase",
+            "target_name": "sine_phase",
+            "sweep": {},
+            "geometry": "circle",
+            "metrics_json": "LeNEPA-CauKer2M/ckpt_001000/sine_phase/metrics.json",
+            "layers": [{"layer": "0", "paths": {}}],
+            "checkpoint_index": 1,
+            "checkpoint_step": 1000,
+            "checkpoint_path": "/tmp/chkpt_1000.pt",
+            "checkpoint_label": "#001 / 1k",
+        }
+    ]

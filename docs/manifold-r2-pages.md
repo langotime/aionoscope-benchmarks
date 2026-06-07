@@ -68,14 +68,16 @@ inside an immutable version prefix:
 ```text
 manifolds/v20260603T142443Z/manifest.json
 manifolds/v20260603T142443Z/<model>/<target>/metrics.json
+manifolds/v20260603T142443Z/<model>/ckpt_<step>/<target>/metrics.json
 manifolds/v20260603T142443Z/<model>/<target>/plots/<model>__<target>__layer_<n>_plot_data.json
 manifolds/v20260603T142443Z/<model>/<target>/plots/<model>__<target>__layer_<n>_distance_data.json
 ```
 
 `manifest.json` uses `schema_version = "manifold_viewer_manifest_v1"` and is
 the small browser bootstrap index. It stores model/target/layer identity,
-normalized per-layer plot paths, and each target's `metrics_json` path. It does
-not duplicate scalar layer metrics.
+optional checkpoint identity for checkpoint sweeps, normalized per-layer plot
+paths, and each target's `metrics_json` path. It does not duplicate scalar layer
+metrics.
 
 Manifold plot payloads are intentionally split:
 
