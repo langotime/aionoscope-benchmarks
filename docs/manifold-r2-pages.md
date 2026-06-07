@@ -10,7 +10,7 @@ The manifold deployment intentionally splits UI and data:
 
 - Cloudflare Pages serves the checked-in static viewer from Git.
 - Cloudflare R2 stores the generated manifold JSON payloads.
-- Cloudflare Cache Rules make immutable versioned R2 JSON cacheable at the edge.
+- Cloudflare Cache Rules make versioned R2 JSON cacheable at the edge.
 
 Do not put the full `results/manifolds/` data directory into Git or Pages. It is
 large generated output and is ignored by `.gitignore`.
@@ -63,7 +63,7 @@ not be relied on for Pages deployment.
 ## Data Layout
 
 The R2 object keys preserve the local relative paths under `results/manifolds/`
-inside an immutable version prefix:
+inside a versioned data prefix:
 
 ```text
 manifolds/v20260603T142443Z/manifest.json
@@ -90,7 +90,7 @@ for selected panels, and loads `*_distance_data.json` only when the distance
 block is opened.
 
 All R2 JSON objects are uploaded as gzip-compressed bytes while keeping their
-`.json` object keys. Required object metadata:
+`.json` object keys. Large per-target and plot payloads are long-lived and use:
 
 ```text
 Content-Type: application/json
@@ -100,6 +100,18 @@ Cache-Control: public, max-age=31536000, immutable
 
 Browsers still use `response.json()` normally because the `Content-Encoding`
 header tells them to decompress automatically.
+
+`manifolds/v.../manifest.json` is the bootstrap index and is the only versioned
+JSON payload with a short cache lifetime. Upload it compressed with:
+
+```text
+Content-Type: application/json
+Content-Encoding: gzip
+Cache-Control: public, max-age=86400
+```
+
+Do not mark `manifest.json` as `immutable`; repeat visitors should see a
+refreshed index within one day.
 
 `manifolds/latest.json` is uploaded uncompressed with:
 
@@ -163,7 +175,7 @@ npx --yes wrangler r2 bucket cors list aionoscope-manifold-data
 ## Cache Rule
 
 The cache rule is configured in the Cloudflare zone `langotime.ai`, not in R2.
-It applies only to immutable version prefixes:
+It applies only to versioned data prefixes:
 
 ```text
 (http.host eq "manifolds-data.aionoscope.langotime.ai" and starts_with(http.request.uri.path, "/manifolds/v"))
@@ -202,10 +214,23 @@ uv run python scripts/build_manifold_calibration_viewer.py \
 find results/manifolds -type f -name '*.png' | wc -l
 ```
 
-Upload every `*.json` under `results/manifolds/` to a new immutable prefix.
-Use `--remote`; without it Wrangler writes to local R2 storage.
+Upload every `*.json` under `results/manifolds/` to a new versioned prefix.
+Use `--remote`; without it Wrangler writes to local R2 storage. The root
+`results/manifolds/manifest.json` must use one-day cache metadata:
 
-Example for one object:
+```bash
+gzip -n -6 -c results/manifolds/manifest.json \
+  | npx --yes wrangler r2 object put \
+      aionoscope-manifold-data/manifolds/vYYYYMMDDTHHMMSSZ/manifest.json \
+      --pipe \
+      --content-type application/json \
+      --content-encoding gzip \
+      --cache-control 'public, max-age=86400' \
+      --remote \
+      --force
+```
+
+Example for one long-lived payload object:
 
 ```bash
 gzip -n -6 -c results/manifolds/Chronos-2/gaussian_time_frac/plots/Chronos-2__gaussian_time_frac__layer_0_plot_data.json \
@@ -256,12 +281,21 @@ curl -sSI -H 'Origin: https://aionoscope-benchmarks.pages.dev' \
   https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260603T142443Z/Chronos-2/gaussian_time_frac/plots/Chronos-2__gaussian_time_frac__layer_0_distance_data.json
 ```
 
-Expected headers:
+Expected headers for long-lived payload objects:
 
 ```text
 HTTP/2 200
 content-type: application/json
 cache-control: public, max-age=31536000, immutable
+access-control-allow-origin: https://aionoscope-benchmarks.pages.dev
+```
+
+Expected headers for the versioned manifest:
+
+```text
+HTTP/2 200
+content-type: application/json
+cache-control: public, max-age=86400
 access-control-allow-origin: https://aionoscope-benchmarks.pages.dev
 ```
 

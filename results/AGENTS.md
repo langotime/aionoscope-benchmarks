@@ -20,6 +20,9 @@ is ignored and must not be committed. It is the local source for bulk-uploaded
 R2 objects under the versioned
 `manifolds/v.../` prefix. Read `../docs/manifold-r2-pages.md` before changing
 manifold hosting, cache rules, CORS, upload paths, or `MANIFOLD_DATA_BASE_URL`.
+When uploading R2 data, `results/manifolds/manifest.json` must be uploaded with
+a one-day cache lifetime, while the large per-target and plot JSON payloads keep
+their long immutable cache lifetime.
 
 ### 1. Single-file static dashboard
 
