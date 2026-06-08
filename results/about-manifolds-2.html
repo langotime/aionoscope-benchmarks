@@ -1,0 +1,2181 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>
+            Does the Shape Scale? — Manifold Geometry Across the Toto-2 Size
+            Ladder
+        </title>
+        <meta
+            name="description"
+            content="As Toto-2.0 grows from 4 million to 2.5 billion parameters, do its representation manifolds get cleaner? A factor-by-factor look at where scaling helps the geometry, where it saturates, and where it does nothing at all."
+        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,16..72,400;0,16..72,500;0,16..72,600;1,16..72,400&display=swap"
+            rel="stylesheet"
+        />
+        <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+        <script
+            src="https://cdn.jsdelivr.net/npm/echarts-gl@2/dist/echarts-gl.min.js"
+            onerror="window.__glLoadFailed = true"
+        ></script>
+        <style>
+            :root {
+                color-scheme: light;
+                --ink: #16202b;
+                --ink-soft: #44566a;
+                --ink-faint: #75879a;
+                --bg: #fbfaf7;
+                --panel: #ffffff;
+                --line: #e7e3da;
+                --line-strong: #d8d3c7;
+                --accent: #0f766e;
+                --blue: #2563eb;
+                --red: #dc2626;
+                --amber: #d97706;
+                --serif: "Newsreader", Georgia, "Times New Roman", serif;
+                --sans:
+                    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+                    Roboto, sans-serif;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            html {
+                scroll-behavior: smooth;
+            }
+            body {
+                margin: 0;
+                background: var(--bg);
+                color: var(--ink);
+                font-family: var(--sans);
+                font-size: 18px;
+                line-height: 1.72;
+                -webkit-font-smoothing: antialiased;
+                text-rendering: optimizeLegibility;
+            }
+            .wrap {
+                max-width: 1180px;
+                margin: 0 auto;
+                padding: 0 24px;
+            }
+            .col {
+                max-width: 720px;
+                margin: 0 auto;
+            }
+
+            /* ---- hero ---- */
+            header.hero {
+                position: relative;
+                overflow: hidden;
+                background:
+                    radial-gradient(
+                        1200px 520px at 12% -10%,
+                        #d9f2ee 0%,
+                        rgba(217, 242, 238, 0) 60%
+                    ),
+                    radial-gradient(
+                        1000px 480px at 95% 0%,
+                        #e7edff 0%,
+                        rgba(231, 237, 255, 0) 55%
+                    ),
+                    linear-gradient(180deg, #fbfaf7 0%, #fbfaf7 100%);
+                border-bottom: 1px solid var(--line);
+            }
+            .hero-inner {
+                padding: 92px 24px 64px;
+            }
+            .eyebrow {
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                color: var(--accent);
+                margin: 0 0 22px;
+            }
+            h1 {
+                font-family: var(--serif);
+                font-weight: 500;
+                font-size: clamp(2.3rem, 5.2vw, 3.7rem);
+                line-height: 1.06;
+                letter-spacing: -0.012em;
+                margin: 0 0 24px;
+                color: var(--ink);
+            }
+            .lede {
+                font-family: var(--serif);
+                font-size: clamp(1.18rem, 2.3vw, 1.42rem);
+                line-height: 1.55;
+                color: var(--ink-soft);
+                margin: 0 0 8px;
+            }
+            .byline {
+                margin-top: 30px;
+                font-size: 14px;
+                color: var(--ink-faint);
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px 16px;
+                align-items: center;
+            }
+            .byline .dot {
+                width: 4px;
+                height: 4px;
+                border-radius: 50%;
+                background: var(--line-strong);
+            }
+            .byline a {
+                color: var(--accent);
+                text-decoration: none;
+            }
+            .byline a:hover {
+                text-decoration: underline;
+            }
+            .read-time {
+                font-weight: 500;
+                color: var(--ink-soft);
+            }
+            .read-time:empty,
+            .read-time:empty + .read-dot {
+                display: none;
+            }
+
+            /* ---- contents card ---- */
+            .toc {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 14px;
+                padding: 20px 26px;
+                margin: 30px auto 8px;
+                max-width: 720px;
+            }
+            .toc-head {
+                font-family: var(--sans);
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                color: var(--accent);
+                margin: 0 0 6px;
+            }
+            .toc ol {
+                margin: 0;
+                padding: 0;
+                list-style: none;
+                counter-reset: toc;
+            }
+            .toc li {
+                border-top: 1px solid var(--line);
+                counter-increment: toc;
+            }
+            .toc li:first-child {
+                border-top: 0;
+            }
+            .toc a {
+                display: flex;
+                gap: 14px;
+                align-items: baseline;
+                padding: 10px 0;
+                text-decoration: none;
+                color: var(--ink);
+            }
+            .toc a::before {
+                content: counter(toc, decimal-leading-zero);
+                flex: 0 0 auto;
+                font-family: var(--sans);
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--accent);
+                font-variant-numeric: tabular-nums;
+            }
+            .toc-text {
+                display: flex;
+                flex-direction: column;
+                gap: 1px;
+            }
+            .toc-kicker {
+                font-family: var(--sans);
+                font-size: 11px;
+                font-weight: 600;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--ink-faint);
+            }
+            .toc-title {
+                font-family: var(--serif);
+                font-size: 1.05rem;
+            }
+            .toc-min {
+                flex: 0 0 auto;
+                margin-left: auto;
+                font-family: var(--sans);
+                font-size: 12px;
+                font-weight: 500;
+                color: var(--ink-faint);
+                font-variant-numeric: tabular-nums;
+                white-space: nowrap;
+            }
+            .toc a:hover .toc-title {
+                color: var(--accent);
+            }
+            section[id] {
+                scroll-margin-top: 18px;
+            }
+
+            /* ---- article body ---- */
+            main {
+                padding: 8px 0 40px;
+            }
+            section.block {
+                padding: 30px 0;
+            }
+            h2 {
+                font-family: var(--serif);
+                font-weight: 600;
+                font-size: clamp(1.7rem, 3.2vw, 2.15rem);
+                line-height: 1.16;
+                letter-spacing: -0.01em;
+                margin: 40px 0 6px;
+            }
+            h2 .num {
+                display: block;
+                font-family: var(--sans);
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                color: var(--accent);
+                margin-bottom: 12px;
+            }
+            h3 {
+                font-family: var(--sans);
+                font-weight: 600;
+                font-size: 1.18rem;
+                margin: 34px 0 4px;
+                color: var(--ink);
+            }
+            p {
+                margin: 18px 0;
+            }
+            a {
+                color: var(--accent);
+            }
+            strong {
+                font-weight: 600;
+                color: var(--ink);
+            }
+            em {
+                color: var(--ink);
+            }
+            .col ul {
+                margin: 18px 0;
+                padding-left: 22px;
+            }
+            .col li {
+                margin: 8px 0;
+            }
+            code {
+                font-family:
+                    ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+                font-size: 0.86em;
+                background: #f1efe8;
+                border: 1px solid var(--line);
+                padding: 1px 6px;
+                border-radius: 5px;
+                color: #355;
+            }
+
+            .pull {
+                font-family: var(--serif);
+                font-size: 1.5rem;
+                line-height: 1.4;
+                font-weight: 500;
+                color: var(--accent);
+                border-left: 3px solid var(--accent);
+                padding: 6px 0 6px 24px;
+                margin: 40px auto;
+                max-width: 720px;
+            }
+
+            /* stat callouts */
+            .stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 14px;
+                margin: 28px auto;
+                max-width: 720px;
+            }
+            .stat {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                padding: 16px 18px;
+            }
+            .stat .v {
+                font-family: var(--serif);
+                font-size: 1.9rem;
+                font-weight: 600;
+                line-height: 1;
+                color: var(--accent);
+            }
+            .stat .l {
+                font-size: 13px;
+                color: var(--ink-faint);
+                margin-top: 8px;
+                line-height: 1.35;
+            }
+
+            /* ---- figures / charts ---- */
+            figure.fig {
+                margin: 40px auto;
+                max-width: 1000px;
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 16px;
+                padding: 18px 18px 14px;
+                box-shadow: 0 1px 2px rgba(20, 30, 40, 0.03);
+            }
+            .fig-head {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                gap: 12px;
+                flex-wrap: wrap;
+                margin: 4px 4px 10px;
+            }
+            .fig-title {
+                font-family: var(--sans);
+                font-weight: 600;
+                font-size: 1.02rem;
+                color: var(--ink);
+            }
+            .fig-sub {
+                font-size: 13px;
+                color: var(--ink-faint);
+            }
+            .chart {
+                width: 100%;
+                height: 440px;
+            }
+            .chart.short {
+                height: 360px;
+            }
+            .chart.tall {
+                height: 520px;
+            }
+            .twin {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+            .twin .chart {
+                height: 360px;
+            }
+            @media (max-width: 720px) {
+                .twin {
+                    grid-template-columns: 1fr;
+                }
+            }
+            /* filmstrip: small-multiples of one manifold */
+            .strip-grid {
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                gap: 12px 8px;
+            }
+            @media (max-width: 720px) {
+                .strip-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+            }
+            .strip-rowlab {
+                font-family: var(--sans);
+                font-size: 12px;
+                font-weight: 600;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+                color: var(--ink-faint);
+                margin: 14px 2px 4px;
+            }
+            .strip-rowlab:first-child {
+                margin-top: 2px;
+            }
+            .strip-cell {
+                display: flex;
+                flex-direction: column;
+            }
+            .strip-lab {
+                font-family: var(--sans);
+                font-size: 12.5px;
+                font-weight: 600;
+                color: var(--ink);
+                margin: 0 2px;
+            }
+            .strip-sub {
+                font-size: 11px;
+                color: var(--ink-faint);
+                margin: 0 2px 1px;
+                min-height: 14px;
+            }
+            .strip-chart {
+                width: 100%;
+                height: 150px;
+            }
+            .strip-legend {
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                font-size: 12px;
+                color: var(--ink-faint);
+            }
+            .strip-bar {
+                width: 92px;
+                height: 9px;
+                border-radius: 5px;
+                background: linear-gradient(
+                    90deg,
+                    #2563eb,
+                    #14b8a6,
+                    #f59e0b,
+                    #dc2626
+                );
+            }
+            figcaption {
+                font-size: 14.5px;
+                line-height: 1.6;
+                color: var(--ink-soft);
+                margin: 12px 6px 4px;
+                padding-top: 12px;
+                border-top: 1px solid var(--line);
+            }
+            figcaption b {
+                color: var(--ink);
+                font-weight: 600;
+            }
+
+            .chart-msg {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100%;
+                text-align: center;
+                color: var(--ink-faint);
+                font-size: 14px;
+                padding: 24px;
+                line-height: 1.5;
+            }
+            .chart-msg.warn {
+                color: #8a5a00;
+            }
+            .spinner {
+                width: 22px;
+                height: 22px;
+                border: 3px solid #e3ddcf;
+                border-top-color: var(--accent);
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+                margin-right: 12px;
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            /* note / caveat boxes */
+            .note {
+                background: #f5f8f7;
+                border: 1px solid #d6e6e2;
+                border-left: 3px solid var(--accent);
+                border-radius: 10px;
+                padding: 4px 22px;
+                margin: 26px auto;
+                max-width: 720px;
+            }
+            .note h3 {
+                margin-top: 18px;
+            }
+
+            /* collaboration / get-involved callout */
+            .collab {
+                position: relative;
+                overflow: hidden;
+                background:
+                    radial-gradient(
+                        820px 360px at 100% -30%,
+                        #d9f2ee 0%,
+                        rgba(217, 242, 238, 0) 62%
+                    ),
+                    radial-gradient(
+                        620px 280px at -10% 120%,
+                        #e7edff 0%,
+                        rgba(231, 237, 255, 0) 60%
+                    ),
+                    linear-gradient(180deg, #ffffff 0%, #fbfdfc 100%);
+                border: 1px solid #cfe5e0;
+                border-radius: 18px;
+                padding: 32px 36px 30px;
+                margin: 8px auto;
+                max-width: 760px;
+                box-shadow: 0 4px 22px rgba(15, 118, 110, 0.07);
+            }
+            .collab .eyebrow {
+                margin-bottom: 14px;
+            }
+            .collab h2 {
+                margin: 0 0 4px;
+            }
+            .collab p {
+                margin: 14px 0;
+            }
+            .collab ul {
+                margin: 16px 0 22px;
+                padding-left: 0;
+                list-style: none;
+            }
+            .collab li {
+                position: relative;
+                padding-left: 28px;
+                margin: 10px 0;
+            }
+            .collab li::before {
+                content: "";
+                position: absolute;
+                left: 4px;
+                top: 11px;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: var(--accent);
+            }
+            .collab .actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 14px 18px;
+                align-items: center;
+                margin-top: 8px;
+            }
+            .collab .quiet {
+                font-size: 14px;
+                color: var(--ink-faint);
+            }
+            .collab .quiet a {
+                color: var(--accent);
+            }
+
+            /* footer */
+            footer {
+                border-top: 1px solid var(--line);
+                margin-top: 40px;
+                padding: 48px 24px 80px;
+                background: #f6f4ee;
+            }
+            .cta {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                background: var(--accent);
+                color: #fff;
+                text-decoration: none;
+                font-weight: 600;
+                padding: 13px 22px;
+                border-radius: 11px;
+                font-size: 15px;
+            }
+            .cta:hover {
+                background: #0c5f58;
+            }
+            .respect {
+                font-size: 15px;
+                color: var(--ink-soft);
+                margin-top: 28px;
+            }
+            .respect a {
+                color: var(--accent);
+            }
+            .smallprint {
+                font-size: 13px;
+                color: var(--ink-faint);
+                margin-top: 22px;
+            }
+            hr.soft {
+                border: 0;
+                border-top: 1px solid var(--line);
+                margin: 36px auto;
+                max-width: 720px;
+            }
+        </style>
+    </head>
+    <body>
+        <header class="hero">
+            <div class="hero-inner wrap">
+                <div class="col">
+                    <p class="eyebrow">
+                        Langotime Aionoscope&nbsp;·&nbsp;Representation Geometry
+                        · Part&nbsp;2
+                    </p>
+                    <h1>Does the shape scale?</h1>
+                    <p class="lede">
+                        Toto-2 is sold on one promise the previous generation
+                        couldn't keep: it <em>scales</em> — train it bigger and
+                        it forecasts better, the clean way large language models
+                        do. So here is the obvious question for an
+                        interpretability tool. As the model grows from 4 million
+                        to 2.5 billion parameters, do its
+                        <em>manifolds</em> get cleaner? We ran the identical
+                        factor sweeps from Part 1 on the whole size ladder. The
+                        answer isn't one curve — it's four very different ones.
+                    </p>
+                    <div class="byline">
+                        <span id="read-time" class="read-time"></span>
+                        <span class="dot read-dot" aria-hidden="true"></span>
+                        <a href="about-manifolds.html"
+                            >← Part 1 · The shape of a signal</a
+                        >
+                        <span class="dot" aria-hidden="true"></span>
+                        <a href="manifolds.html"
+                            >Open the full dashboard (45 models) →</a
+                        >
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="wrap">
+                <!-- INTRO -->
+                <section class="block">
+                    <div class="col">
+                        <p>
+                            In
+                            <a href="about-manifolds.html">Part 1</a> we treated
+                            a frozen model's representation as
+                            <em>geometry</em>: sweep one generative factor across
+                            a fine grid, average the activations at each step
+                            into a centroid, and the centroids trace a shape. The
+                            question was never just whether a factor is
+                            <em>decodable</em> — it was whether the
+                            representation is <em>organised</em> the way the
+                            process that generated the data is. One model,
+                            Toto-2.0-2.5B, carried the whole tour.
+                        </p>
+                        <p>
+                            This time we vary one thing — <strong>size</strong> —
+                            and hold everything else fixed. Toto-2.0 ships as a
+                            clean ladder of five checkpoints, from a 4-million-parameter
+                            sketch to the 2.5-billion-parameter flagship, and
+                            Datadog's headline claim is that quality climbs
+                            smoothly up that ladder. If that's true of the
+                            forecasts, is it true of the <em>shapes</em>?
+                        </p>
+                        <p>
+                            One thing never changes across the rungs: the
+                            <strong>front-end</strong>. Every size reads the
+                            signal in the same <code>32</code>-sample patches and
+                            standardises every window the same way. Hold onto
+                            that — it decides almost everything that follows. The
+                            answer to "does the geometry scale" turns out to be:
+                            <strong>for one factor it's already perfect at 4M</strong>;
+                            <strong>for one it is destroyed before the first layer</strong>,
+                            and scale can't bring it back;
+                            <strong>for one it genuinely sharpens — then stops</strong>;
+                            and <strong>for one the smallest model ties the
+                            largest</strong>. Four cases, four fates.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- CONTENTS -->
+                <nav class="toc" aria-label="Contents">
+                    <p class="toc-head">Contents</p>
+                    <ol id="toc-list"></ol>
+                </nav>
+
+                <!-- THE LADDER -->
+                <section class="block" id="the-ladder">
+                    <div class="col">
+                        <h2>
+                            <span class="num">The setup</span>Five rungs, one
+                            tokenizer
+                        </h2>
+                        <p>
+                            Here is the ladder. Width and depth grow together —
+                            from 256 channels and 5 layers to 2048 channels and
+                            49 — for a roughly <strong>600× span</strong> in
+                            parameters. The patch size is <code>32</code> for all
+                            of them.
+                        </p>
+                    </div>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="v">4.1M</div>
+                            <div class="l">256-wide · 5 layers</div>
+                        </div>
+                        <div class="stat">
+                            <div class="v">22M</div>
+                            <div class="l">512-wide · 7 layers</div>
+                        </div>
+                        <div class="stat">
+                            <div class="v">313M</div>
+                            <div class="l">1024-wide · 25 layers</div>
+                        </div>
+                        <div class="stat">
+                            <div class="v">1.0B</div>
+                            <div class="l">1536-wide · 37 layers</div>
+                        </div>
+                        <div class="stat">
+                            <div class="v">2.5B</div>
+                            <div class="l">2048-wide · 49 layers</div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <p>
+                            One housekeeping note that matters for everything
+                            below. Part 1 showed that a factor's cleanest
+                            geometry usually lives in the <em>middle</em> of the
+                            network, not at the output. So for each rung we score
+                            every factor at its <strong>best layer</strong>, not
+                            its last. Taking the final layer would handicap all
+                            five models the same way and hide the real
+                            differences — and, as
+                            <a href="#case-middle">Case 4</a> shows, it would
+                            throw away the most interesting part of the story.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- CASE 1: AMPLITUDE -->
+                <section class="block" id="case-amplitude">
+                    <div class="col">
+                        <h2>
+                            <span class="num">Case 1 · sine_amplitude</span>The
+                            door scaling can't reopen
+                        </h2>
+                        <p>
+                            Amplitude should be the easiest factor in the suite.
+                            Make a sine louder, and louder, and louder; the
+                            representation ought to slide along a tidy line. On
+                            the Toto-2 ladder it does no such thing. Amplitude
+                            isn't <em>hard</em> here — it's simply
+                            <em>gone</em>, and it's gone the same way at every
+                            size. Below, the same sweep machinery that drew a
+                            clean phase ring in Part 1: phase (top) becomes a
+                            <strong>ring</strong> at every size; amplitude
+                            (bottom) becomes a <strong>point</strong>.
+                        </p>
+                    </div>
+
+                    <figure
+                        class="fig"
+                        data-chart="sizestrip"
+                        data-target="sine_phase,sine_amplitude"
+                        data-rowlabels="phase — a ring at every size|amplitude — one point at every size"
+                    >
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    Same sweep, two factors, across the ladder ·
+                                    PCA → 2D
+                                </div>
+                                <div class="fig-sub">
+                                    Each panel: 1,024 centroids, one per swept
+                                    value, coloured low → high.
+                                </div>
+                            </div>
+                            <div class="strip-legend">
+                                low <span class="strip-bar"></span> high
+                            </div>
+                        </div>
+                        <div data-strip id="amp-contrast-strip"></div>
+                        <figcaption>
+                            The phase row is five clean loops — phase is a circle
+                            for Toto at every size. The amplitude row should be
+                            five lines of 1,024 coloured dots. Instead each is a
+                            <b>single dot</b>: the entire amplitude sweep
+                            collapses onto one location. Same protocol, same
+                            colours — and nothing to see, at 4M or at 2.5B.
+                        </figcaption>
+                    </figure>
+
+                    <div class="col">
+                        <p>
+                            Why? Toto standardises every input window by its own
+                            scale before it patches it. A pure sine's standard
+                            deviation is <em>proportional to its amplitude</em>,
+                            so dividing it out cancels amplitude exactly: a quiet
+                            sine and a loud one become the
+                            <strong>same normalised wave</strong>. The
+                            transformer is handed an input with the amplitude
+                            already removed — before layer 0 ever runs.
+                        </p>
+                    </div>
+
+                    <figure class="fig" data-chart="ampNorm">
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    What standardisation does to amplitude
+                                </div>
+                                <div class="fig-sub">
+                                    Four sines of different amplitude, before and
+                                    after Toto's per-window scaling.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="twin">
+                            <div class="chart short" id="amp-raw" data-raw></div>
+                            <div
+                                class="chart short"
+                                id="amp-norm"
+                                data-norm
+                            ></div>
+                        </div>
+                        <figcaption>
+                            Left: four amplitudes the benchmark sweeps through.
+                            Right: the same four after dividing each window by
+                            its own standard deviation — they land
+                            <b>exactly on top of one another</b>. This is what
+                            the patches, and every layer after them, actually
+                            see. There is no amplitude left to represent.
+                        </figcaption>
+                    </figure>
+
+                    <div class="col">
+                        <p>
+                            So how blind is blind? We measured the spread of the
+                            1,024 amplitude centroids in the full 64-dimensional
+                            space. It is <strong>0.000</strong> —
+                            bit-for-bit identical — at layer 0
+                            <em>and at every layer after it</em>, for all five
+                            sizes. 5-NN recall sits at <strong>0.006</strong>,
+                            exactly chance, and never moves. There is no
+                            manifold; there is a point. Crucially, this is not a
+                            depth problem the small models simply "haven't grown
+                            into" — the input is identical, so every one of the
+                            2.5B model's 49 layers is identically empty.
+                        </p>
+                        <p>
+                            You might conclude amplitude is just un-representable
+                            from a standardised window. It isn't. Plenty of
+                            models lay it out cleanly — and so did
+                            <strong>Toto's own previous generation</strong>.
+                        </p>
+                    </div>
+
+                    <figure
+                        class="fig"
+                        data-chart="scaleCurve"
+                        data-kind="amp"
+                    >
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    Best 5-NN recall on amplitude · across models
+                                </div>
+                                <div class="fig-sub">
+                                    Higher = amplitude is locally resolved.
+                                    Parameters on a log axis.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart" id="amp-scale"></div>
+                        <figcaption>
+                            The entire Toto-2 ladder (<b>red</b>) lies flat on
+                            the floor at chance, across a 600× range of size.
+                            Yet LeNEPA, NuTime and Sundial recover amplitude at
+                            <b>0.88–0.91</b>, and
+                            <b>Toto-Open-Base-1.0</b> — Toto's previous
+                            generation, at 151M — managed <b>0.78</b>. Toto-2
+                            traded amplitude away (a reasonable call for
+                            forecasting robustness), and no amount of scale buys
+                            it back. A few other heavily instance-normalised
+                            models (grey) discard it too.
+                        </figcaption>
+                    </figure>
+
+                    <div class="col">
+                        <p>
+                            The lesson is the cleanest in the whole post.
+                            <strong
+                                >Scaling can reopen many doors. It cannot reopen
+                                one the tokenizer has already shut.</strong
+                            >
+                        </p>
+                    </div>
+                </section>
+
+                <!-- CASE 2: SPIKE -->
+                <section class="block" id="case-spike">
+                    <div class="col">
+                        <h2>
+                            <span class="num">Case 2 · spike_time_frac</span
+                            >Where scaling actually pays off — and where it stops
+                        </h2>
+                        <p>
+                            Now a factor the tokenizer keeps but
+                            <em>folds</em>: the position of a single-sample
+                            spike. In Part 1 its layer-0 manifold was a tangled
+                            triangle — the 32-sample patch grid showing through —
+                            that the deeper layers patiently disentangle into a
+                            ring. That's exactly the kind of work extra capacity
+                            might help with. Here it is, as 5-NN recall (how
+                            sharply the model resolves
+                            <em>neighbouring</em> positions) against depth, one
+                            curve per size.
+                        </p>
+                    </div>
+
+                    <figure
+                        class="fig"
+                        data-chart="fracLines"
+                        data-kind="spike_knn5"
+                        data-yname="5-NN recall (local position resolution)"
+                        data-ymin="0.34"
+                        data-ymax="0.75"
+                        data-mark="0.3"
+                    >
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    Spike-position resolution vs depth · the
+                                    whole ladder
+                                </div>
+                                <div class="fig-sub">
+                                    x = fraction of the way through the network,
+                                    so the five depths line up.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart" id="spike-frac"></div>
+                        <figcaption>
+                            Two things. First, every rung
+                            <b>starts at the same point</b> — recall
+                            <b>0.378</b> at layer 0, identical to three digits,
+                            because layer 0 <em>is</em> the patch projection and
+                            the patch grid is shared. Scale can't change what the
+                            tokenizer hands over. Second, the work it then does is
+                            real: the ceiling climbs from <b>0.43</b> (4M) to
+                            <b>0.71</b> (313M) — it nearly doubles. Every curve
+                            peaks around <b>30% depth</b> and then slides back
+                            toward a shared <b>~0.47</b> at the output.
+                        </figcaption>
+                    </figure>
+
+                    <div class="col">
+                        <p>
+                            You can watch the manifold itself sharpen. Each panel
+                            is one size's spike manifold at <em>its</em> best
+                            layer — the folded triangle of the small models
+                            resolving into the clean, ordered loop of the large
+                            ones.
+                        </p>
+                    </div>
+
+                    <figure
+                        class="fig"
+                        data-chart="sizestrip"
+                        data-target="spike_time_frac"
+                        data-rowlabels="spike position at each size's best layer"
+                    >
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    The spike manifold sharpens with size · PCA →
+                                    2D
+                                </div>
+                                <div class="fig-sub">
+                                    Coloured early (blue) → late (red) position.
+                                </div>
+                            </div>
+                            <div class="strip-legend">
+                                early <span class="strip-bar"></span> late
+                            </div>
+                        </div>
+                        <div data-strip id="spike-strip"></div>
+                        <figcaption>
+                            At 4M and 22M the positions still pile into a folded
+                            wedge; by 313M and beyond they unwind into a smooth,
+                            cleanly ordered curve. The shape the 2.5B model spent
+                            Part 1 building is already essentially there at
+                            <b>313M</b>.
+                        </figcaption>
+                    </figure>
+
+                    <div class="col">
+                        <p>
+                            And then it stops. <strong>1B and 2.5B don't beat
+                            313M</strong> — the last 8× of parameters add no new
+                            shape. It isn't that the small models are merely too
+                            shallow to reach the peak: compared at the
+                            <em>same</em> relative depth (30% of the way down),
+                            4M scores 0.39 while 313M scores 0.70. The small
+                            model sits below the others <em>everywhere</em>, not
+                            just at the end — this is a ceiling set by capacity,
+                            and 313M already reaches it.
+                        </p>
+                    </div>
+
+                    <figure
+                        class="fig"
+                        data-chart="scaleCurve"
+                        data-kind="spike"
+                    >
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    Spike geometry vs size — the saturating
+                                    return
+                                </div>
+                                <div class="fig-sub">
+                                    Best-over-layers. Parameters on a log axis.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart" id="spike-scale"></div>
+                        <figcaption>
+                            Local resolution (<b>teal</b>) rises steeply to 313M
+                            and then flattens; global isometry (<b>red</b>,
+                            already high because the order is recoverable along
+                            the fold) barely moves. The scaling win is real and
+                            entirely spent by the middle of the ladder.
+                        </figcaption>
+                    </figure>
+
+                    <div class="col">
+                        <p>
+                            <strong
+                                >Scaling works here — until 313M. After that the
+                                curve is flat.</strong
+                            >
+                        </p>
+                    </div>
+                </section>
+
+                <!-- CASE 3: FREQUENCY -->
+                <section class="block" id="case-frequency">
+                    <div class="col">
+                        <h2>
+                            <span class="num">Case 3 · sine_frequency_hz</span
+                            >When the smallest model ties the largest
+                        </h2>
+                        <p>
+                            Frequency is the factor Toto has to <em>build</em>.
+                            Phase arrives as a clean circle at layer 0; frequency
+                            starts as a tangle and gets straightened out across
+                            depth (Part 1). More depth, surely, should mean a
+                            straighter result — and the 2.5B model has ten times
+                            the layers of the 4M one. Here is global geometry
+                            (geodesic isometry) against depth, per size.
+                        </p>
+                    </div>
+
+                    <figure
+                        class="fig"
+                        data-chart="fracLines"
+                        data-kind="freq_geo"
+                        data-yname="geodesic isometry (global distance order)"
+                        data-ymin="0.78"
+                        data-ymax="1.0"
+                    >
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    Frequency geometry vs depth · the whole
+                                    ladder
+                                </div>
+                                <div class="fig-sub">
+                                    x = fraction of the way through the network.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart" id="freq-frac"></div>
+                        <figcaption>
+                            Watch where each curve ends. All five climb to
+                            roughly the same height and
+                            <b>peak at the last layer</b> — so this is not an
+                            artefact of which layer we pick. The 4M model, in
+                            five layers, reaches <b>0.975</b>; the 2.5B model, in
+                            forty-nine, reaches <b>0.970</b> — fractionally
+                            lower. Plotted against depth-fraction the curves
+                            nearly coincide: frequency geometry tracks
+                            <em>how far through the network you are</em>, not how
+                            wide it is.
+                        </figcaption>
+                    </figure>
+
+                    <div class="col">
+                        <p>
+                            Across the ladder the best global score traces a
+                            gentle <strong>inverted-U</strong> — it peaks at
+                            <strong>313M (0.989)</strong> and the giants slip
+                            back. And <em>locally</em> it's worse than a tie:
+                            5-NN recall among neighbouring frequencies
+                            <strong>falls monotonically</strong> with size,
+                            0.842 → 0.808, and at matched depth the 4M model sits
+                            <em>above</em> the 2.5B one.
+                        </p>
+                    </div>
+
+                    <figure
+                        class="fig"
+                        data-chart="scaleCurve"
+                        data-kind="freq"
+                    >
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    Frequency geometry vs size — flat to falling
+                                </div>
+                                <div class="fig-sub">
+                                    Best-over-layers. Parameters on a log axis.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart" id="freq-scale"></div>
+                        <figcaption>
+                            Global isometry (<b>red</b>) humps at 313M and
+                            declines; local resolution (<b>teal</b>) drifts down
+                            the whole way. The reason is in the signal, not the
+                            model: near Nyquist the sweep is intrinsically
+                            high-dimensional (Part 1), and stacking more layers
+                            can't flatten what isn't flat.
+                        </figcaption>
+                    </figure>
+
+                    <div class="col">
+                        <p>
+                            <strong
+                                >More layers, the same shape — and slightly
+                                blurrier neighbours.</strong
+                            >
+                        </p>
+                    </div>
+                </section>
+
+                <!-- CASE 4: THE MIDDLE -->
+                <section class="block" id="case-middle">
+                    <div class="col">
+                        <h2>
+                            <span class="num">Case 4 · depth</span>The clean
+                            layer is in the middle
+                        </h2>
+                        <p>
+                            Three cases kept raising the same question:
+                            <em>where</em> in the network does the clean geometry
+                            live? For every structured factor the answer is the
+                            same — and it is not the output. Here is the 2.5B
+                            model alone, with four factors' local resolution
+                            plotted against depth.
+                        </p>
+                    </div>
+
+                    <figure
+                        class="fig"
+                        data-chart="fracLines"
+                        data-kind="mid_2p5B"
+                        data-yname="5-NN recall (local resolution)"
+                        data-ymin="0.3"
+                        data-ymax="0.95"
+                        data-mark="0.3"
+                    >
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    Where shape lives · Toto-2.0-2.5B, four
+                                    factors
+                                </div>
+                                <div class="fig-sub">
+                                    49 layers, normalised to 0 (input) → 1
+                                    (output).
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart" id="mid-frac"></div>
+                        <figcaption>
+                            Every structured factor crests in the
+                            <b>first third</b> of the network — around 30% depth
+                            — and then the back two-thirds quietly
+                            <b>degrade</b> it. Spike-position recall peaks at
+                            <b>0.68</b> near layer 14 and slides to <b>0.47</b>
+                            by layer 48; frequency does the same. The deep layers
+                            aren't refining the factor — they're specialising for
+                            forecasting and letting the clean shape blur. (Phase,
+                            already a perfect circle, mostly holds.)
+                        </figcaption>
+                    </figure>
+
+                    <div class="col">
+                        <p>
+                            Which puts the whole scaling story in one sentence. A
+                            bigger Toto-2 doesn't carry a factor's geometry
+                            further along — it
+                            <strong
+                                >rebuilds the same sweet spot at the same relative
+                                depth, and then has more layers in which to walk
+                                away from it.</strong
+                            >
+                            You'd instinctively read out the last layer; for
+                            these factors the middle is where the model
+                            understood the signal best.
+                        </p>
+                        <p class="pull">
+                            Capacity raises the ceiling a factor can reach. It
+                            does not decide which factors are in the room — the
+                            tokenizer already did that.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- WHAT THIS MEASURES -->
+                <section class="block" id="caveats">
+                    <div class="col">
+                        <div class="note">
+                            <h3>What this shows — and what it doesn't</h3>
+                            <ul>
+                                <li>
+                                    It's <strong>representation geometry</strong>
+                                    across a single family's size ladder, not a
+                                    forecasting-accuracy benchmark. A model can
+                                    scale beautifully on loss while a given
+                                    factor's <em>shape</em> saturates, stalls, or
+                                    was never present.
+                                </li>
+                                <li>
+                                    "Best layer" means the
+                                    <strong>best of all layers</strong> for that
+                                    factor. We use it precisely because the clean
+                                    layer is usually in the middle (Case 4);
+                                    reporting the last layer would understate
+                                    every model.
+                                </li>
+                                <li>
+                                    The amplitude and slope results are about the
+                                    <strong>tokenizer</strong>, not the
+                                    architecture's ceiling. The same transformer
+                                    on a tokenizer that kept scale (Part 1's
+                                    LeNEPA contrast) would tell a different
+                                    story.
+                                </li>
+                                <li>
+                                    Everything here is one model
+                                    <em>family</em>. The methods generalise, but
+                                    these specific verdicts are Toto-2's; the
+                                    <a href="manifolds.html">dashboard</a> lets
+                                    you run the same comparison on others.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- GET INVOLVED -->
+                <section class="block" id="get-involved">
+                    <div class="collab">
+                        <p class="eyebrow">
+                            Open research · a community effort
+                        </p>
+                        <h2>
+                            This is research in progress — come build it with us
+                        </h2>
+                        <p>
+                            Everything here is early, evolving, and deliberately
+                            open. Representation geometry for time-series models
+                            is far too interesting — and too big — to keep to
+                            ourselves. Collaboration, questions, pushback, and
+                            wild ideas are all very welcome.
+                        </p>
+                        <ul>
+                            <li>
+                                <strong>Want your model's whole size ladder in
+                                    the benchmark?</strong>
+                                We're happy to add more architectures,
+                                checkpoints, and families.
+                            </li>
+                            <li>
+                                <strong>Have a scaling story we missed?</strong>
+                                Suggest factors, sweeps, and comparisons.
+                            </li>
+                            <li>
+                                <strong>Spotted a bug or a misleading
+                                    metric?</strong>
+                                Tell us — we'll fix it.
+                            </li>
+                            <li>
+                                <strong>Want to dig in together?</strong> We're
+                                keen to co-investigate and publish as a group.
+                            </li>
+                        </ul>
+                        <p>
+                            If any of that resonates, send a message. The open
+                            research wiki below has the full writeup and how to
+                            reach us.
+                        </p>
+                        <div class="actions">
+                            <a
+                                class="cta"
+                                href="https://alex-wiki.langotime.ai/ideas/aionoscope-manifold-reconstruction-benchmark"
+                                target="_blank"
+                                rel="noopener"
+                                >Open research wiki &amp; contact →</a
+                            >
+                            <span class="quiet"
+                                >alex-wiki.langotime.ai/ideas/aionoscope-manifold-reconstruction-benchmark</span
+                            >
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <footer>
+            <div class="wrap">
+                <div class="col" style="max-width: 760px">
+                    <h2 style="margin-top: 0">Go explore the geometry</h2>
+                    <p style="color: var(--ink-soft)">
+                        We compared one model family across five sizes on four
+                        factors. The dashboard has seven generative factors
+                        across forty-five foundation models, every layer, with
+                        the 2D/3D centroid views, layer curves, and distance
+                        diagnostics from Part 1. Pin up to four selections side
+                        by side to run your own small-vs-large comparison.
+                    </p>
+                    <p>
+                        <a class="cta" href="manifolds.html"
+                            >Open full dashboard with manifolds for 45
+                            time-series foundation models</a
+                        >
+                    </p>
+                    <p class="respect">
+                        New here? Start with
+                        <a href="about-manifolds.html"
+                            >Part 1 — The shape of a signal</a
+                        >, which explains the protocol, the metrics, and how to
+                        read every chart. With gratitude to Goodfire's
+                        <a
+                            href="https://www.goodfire.ai/research/neural-geometry"
+                            target="_blank"
+                            rel="noopener"
+                            >Neural Geometry</a
+                        >
+                        series, whose framing set the direction for this work.
+                    </p>
+                    <p class="smallprint">
+                        Langotime Aionoscope manifold suite · controlled-factor-slice
+                        protocol <code>manifold_v0</code> ·
+                        <code>num_enabled = 1</code> · metrics computed in
+                        Python, this page only plots stored artifacts. Models:
+                        <code>Datadog/Toto-2.0-{4M,22M,313M,1B,2.5B}</code>.
+                    </p>
+                </div>
+            </div>
+        </footer>
+
+        <script>
+            (function () {
+                "use strict";
+
+                // ---------- blog-only asset (precomputed scaling summary) ----------
+                // One compact JSON built from results/manifolds/Toto-2.0-*/.../metrics.json
+                // and plots/*_plot_data.json (PCA done in numpy). Lives beside Part 1's
+                // dense-tail asset; resolved on the blog base, not the manifold corpus.
+                var BLOG_REMOTE =
+                    "https://manifolds-data.aionoscope.langotime.ai/blog/about-manifolds/v20260606/";
+                function blogUrl(rel) {
+                    var host = window.location.hostname;
+                    var isLocal =
+                        window.location.protocol === "file:" ||
+                        host === "localhost" ||
+                        host === "127.0.0.1" ||
+                        host === "::1" ||
+                        host === "[::1]";
+                    var base =
+                        typeof window.BLOG_DATA_BASE_URL === "string"
+                            ? window.BLOG_DATA_BASE_URL
+                            : isLocal
+                              ? "about-manifolds-assets/"
+                              : BLOG_REMOTE;
+                    if (!String(base).endsWith("/")) base = String(base) + "/";
+                    return new URL(
+                        rel,
+                        new URL(base, window.location.href),
+                    ).toString();
+                }
+
+                // ---------- shared palette (matches Part 1 / the dashboard) ----------
+                var C = {
+                    blue: "#2563eb",
+                    red: "#dc2626",
+                    teal: "#0f766e",
+                    amber: "#d97706",
+                    coord: ["#2563eb", "#14b8a6", "#f59e0b", "#dc2626"],
+                };
+                // small → large size ramp (cool → warm)
+                var SIZE_COLORS = [
+                    "#9ec5e8",
+                    "#5b9bd5",
+                    "#2563eb",
+                    "#e0892b",
+                    "#dc2626",
+                ];
+
+                function fmt(v) {
+                    if (v === null || v === undefined) return "n/a";
+                    if (typeof v === "number") {
+                        if (!Number.isFinite(v)) return "n/a";
+                        var a = Math.abs(v);
+                        if (a >= 10000 || (a > 0 && a < 0.001))
+                            return v.toExponential(2);
+                        return Math.round(v * 1000) / 1000;
+                    }
+                    return String(v);
+                }
+
+                // ---------- chart plumbing ----------
+                var instances = {};
+                function getChart(id) {
+                    var el = document.getElementById(id);
+                    if (!el) return null;
+                    if (instances[id] && !instances[id].isDisposed())
+                        return instances[id];
+                    el.innerHTML = "";
+                    instances[id] = echarts.init(el, null, {
+                        renderer: "canvas",
+                    });
+                    return instances[id];
+                }
+                function msg(id, text, warn) {
+                    var el = document.getElementById(id);
+                    if (el)
+                        el.innerHTML =
+                            '<div class="chart-msg' +
+                            (warn ? " warn" : "") +
+                            '">' +
+                            text +
+                            "</div>";
+                }
+                function spin(id) {
+                    var el = document.getElementById(id);
+                    if (el)
+                        el.innerHTML =
+                            '<div class="chart-msg"><span class="spinner"></span>loading data…</div>';
+                }
+                function fetchJSON(url) {
+                    return fetch(url, { cache: "force-cache" }).then(function (
+                        r,
+                    ) {
+                        if (!r.ok) throw new Error("HTTP " + r.status);
+                        return r.json();
+                    });
+                }
+                var LOAD_HELP =
+                    "Could not load the scaling data. Local previews expect <code>about-manifolds-assets/scaling_toto2.json</code>; hosted Pages streams it from the blog data CDN. You can also point <code>window.BLOG_DATA_BASE_URL</code> at your own copy.";
+
+                // single fetch for the whole page
+                var SCALE = null;
+                var scaleReady = fetchJSON(blogUrl("scaling_toto2.json")).then(
+                    function (d) {
+                        SCALE = d;
+                        return d;
+                    },
+                );
+
+                // ---------- generic XY chart (lines / scatter, value or log x) ----------
+                function xyChart(id, series, opts) {
+                    opts = opts || {};
+                    var chart = getChart(id);
+                    if (!chart) return;
+                    chart.setOption(
+                        {
+                            animation: false,
+                            grid: {
+                                left: 56,
+                                right: 18,
+                                top: opts.legend ? 42 : 18,
+                                bottom: 48,
+                            },
+                            legend: opts.legend
+                                ? {
+                                      top: 4,
+                                      type: "scroll",
+                                      textStyle: { fontSize: 12 },
+                                  }
+                                : undefined,
+                            tooltip: {
+                                trigger:
+                                    opts.tooltip === "item" ? "item" : "axis",
+                                valueFormatter: function (v) {
+                                    return v == null ? "n/a" : fmt(v);
+                                },
+                                formatter:
+                                    opts.tooltip === "item"
+                                        ? function (p) {
+                                              var v = p.value || [];
+                                              var head = p.data[2]
+                                                  ? "<b>" + p.data[2] + "</b>"
+                                                  : "<b>" +
+                                                    p.seriesName +
+                                                    "</b>";
+                                              return (
+                                                  head +
+                                                  "<br>" +
+                                                  fmt(v[0]) +
+                                                  "M params<br>" +
+                                                  (opts.yName || "value") +
+                                                  ": " +
+                                                  fmt(v[1])
+                                              );
+                                          }
+                                        : undefined,
+                            },
+                            xAxis: {
+                                type: opts.xType || "value",
+                                name: opts.xName || "",
+                                nameLocation: "middle",
+                                nameGap: 30,
+                                min: opts.xMin,
+                                max: opts.xMax,
+                                axisLabel: { fontSize: 11 },
+                                splitLine: {
+                                    lineStyle: { color: "#f0eee7" },
+                                },
+                            },
+                            yAxis: {
+                                type: "value",
+                                name: opts.yName || "",
+                                nameGap: 14,
+                                nameTextStyle: { align: "left" },
+                                min: opts.yMin,
+                                max: opts.yMax,
+                                axisLabel: { fontSize: 11 },
+                                splitLine: {
+                                    lineStyle: { color: "#f0eee7" },
+                                },
+                            },
+                            series: series.map(function (s) {
+                                var isScatter = s.type === "scatter";
+                                return {
+                                    name: s.name,
+                                    type: isScatter ? "scatter" : "line",
+                                    data: s.data,
+                                    showSymbol: true,
+                                    symbol: "circle",
+                                    symbolSize:
+                                        s.symbolSize ||
+                                        (isScatter ? 12 : 7),
+                                    smooth: isScatter
+                                        ? false
+                                        : s.smooth !== false,
+                                    lineStyle: isScatter
+                                        ? undefined
+                                        : {
+                                              width: s.width || 2.5,
+                                              color: s.color,
+                                              type: s.dash
+                                                  ? "dashed"
+                                                  : "solid",
+                                          },
+                                    itemStyle: {
+                                        color: s.color,
+                                        opacity:
+                                            s.opacity == null ? 1 : s.opacity,
+                                        borderColor: "#fff",
+                                        borderWidth: isScatter ? 1.2 : 0,
+                                    },
+                                    label: s.labels
+                                        ? {
+                                              show: true,
+                                              position: s.labelPos || "right",
+                                              formatter: function (p) {
+                                                  return p.data[2] || "";
+                                              },
+                                              fontSize: 11,
+                                              fontWeight: 600,
+                                              color: s.color,
+                                          }
+                                        : undefined,
+                                    markLine: s.markLine
+                                        ? {
+                                              silent: true,
+                                              symbol: "none",
+                                              lineStyle: {
+                                                  color: "#9aa7b3",
+                                                  type: "dashed",
+                                                  width: 1,
+                                              },
+                                              label: {
+                                                  show: true,
+                                                  formatter: s.markLine.label,
+                                                  color: "#75879a",
+                                                  fontSize: 11,
+                                                  position: "insideEndTop",
+                                              },
+                                              data: s.markLine.data,
+                                          }
+                                        : undefined,
+                                    z: s.z || 2,
+                                };
+                            }),
+                        },
+                        true,
+                    );
+                }
+
+                // ---------- manifold thumbnail (ported from Part 1) ----------
+                function renderManifoldMini(id, emb, coords) {
+                    var chart = getChart(id);
+                    if (!chart) return;
+                    var data = emb.map(function (pt, idx) {
+                        return [pt[0], pt[1], coords[idx], idx];
+                    });
+                    var cv = coords.filter(function (x) {
+                        return Number.isFinite(x);
+                    });
+                    var low = cv.length ? Math.min.apply(null, cv) : 0,
+                        high = cv.length ? Math.max.apply(null, cv) : 1;
+                    chart.setOption(
+                        {
+                            animation: false,
+                            grid: { left: 7, right: 7, top: 7, bottom: 7 },
+                            tooltip: {
+                                trigger: "item",
+                                formatter: function (pr) {
+                                    var v = pr.value || [];
+                                    return (
+                                        "grid " + v[3] + "<br>value: " + fmt(v[2])
+                                    );
+                                },
+                            },
+                            visualMap: {
+                                show: false,
+                                type: "continuous",
+                                min: low,
+                                max: high === low ? low + 1 : high,
+                                dimension: 2,
+                                inRange: { color: C.coord },
+                            },
+                            xAxis: { type: "value", scale: true, show: false },
+                            yAxis: { type: "value", scale: true, show: false },
+                            series: [
+                                {
+                                    type: "line",
+                                    data: data,
+                                    showSymbol: false,
+                                    silent: true,
+                                    emphasis: { disabled: true },
+                                    lineStyle: { width: 0.8, color: "#c2ccd6" },
+                                    z: 1,
+                                },
+                                {
+                                    type: "scatter",
+                                    data: data,
+                                    symbolSize: data.length < 5 ? 13 : 3.4,
+                                    itemStyle: { opacity: 0.78 },
+                                    z: 2,
+                                },
+                            ],
+                        },
+                        true,
+                    );
+                }
+
+                // ---------- loaders ----------
+                function fracLines(fig) {
+                    var el = fig.querySelector(".chart");
+                    if (!el) return;
+                    var id = el.id;
+                    spin(id);
+                    scaleReady
+                        .then(function (S) {
+                            var kind = fig.getAttribute("data-kind");
+                            var rows = (S.fracCurves || {})[kind];
+                            if (!rows) {
+                                msg(id, "No data for " + kind + ".");
+                                return;
+                            }
+                            var isFactors = kind === "mid_2p5B";
+                            var colors = isFactors
+                                ? [C.blue, C.red, C.amber, C.teal]
+                                : SIZE_COLORS;
+                            var series = rows.map(function (r, i) {
+                                var data = [];
+                                for (var j = 0; j < r.frac.length; j++) {
+                                    if (r.val[j] != null)
+                                        data.push([r.frac[j], r.val[j]]);
+                                }
+                                return {
+                                    name: r.label,
+                                    color: colors[i % colors.length],
+                                    data: data,
+                                    width: isFactors ? 2.6 : 2 + i * 0.25,
+                                };
+                            });
+                            var mark = fig.getAttribute("data-mark");
+                            if (mark && series[0]) {
+                                series[0].markLine = {
+                                    label:
+                                        "≈ " +
+                                        Math.round(Number(mark) * 100) +
+                                        "% depth",
+                                    data: [{ xAxis: Number(mark) }],
+                                };
+                            }
+                            var ymin = fig.getAttribute("data-ymin");
+                            var ymax = fig.getAttribute("data-ymax");
+                            xyChart(id, series, {
+                                xName:
+                                    "depth — fraction of layers (0 = input · 1 = output)",
+                                yName: fig.getAttribute("data-yname") || "",
+                                xMin: 0,
+                                xMax: 1,
+                                yMin: ymin != null ? Number(ymin) : undefined,
+                                yMax: ymax != null ? Number(ymax) : undefined,
+                                legend: true,
+                                tooltip: "axis",
+                            });
+                        })
+                        .catch(function () {
+                            msg(id, LOAD_HELP, true);
+                        });
+                }
+
+                function scaleCurve(fig) {
+                    var el = fig.querySelector(".chart");
+                    if (!el) return;
+                    var id = el.id;
+                    spin(id);
+                    scaleReady
+                        .then(function (S) {
+                            var kind = fig.getAttribute("data-kind");
+                            if (kind === "amp") {
+                                var keep = [],
+                                    toto2 = [],
+                                    drop = [];
+                                (S.ampFoil || []).forEach(function (m) {
+                                    if (m.fam === "Toto-2")
+                                        toto2.push([
+                                            m.paramsM,
+                                            m.knn5,
+                                            m.label.split("· ")[1] || "",
+                                        ]);
+                                    else if (m.fam === "drop")
+                                        drop.push([m.paramsM, m.knn5, m.label]);
+                                    else
+                                        keep.push([m.paramsM, m.knn5, m.label]);
+                                });
+                                toto2.sort(function (a, b) {
+                                    return a[0] - b[0];
+                                });
+                                xyChart(
+                                    id,
+                                    [
+                                        {
+                                            name: "keeps amplitude",
+                                            type: "scatter",
+                                            color: C.teal,
+                                            symbolSize: 13,
+                                            data: keep,
+                                            labels: true,
+                                            labelPos: "right",
+                                        },
+                                        {
+                                            name: "other models that discard it",
+                                            type: "scatter",
+                                            color: "#9aa7b3",
+                                            symbolSize: 10,
+                                            data: drop,
+                                            labels: true,
+                                            labelPos: "top",
+                                            opacity: 0.85,
+                                        },
+                                        {
+                                            name: "Toto-2 ladder",
+                                            type: "line",
+                                            color: C.red,
+                                            width: 2.6,
+                                            symbolSize: 9,
+                                            data: toto2,
+                                            labels: true,
+                                            labelPos: "bottom",
+                                        },
+                                    ],
+                                    {
+                                        xName: "parameters (millions, log)",
+                                        yName: "best 5-NN recall",
+                                        xType: "log",
+                                        yMin: -0.04,
+                                        yMax: 1,
+                                        legend: true,
+                                        tooltip: "item",
+                                    },
+                                );
+                            } else if (kind === "spike") {
+                                var sc = S.scaling.spike_time_frac;
+                                xyChart(
+                                    id,
+                                    [
+                                        {
+                                            name: "best 5-NN recall (local position)",
+                                            type: "line",
+                                            color: C.teal,
+                                            width: 2.8,
+                                            symbolSize: 10,
+                                            data: sc.paramsM.map(function (
+                                                p,
+                                                i,
+                                            ) {
+                                                return [
+                                                    p,
+                                                    sc.best_knn5[i],
+                                                    sc.labels[i],
+                                                ];
+                                            }),
+                                            labels: true,
+                                            labelPos: "top",
+                                        },
+                                        {
+                                            name: "best geodesic isometry (global)",
+                                            type: "line",
+                                            color: C.red,
+                                            width: 2.4,
+                                            symbolSize: 8,
+                                            dash: true,
+                                            data: sc.paramsM.map(function (
+                                                p,
+                                                i,
+                                            ) {
+                                                return [p, sc.best_geo[i]];
+                                            }),
+                                        },
+                                    ],
+                                    {
+                                        xName: "parameters (millions, log)",
+                                        yName: "score",
+                                        xType: "log",
+                                        yMin: 0.3,
+                                        yMax: 1.03,
+                                        legend: true,
+                                        tooltip: "axis",
+                                    },
+                                );
+                            } else if (kind === "freq") {
+                                var f = S.scaling.sine_frequency_hz;
+                                xyChart(
+                                    id,
+                                    [
+                                        {
+                                            name: "best geodesic isometry (global)",
+                                            type: "line",
+                                            color: C.red,
+                                            width: 2.8,
+                                            symbolSize: 10,
+                                            data: f.paramsM.map(function (p, i) {
+                                                return [
+                                                    p,
+                                                    f.best_geo[i],
+                                                    f.labels[i],
+                                                ];
+                                            }),
+                                            labels: true,
+                                            labelPos: "top",
+                                        },
+                                        {
+                                            name: "best 5-NN recall (local)",
+                                            type: "line",
+                                            color: C.teal,
+                                            width: 2.4,
+                                            symbolSize: 8,
+                                            dash: true,
+                                            data: f.paramsM.map(function (p, i) {
+                                                return [p, f.best_knn5[i]];
+                                            }),
+                                        },
+                                    ],
+                                    {
+                                        xName: "parameters (millions, log)",
+                                        yName: "score",
+                                        xType: "log",
+                                        yMin: 0.79,
+                                        yMax: 1.0,
+                                        legend: true,
+                                        tooltip: "axis",
+                                    },
+                                );
+                            }
+                        })
+                        .catch(function () {
+                            msg(id, LOAD_HELP, true);
+                        });
+                }
+
+                function sizestrip(fig) {
+                    var host = fig.querySelector("[data-strip]");
+                    if (!host) return;
+                    host.innerHTML =
+                        '<div class="chart-msg"><span class="spinner"></span>loading data…</div>';
+                    var targets = (fig.getAttribute("data-target") || "")
+                        .split(",")
+                        .map(function (s) {
+                            return s.trim();
+                        })
+                        .filter(Boolean);
+                    var rowlabels = (
+                        fig.getAttribute("data-rowlabels") || ""
+                    ).split("|");
+                    scaleReady
+                        .then(function (S) {
+                            host.innerHTML = "";
+                            targets.forEach(function (tgt, ti) {
+                                if (rowlabels[ti]) {
+                                    var rl = document.createElement("div");
+                                    rl.className = "strip-rowlab";
+                                    rl.textContent = rowlabels[ti].trim();
+                                    host.appendChild(rl);
+                                }
+                                var grid = document.createElement("div");
+                                grid.className = "strip-grid";
+                                host.appendChild(grid);
+                                var rows = (S.strips || {})[tgt] || [];
+                                rows.forEach(function (s) {
+                                    var cell = document.createElement("div");
+                                    cell.className = "strip-cell";
+                                    var lab = document.createElement("div");
+                                    lab.className = "strip-lab";
+                                    lab.textContent = s.label;
+                                    var sub = document.createElement("div");
+                                    sub.className = "strip-sub";
+                                    sub.textContent = s.collapsed
+                                        ? "1 point (all identical)"
+                                        : "layer " +
+                                          s.layer +
+                                          " · " +
+                                          Math.round(s.planar * 100) +
+                                          "% planar";
+                                    var ch = document.createElement("div");
+                                    ch.className = "chart strip-chart";
+                                    ch.id =
+                                        "strip-" +
+                                        tgt.replace(/\W/g, "") +
+                                        "-" +
+                                        s.label.replace(/\W/g, "");
+                                    cell.appendChild(lab);
+                                    cell.appendChild(sub);
+                                    cell.appendChild(ch);
+                                    grid.appendChild(cell);
+                                    var pts = s.pts,
+                                        coord = s.coord;
+                                    if (
+                                        s.geometry === "circle" &&
+                                        pts.length > 2
+                                    ) {
+                                        pts = pts.concat([pts[0]]);
+                                        coord = coord.concat([coord[0]]);
+                                    }
+                                    renderManifoldMini(ch.id, pts, coord);
+                                });
+                            });
+                        })
+                        .catch(function () {
+                            host.innerHTML =
+                                '<div class="chart-msg warn">' +
+                                LOAD_HELP +
+                                "</div>";
+                        });
+                }
+
+                function ampNorm(fig) {
+                    var rawEl = fig.querySelector("[data-raw]");
+                    var normEl = fig.querySelector("[data-norm]");
+                    if (!rawEl || !normEl) return;
+                    var N = 260,
+                        cyc = 3,
+                        amps = [0.3, 0.6, 0.9, 1.2],
+                        ramp = ["#bcd0e8", "#6f9fd6", "#2563eb", "#0f766e"];
+                    function sine(A) {
+                        var d = [];
+                        for (var i = 0; i < N; i++) {
+                            var t = i / (N - 1);
+                            d.push([t, A * Math.sin(2 * Math.PI * cyc * t)]);
+                        }
+                        return d;
+                    }
+                    function std(d) {
+                        var m = 0,
+                            n = d.length,
+                            i;
+                        for (i = 0; i < n; i++) m += d[i][1];
+                        m /= n;
+                        var v = 0;
+                        for (i = 0; i < n; i++) {
+                            var e = d[i][1] - m;
+                            v += e * e;
+                        }
+                        v = Math.sqrt(v / n) || 1;
+                        return d.map(function (p) {
+                            return [p[0], (p[1] - m) / v];
+                        });
+                    }
+                    xyChart(
+                        rawEl.id,
+                        amps.map(function (A, i) {
+                            return {
+                                name: "A = " + A.toFixed(1),
+                                color: ramp[i],
+                                data: sine(A),
+                                width: 2,
+                            };
+                        }),
+                        {
+                            xName: "time (window)",
+                            yName: "raw amplitude",
+                            xMin: 0,
+                            xMax: 1,
+                            yMin: -1.35,
+                            yMax: 1.35,
+                            legend: true,
+                            tooltip: "axis",
+                        },
+                    );
+                    xyChart(
+                        normEl.id,
+                        amps.map(function (A, i) {
+                            return {
+                                name: "A = " + A.toFixed(1),
+                                color: ramp[i],
+                                data: std(sine(A)),
+                                width: i === amps.length - 1 ? 2.6 : 1.4,
+                                dash: i < amps.length - 1,
+                            };
+                        }),
+                        {
+                            xName: "time (window)",
+                            yName: "after standardisation",
+                            xMin: 0,
+                            xMax: 1,
+                            yMin: -1.85,
+                            yMax: 1.85,
+                            legend: false,
+                            tooltip: "axis",
+                        },
+                    );
+                }
+
+                var LOADERS = {
+                    fracLines: fracLines,
+                    scaleCurve: scaleCurve,
+                    sizestrip: sizestrip,
+                    ampNorm: ampNorm,
+                };
+
+                // ---------- contents + reading time ----------
+                function slugify(s) {
+                    return s
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/^-+|-+$/g, "");
+                }
+                function readMinutes(root) {
+                    var words = 0;
+                    root.querySelectorAll(
+                        "p, li, h2, h3, figcaption",
+                    ).forEach(function (n) {
+                        if (n.closest(".toc")) return;
+                        var t = n.textContent.replace(/\s+/g, " ").trim();
+                        if (t) words += t.split(" ").length;
+                    });
+                    var figures = root.querySelectorAll("figure").length;
+                    return Math.max(
+                        1,
+                        Math.round(words / 200 + figures * 0.25),
+                    );
+                }
+                function buildMeta() {
+                    var main = document.querySelector("main");
+                    if (!main) return;
+                    var rt = document.getElementById("read-time");
+                    if (rt)
+                        rt.textContent = "≈ " + readMinutes(main) + " min read";
+                    var list = document.getElementById("toc-list");
+                    if (!list) return;
+                    main.querySelectorAll("h2, .note h3").forEach(function (h) {
+                        var num = h.querySelector(".num");
+                        var rawNum = num ? num.textContent : "";
+                        var label = rawNum.replace(/\s+/g, " ").trim();
+                        var title = (
+                            rawNum
+                                ? h.textContent.replace(rawNum, "")
+                                : h.textContent
+                        )
+                            .replace(/\s+/g, " ")
+                            .trim();
+                        var sec = h.closest("section") || h;
+                        if (!sec.id) sec.id = slugify(label || title);
+                        var a = document.createElement("a");
+                        a.href = "#" + sec.id;
+                        var box = document.createElement("span");
+                        box.className = "toc-text";
+                        if (label) {
+                            var kn = document.createElement("span");
+                            kn.className = "toc-kicker";
+                            kn.textContent = label;
+                            box.appendChild(kn);
+                        }
+                        var tn = document.createElement("span");
+                        tn.className = "toc-title";
+                        tn.textContent = title;
+                        box.appendChild(tn);
+                        a.appendChild(box);
+                        var mn = document.createElement("span");
+                        mn.className = "toc-min";
+                        mn.textContent = readMinutes(sec) + " min";
+                        a.appendChild(mn);
+                        var li = document.createElement("li");
+                        li.appendChild(a);
+                        list.appendChild(li);
+                    });
+                }
+
+                // ---------- lazy init on scroll ----------
+                function init() {
+                    buildMeta();
+                    var figs = Array.prototype.slice.call(
+                        document.querySelectorAll("figure.fig[data-chart]"),
+                    );
+                    var io = new IntersectionObserver(
+                        function (entries) {
+                            entries.forEach(function (en) {
+                                if (!en.isIntersecting) return;
+                                var fig = en.target;
+                                io.unobserve(fig);
+                                if (fig.__loaded) return;
+                                fig.__loaded = true;
+                                var fn =
+                                    LOADERS[fig.getAttribute("data-chart")];
+                                if (fn)
+                                    try {
+                                        fn(fig);
+                                    } catch (e) {
+                                        /* swallow */
+                                    }
+                            });
+                        },
+                        { rootMargin: "240px 0px" },
+                    );
+                    figs.forEach(function (f) {
+                        io.observe(f);
+                    });
+                    window.addEventListener("resize", function () {
+                        Object.keys(instances).forEach(function (k) {
+                            if (instances[k] && !instances[k].isDisposed())
+                                instances[k].resize();
+                        });
+                    });
+                }
+                if (document.readyState === "loading")
+                    document.addEventListener("DOMContentLoaded", init);
+                else init();
+            })();
+        </script>
+    </body>
+</html>

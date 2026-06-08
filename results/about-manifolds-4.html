@@ -1,0 +1,1914 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Where linear probes go blind — Aionoscope manifolds, Part 4</title>
+        <meta
+            name="description"
+            content="As Toto-2.0 grows from 4 million to 2.5 billion parameters, do its representation manifolds get cleaner? A factor-by-factor look at where scaling helps the geometry, where it saturates, and where it does nothing at all."
+        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,16..72,400;0,16..72,500;0,16..72,600;1,16..72,400&display=swap"
+            rel="stylesheet"
+        />
+        <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+        <script
+            src="https://cdn.jsdelivr.net/npm/echarts-gl@2/dist/echarts-gl.min.js"
+            onerror="window.__glLoadFailed = true"
+        ></script>
+        <style>
+            :root {
+                color-scheme: light;
+                --ink: #16202b;
+                --ink-soft: #44566a;
+                --ink-faint: #75879a;
+                --bg: #fbfaf7;
+                --panel: #ffffff;
+                --line: #e7e3da;
+                --line-strong: #d8d3c7;
+                --accent: #0f766e;
+                --blue: #2563eb;
+                --red: #dc2626;
+                --amber: #d97706;
+                --serif: "Newsreader", Georgia, "Times New Roman", serif;
+                --sans:
+                    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+                    Roboto, sans-serif;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            html {
+                scroll-behavior: smooth;
+            }
+            body {
+                margin: 0;
+                background: var(--bg);
+                color: var(--ink);
+                font-family: var(--sans);
+                font-size: 18px;
+                line-height: 1.72;
+                -webkit-font-smoothing: antialiased;
+                text-rendering: optimizeLegibility;
+            }
+            .wrap {
+                max-width: 1180px;
+                margin: 0 auto;
+                padding: 0 24px;
+            }
+            .col {
+                max-width: 720px;
+                margin: 0 auto;
+            }
+
+            /* ---- hero ---- */
+            header.hero {
+                position: relative;
+                overflow: hidden;
+                background:
+                    radial-gradient(
+                        1200px 520px at 12% -10%,
+                        #d9f2ee 0%,
+                        rgba(217, 242, 238, 0) 60%
+                    ),
+                    radial-gradient(
+                        1000px 480px at 95% 0%,
+                        #e7edff 0%,
+                        rgba(231, 237, 255, 0) 55%
+                    ),
+                    linear-gradient(180deg, #fbfaf7 0%, #fbfaf7 100%);
+                border-bottom: 1px solid var(--line);
+            }
+            .hero-inner {
+                padding: 92px 24px 64px;
+            }
+            .eyebrow {
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                color: var(--accent);
+                margin: 0 0 22px;
+            }
+            h1 {
+                font-family: var(--serif);
+                font-weight: 500;
+                font-size: clamp(2.3rem, 5.2vw, 3.7rem);
+                line-height: 1.06;
+                letter-spacing: -0.012em;
+                margin: 0 0 24px;
+                color: var(--ink);
+            }
+            .lede {
+                font-family: var(--serif);
+                font-size: clamp(1.18rem, 2.3vw, 1.42rem);
+                line-height: 1.55;
+                color: var(--ink-soft);
+                margin: 0 0 8px;
+            }
+            .byline {
+                margin-top: 30px;
+                font-size: 14px;
+                color: var(--ink-faint);
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px 16px;
+                align-items: center;
+            }
+            .byline .dot {
+                width: 4px;
+                height: 4px;
+                border-radius: 50%;
+                background: var(--line-strong);
+            }
+            .byline a {
+                color: var(--accent);
+                text-decoration: none;
+            }
+            .byline a:hover {
+                text-decoration: underline;
+            }
+            .read-time {
+                font-weight: 500;
+                color: var(--ink-soft);
+            }
+            .read-time:empty,
+            .read-time:empty + .read-dot {
+                display: none;
+            }
+
+            /* ---- contents card ---- */
+            .toc {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 14px;
+                padding: 20px 26px;
+                margin: 30px auto 8px;
+                max-width: 720px;
+            }
+            .toc-head {
+                font-family: var(--sans);
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                color: var(--accent);
+                margin: 0 0 6px;
+            }
+            .toc ol {
+                margin: 0;
+                padding: 0;
+                list-style: none;
+                counter-reset: toc;
+            }
+            .toc li {
+                border-top: 1px solid var(--line);
+                counter-increment: toc;
+            }
+            .toc li:first-child {
+                border-top: 0;
+            }
+            .toc a {
+                display: flex;
+                gap: 14px;
+                align-items: baseline;
+                padding: 10px 0;
+                text-decoration: none;
+                color: var(--ink);
+            }
+            .toc a::before {
+                content: counter(toc, decimal-leading-zero);
+                flex: 0 0 auto;
+                font-family: var(--sans);
+                font-size: 13px;
+                font-weight: 600;
+                color: var(--accent);
+                font-variant-numeric: tabular-nums;
+            }
+            .toc-text {
+                display: flex;
+                flex-direction: column;
+                gap: 1px;
+            }
+            .toc-kicker {
+                font-family: var(--sans);
+                font-size: 11px;
+                font-weight: 600;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--ink-faint);
+            }
+            .toc-title {
+                font-family: var(--serif);
+                font-size: 1.05rem;
+            }
+            .toc-min {
+                flex: 0 0 auto;
+                margin-left: auto;
+                font-family: var(--sans);
+                font-size: 12px;
+                font-weight: 500;
+                color: var(--ink-faint);
+                font-variant-numeric: tabular-nums;
+                white-space: nowrap;
+            }
+            .toc a:hover .toc-title {
+                color: var(--accent);
+            }
+            section[id] {
+                scroll-margin-top: 18px;
+            }
+
+            /* ---- article body ---- */
+            main {
+                padding: 8px 0 40px;
+            }
+            section.block {
+                padding: 30px 0;
+            }
+            h2 {
+                font-family: var(--serif);
+                font-weight: 600;
+                font-size: clamp(1.7rem, 3.2vw, 2.15rem);
+                line-height: 1.16;
+                letter-spacing: -0.01em;
+                margin: 40px 0 6px;
+            }
+            h2 .num {
+                display: block;
+                font-family: var(--sans);
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                color: var(--accent);
+                margin-bottom: 12px;
+            }
+            h3 {
+                font-family: var(--sans);
+                font-weight: 600;
+                font-size: 1.18rem;
+                margin: 34px 0 4px;
+                color: var(--ink);
+            }
+            p {
+                margin: 18px 0;
+            }
+            a {
+                color: var(--accent);
+            }
+            strong {
+                font-weight: 600;
+                color: var(--ink);
+            }
+            em {
+                color: var(--ink);
+            }
+            .col ul {
+                margin: 18px 0;
+                padding-left: 22px;
+            }
+            .col li {
+                margin: 8px 0;
+            }
+            code {
+                font-family:
+                    ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+                font-size: 0.86em;
+                background: #f1efe8;
+                border: 1px solid var(--line);
+                padding: 1px 6px;
+                border-radius: 5px;
+                color: #355;
+            }
+
+            .pull {
+                font-family: var(--serif);
+                font-size: 1.5rem;
+                line-height: 1.4;
+                font-weight: 500;
+                color: var(--accent);
+                border-left: 3px solid var(--accent);
+                padding: 6px 0 6px 24px;
+                margin: 40px auto;
+                max-width: 720px;
+            }
+
+            /* stat callouts */
+            .stats {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 14px;
+                margin: 28px auto;
+                max-width: 720px;
+            }
+            .stat {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                padding: 16px 18px;
+            }
+            .stat .v {
+                font-family: var(--serif);
+                font-size: 1.9rem;
+                font-weight: 600;
+                line-height: 1;
+                color: var(--accent);
+            }
+            .stat .l {
+                font-size: 13px;
+                color: var(--ink-faint);
+                margin-top: 8px;
+                line-height: 1.35;
+            }
+
+            /* ---- figures / charts ---- */
+            figure.fig {
+                margin: 40px auto;
+                max-width: 1000px;
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 16px;
+                padding: 18px 18px 14px;
+                box-shadow: 0 1px 2px rgba(20, 30, 40, 0.03);
+            }
+            .fig-head {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                gap: 12px;
+                flex-wrap: wrap;
+                margin: 4px 4px 10px;
+            }
+            .fig-title {
+                font-family: var(--sans);
+                font-weight: 600;
+                font-size: 1.02rem;
+                color: var(--ink);
+            }
+            .fig-sub {
+                font-size: 13px;
+                color: var(--ink-faint);
+            }
+            .chart {
+                width: 100%;
+                height: 440px;
+            }
+            .chart.short {
+                height: 360px;
+            }
+            .chart.tall {
+                height: 520px;
+            }
+            .twin {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+            .twin .chart {
+                height: 360px;
+            }
+            @media (max-width: 720px) {
+                .twin {
+                    grid-template-columns: 1fr;
+                }
+            }
+            /* filmstrip: small-multiples of one manifold */
+            .strip-grid {
+                display: grid;
+                grid-template-columns: repeat(5, 1fr);
+                gap: 12px 8px;
+            }
+            @media (max-width: 720px) {
+                .strip-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+            }
+            .strip-rowlab {
+                font-family: var(--sans);
+                font-size: 12px;
+                font-weight: 600;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+                color: var(--ink-faint);
+                margin: 14px 2px 4px;
+            }
+            .strip-rowlab:first-child {
+                margin-top: 2px;
+            }
+            .strip-cell {
+                display: flex;
+                flex-direction: column;
+            }
+            .strip-lab {
+                font-family: var(--sans);
+                font-size: 12.5px;
+                font-weight: 600;
+                color: var(--ink);
+                margin: 0 2px;
+            }
+            .strip-sub {
+                font-size: 11px;
+                color: var(--ink-faint);
+                margin: 0 2px 1px;
+                min-height: 14px;
+            }
+            .strip-chart {
+                width: 100%;
+                height: 150px;
+            }
+            .strip-legend {
+                display: inline-flex;
+                align-items: center;
+                gap: 7px;
+                font-size: 12px;
+                color: var(--ink-faint);
+            }
+            .strip-bar {
+                width: 92px;
+                height: 9px;
+                border-radius: 5px;
+                background: linear-gradient(
+                    90deg,
+                    #2563eb,
+                    #14b8a6,
+                    #f59e0b,
+                    #dc2626
+                );
+            }
+            figcaption {
+                font-size: 14.5px;
+                line-height: 1.6;
+                color: var(--ink-soft);
+                margin: 12px 6px 4px;
+                padding-top: 12px;
+                border-top: 1px solid var(--line);
+            }
+            figcaption b {
+                color: var(--ink);
+                font-weight: 600;
+            }
+
+            .chart-msg {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100%;
+                text-align: center;
+                color: var(--ink-faint);
+                font-size: 14px;
+                padding: 24px;
+                line-height: 1.5;
+            }
+            .chart-msg.warn {
+                color: #8a5a00;
+            }
+            .spinner {
+                width: 22px;
+                height: 22px;
+                border: 3px solid #e3ddcf;
+                border-top-color: var(--accent);
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+                margin-right: 12px;
+            }
+            @keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            /* note / caveat boxes */
+            .note {
+                background: #f5f8f7;
+                border: 1px solid #d6e6e2;
+                border-left: 3px solid var(--accent);
+                border-radius: 10px;
+                padding: 4px 22px;
+                margin: 26px auto;
+                max-width: 720px;
+            }
+            .note h3 {
+                margin-top: 18px;
+            }
+
+            /* collaboration / get-involved callout */
+            .collab {
+                position: relative;
+                overflow: hidden;
+                background:
+                    radial-gradient(
+                        820px 360px at 100% -30%,
+                        #d9f2ee 0%,
+                        rgba(217, 242, 238, 0) 62%
+                    ),
+                    radial-gradient(
+                        620px 280px at -10% 120%,
+                        #e7edff 0%,
+                        rgba(231, 237, 255, 0) 60%
+                    ),
+                    linear-gradient(180deg, #ffffff 0%, #fbfdfc 100%);
+                border: 1px solid #cfe5e0;
+                border-radius: 18px;
+                padding: 32px 36px 30px;
+                margin: 8px auto;
+                max-width: 760px;
+                box-shadow: 0 4px 22px rgba(15, 118, 110, 0.07);
+            }
+            .collab .eyebrow {
+                margin-bottom: 14px;
+            }
+            .collab h2 {
+                margin: 0 0 4px;
+            }
+            .collab p {
+                margin: 14px 0;
+            }
+            .collab ul {
+                margin: 16px 0 22px;
+                padding-left: 0;
+                list-style: none;
+            }
+            .collab li {
+                position: relative;
+                padding-left: 28px;
+                margin: 10px 0;
+            }
+            .collab li::before {
+                content: "";
+                position: absolute;
+                left: 4px;
+                top: 11px;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: var(--accent);
+            }
+            .collab .actions {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 14px 18px;
+                align-items: center;
+                margin-top: 8px;
+            }
+            .collab .quiet {
+                font-size: 14px;
+                color: var(--ink-faint);
+            }
+            .collab .quiet a {
+                color: var(--accent);
+            }
+
+            /* footer */
+            footer {
+                border-top: 1px solid var(--line);
+                margin-top: 40px;
+                padding: 48px 24px 80px;
+                background: #f6f4ee;
+            }
+            .cta {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                background: var(--accent);
+                color: #fff;
+                text-decoration: none;
+                font-weight: 600;
+                padding: 13px 22px;
+                border-radius: 11px;
+                font-size: 15px;
+            }
+            .cta:hover {
+                background: #0c5f58;
+            }
+            .respect {
+                font-size: 15px;
+                color: var(--ink-soft);
+                margin-top: 28px;
+            }
+            .respect a {
+                color: var(--accent);
+            }
+            .smallprint {
+                font-size: 13px;
+                color: var(--ink-faint);
+                margin-top: 22px;
+            }
+            hr.soft {
+                border: 0;
+                border-top: 1px solid var(--line);
+                margin: 36px auto;
+                max-width: 720px;
+            }
+            /* 2x2 methods grid (Part 4) */
+            table.grid2 {
+                width: 100%;
+                max-width: 720px;
+                margin: 22px auto 8px;
+                border-collapse: collapse;
+                font-size: 15px;
+            }
+            table.grid2 td {
+                border: 1px solid var(--line);
+                padding: 12px 14px;
+                vertical-align: top;
+                color: var(--ink-soft);
+                line-height: 1.5;
+            }
+            table.grid2 td.gh {
+                background: #f6f4ef;
+                font-weight: 600;
+                color: var(--ink);
+                font-size: 13px;
+                width: 18%;
+            }
+            table.grid2 td b {
+                color: var(--ink);
+            }
+        </style>
+    </head>
+    <body>
+        <header class="hero">
+            <div class="hero-inner wrap">
+                <div class="col">
+                    <p class="eyebrow">
+                        Langotime Aionoscope&nbsp;·&nbsp;Representation Geometry
+                        · Part&nbsp;4
+                    </p>
+                    <h1>Where linear probes go blind</h1>
+                    <p class="lede">
+                        A colleague read Part 1 and asked the right question:
+                        how does this geometry compare to the tool everyone
+                        already trusts — the <em>linear probe</em> — and what
+                        does it catch that the probe doesn't? Fair. So here are
+                        the two diagnostics, side by side, on the same factors
+                        and the same models. The punchline: a probe score is a
+                        single number, and a low number has <em>two opposite
+                        causes</em> the probe can't tell apart. The geometry can.
+                    </p>
+                    <div class="byline">
+                        <span id="read-time" class="read-time"></span>
+                        <span class="dot read-dot" aria-hidden="true"></span>
+                        <a href="about-manifolds.html"
+                            >← Part 1 · The shape of a signal</a
+                        >
+                        <span class="dot" aria-hidden="true"></span>
+                        <a href="manifolds.html"
+                            >Open the full dashboard (45 models) →</a
+                        >
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="wrap">
+                <!-- INTRO -->
+                <section class="block">
+                    <div class="col">
+                        <p>
+                            In <a href="about-manifolds.html">Part 1</a> we read
+                            a frozen model's representation as
+                            <em>geometry</em>: sweep one generative factor across
+                            a fine grid, average the activations at each step
+                            into a centroid, and watch the centroids trace a
+                            shape. The recurring theme was that being
+                            <em>decodable</em> is not the same as being
+                            <em>organised</em> — a factor can be perfectly
+                            present and still invisible to a straight line.
+                        </p>
+                        <p>
+                            That theme deserves a fair fight. The main Aionoscope
+                            benchmark already runs the standard instrument: a
+                            <strong>pooled linear probe</strong> — a single
+                            linear readout trained to recover a factor from the
+                            frozen features, scored by R² (regression) or AUC
+                            (classification), at each layer. It is fast,
+                            low-assumption, and excellent at one job: telling you
+                            whether a factor is <em>linearly accessible</em>. The
+                            trouble is what you conclude when it says
+                            <em>no</em>.
+                        </p>
+                        <p>
+                            A probe asks one narrow question: <em>is there a
+                            single straight line along which this factor reads
+                            off?</em> When the answer is a low R², it could mean
+                            the factor <strong>isn't there</strong> — or that it
+                            <strong>is there, bent into a shape no line can
+                            read</strong>. Those are opposite facts about the
+                            model, and the probe reports them with the same
+                            number. We'll walk three cases that cover every way
+                            the two diagnostics can disagree — probe low and
+                            wrong, probe low and right, probe high and
+                            incomplete — and in each one the geometry says what
+                            the probe cannot.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- CONTENTS -->
+                <nav class="toc" aria-label="Contents">
+                    <p class="toc-head">Contents</p>
+                    <ol id="toc-list"></ol>
+                </nav>
+
+                <!-- SECTION 1: THE BASEMENT -->
+                <section class="block" id="what-a-probe-says">
+                    <div class="col">
+                        <h2>
+                            <span class="num">The setup</span>What a probe can —
+                            and can't — say
+                        </h2>
+                        <p>
+                            Run the probe across 37 model-plus-adapter systems
+                            and a clear pattern appears. <em>Shape</em> and
+                            <em>timing</em> factors come back almost perfectly:
+                            frequency, event position, duty cycle, and edge
+                            sharpness all land at R² ≈ 0.99. <em>Magnitude</em>
+                            factors — absolute amplitude, DC offset, noise level
+                            — sit at zero, because most tokenizers standardise
+                            each window and divide scale away before the
+                            transformer sees it. Read the floor of that chart and
+                            you'd write off amplitude and offset. You'd be right:
+                            the model really did discard them.
+                        </p>
+                        <p>
+                            And then there is <strong>phase</strong>. It is the
+                            single lowest-scoring factor that is <em>not</em> a
+                            magnitude — median R² <strong>0.10</strong>, sitting
+                            in the basement with the things the model threw away.
+                            Hold that thought: <a href="#case-phase">Case 1</a>
+                            shows the model represents phase
+                            <em>perfectly</em>. The probe just can't read it.
+                        </p>
+                    </div>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="v">0.10</div>
+                            <div class="l">median phase R² (one factor active)</div>
+                        </div>
+                        <div class="stat">
+                            <div class="v">0.04</div>
+                            <div class="l">with one nuisance factor added</div>
+                        </div>
+                        <div class="stat">
+                            <div class="v">0.03</div>
+                            <div class="l">with two — it only gets worse</div>
+                        </div>
+                        <div class="stat">
+                            <div class="v">0.54</div>
+                            <div class="l">best any of 37 models ever reaches</div>
+                        </div>
+                    </div>
+                    <figure class="fig" data-chart="probeBar">
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    The probe basement · 34 dense factors, best
+                                    layer, median of 37 models
+                                </div>
+                                <div class="fig-sub">
+                                    Each bar is one generative parameter. Higher
+                                    = more linearly decodable.
+                                </div>
+                            </div>
+                            <div class="strip-legend">
+                                <span style="color: #2563eb">■</span> shape /
+                                timing&nbsp;&nbsp;
+                                <span style="color: #dc2626">■</span> phase&nbsp;&nbsp;
+                                <span style="color: #9aa7b3">■</span> scale
+                                (normalised away)
+                            </div>
+                        </div>
+                        <div class="chart" id="probe-basement" style="height: 720px"></div>
+                        <figcaption>
+                            Two kinds of factor live on the floor. The
+                            <b>grey</b> ones — amplitude, offset, noise — the
+                            model genuinely removed. The <b>red</b> ones are
+                            <b>phase</b>, which (Case 1) the model has in full.
+                            The probe scores them the same. A low bar is a
+                            question, not an answer.
+                        </figcaption>
+                    </figure>
+                </section>
+
+                <!-- SECTION 2: PHASE -->
+                <section class="block" id="case-phase">
+                    <div class="col">
+                        <h2>
+                            <span class="num">Case 1 · probe low, and wrong</span
+                            >Phase: the circle a straight line can't read
+                        </h2>
+                        <p>
+                            Phase runs 0 → 2π and then it is back where it
+                            started: phase 0 and phase 2π are the
+                            <em>same signal</em>. A model that understands phase
+                            should lay it out as a <strong>circle</strong>. And
+                            every model does — sweep the phase of a sine and the
+                            centroids trace a closed loop, returning to their
+                            start, with the colours running cleanly all the way
+                            around (circular-order ≈ 0.99 across families).
+                        </p>
+                        <p>
+                            Yet the probe reads ≈ 0 for all of them. The reason
+                            is mechanical, not mysterious. The probe is a bare
+                            linear layer trained with mean-squared error, and it
+                            is handed phase as a plain number on 0 … 2π — so the
+                            loss treats 0 and 2π as <em>maximally far apart</em>,
+                            and the only fit that minimises it collapses to the
+                            mean, ≈ π. A straight line can't go around a circle.
+                            Tellingly, the geometry pipeline knows this: for a
+                            circular factor it <em>refuses</em> to report an R²
+                            at all (it is undefined for a wrapping variable) and
+                            measures order and closure instead. The probe has no
+                            such guardrail — it returns 0.10 and you draw the
+                            wrong conclusion.
+                        </p>
+                    </div>
+                    <figure class="fig" data-chart="ringStrip">
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    The same phase sweep, five families · PCA → 2D
+                                </div>
+                                <div class="fig-sub">
+                                    1,024 centroids per panel, coloured by phase
+                                    0 → 2π; the loop is closed for drawing.
+                                </div>
+                            </div>
+                            <div class="strip-legend">
+                                phase 0 <span class="strip-bar"></span> 2π
+                            </div>
+                        </div>
+                        <div data-strip id="ring-strip"></div>
+                        <figcaption>
+                            Five tokenizers, five families — five rings. Under
+                            each, the <b>probe R²</b> (what the benchmark
+                            reports) sits next to the <b>circular-order</b> (how
+                            faithfully the ring runs in phase order). The probe
+                            calls every one of these noise. A failed phase probe
+                            is a fact about straight lines, not about the model.
+                        </figcaption>
+                    </figure>
+                </section>
+
+                <!-- SECTION 3: DISAMBIGUATION (HERO) -->
+                <section class="block" id="case-disambiguation">
+                    <div class="col">
+                        <h2>
+                            <span class="num">Case 2 · the wow</span>Same score,
+                            opposite truth
+                        </h2>
+                        <p>
+                            Here is the cleanest demonstration that a probe score
+                            is ambiguous. Take one ordinary instance-normalising
+                            model — <strong>Chronos-2</strong> — and ask the
+                            probe about two factors. Phase:
+                            R² <strong>≈ 0.00</strong>. Amplitude:
+                            R² <strong>≈ 0.00</strong>. Identical verdict —
+                            "neither is decodable." A benchmark table would put
+                            them in the same bucket and move on.
+                        </p>
+                        <p>
+                            The geometry says they are <em>opposites</em>. Sweep
+                            the phase and the embedding travels a clean closed
+                            ring — present, just circular. Sweep the amplitude
+                            across its entire range and the embedding
+                            <strong>barely stirs</strong>: its centroids drift by
+                            about <code>2×10⁻⁵</code> — while the phase ring spans
+                            ten thousand times that. The amplitude knob is all but
+                            disconnected from the representation, divided out by
+                            the tokenizer before layer 0.
+                            (On some models it is even starker:
+                            <strong>Time-MoE-50M</strong>'s amplitude centroids are
+                            <em>bit-identical</em> to the last decimal at every one
+                            of its 13 layers.) One factor is a circle the probe
+                            can't read; the other is genuinely gone. Same number,
+                            opposite reality.
+                        </p>
+                    </div>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="v">≈ 0.00</div>
+                            <div class="l">probe R² — phase <em>and</em> amplitude (identical)</div>
+                        </div>
+                        <div class="stat">
+                            <div class="v">0.995</div>
+                            <div class="l">phase circular-order — a clean ring</div>
+                        </div>
+                        <div class="stat">
+                            <div class="v">~0</div>
+                            <div class="l">amplitude embedding motion — frozen solid</div>
+                        </div>
+                        <div class="stat">
+                            <div class="v">−0.11</div>
+                            <div class="l">amplitude line-fit R² — below guessing the mean</div>
+                        </div>
+                    </div>
+                    <figure class="fig" data-chart="heroTwin">
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    Chronos-2 · two factors the probe scores
+                                    identically (R² ≈ 0)
+                                </div>
+                                <div class="fig-sub">
+                                    Same sweep machinery, same model, same probe
+                                    verdict — PCA → 2D.
+                                </div>
+                            </div>
+                        </div>
+                        <div data-hero id="hero-host"></div>
+                        <figcaption>
+                            A probe at zero says "no straight line reads this."
+                            It cannot say whether that's because
+                            <b>nothing is there</b> or because <b>a circle
+                            is</b>. Turn the amplitude knob on a 119-million-parameter
+                            model and watch it not move; turn the phase knob and
+                            watch it draw a circle. Only the geometry knows the
+                            difference.
+                        </figcaption>
+                    </figure>
+                    <div class="col">
+                        <p>
+                            And the amplitude verdict isn't about this one model
+                            — it's about the <strong>tokenizer</strong>, decided
+                            before the transformer runs. Split the same 37 models
+                            by their front-end and amplitude separates into two
+                            clean bands at <em>every</em> size: models that keep
+                            the raw scale (Toto, Mantis, Sundial, NuTime, …)
+                            recover amplitude at R² ≈ 0.99; models that
+                            standardise each window (Time-MoE, Chronos, Moirai,
+                            Kairos, MOMENT, …) sit on the floor. Parameters don't
+                            move the needle; the tokenizer does.
+                        </p>
+                    </div>
+                    <figure class="fig" data-chart="ampSplit">
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    Amplitude probe R² vs model size · decided
+                                    before layer 0
+                                </div>
+                                <div class="fig-sub">
+                                    One dot per model; x is parameters (log).
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart short" id="amp-split"></div>
+                        <figcaption>
+                            Two bands, no ramp. <b>Keeps raw scale</b> (blue)
+                            floats near R² 1.0 from 0.2M to 151M parameters;
+                            <b>standardising front-end</b> (grey) sits at zero
+                            from 13M to 453M. Amplitude isn't learned or
+                            unlearned with scale — it's kept or discarded by the
+                            tokenizer. The geometry shows the discard directly:
+                            for the grey models the amplitude manifold is a
+                            single frozen point.
+                        </figcaption>
+                    </figure>
+                </section>
+
+                <!-- SECTION 4: FREQUENCY -->
+                <section class="block" id="case-frequency">
+                    <div class="col">
+                        <h2>
+                            <span class="num">Case 3 · probe high, incomplete</span
+                            >Frequency: when the probe says "solved"
+                        </h2>
+                        <p>
+                            Not every disagreement is the probe scoring too low.
+                            Frequency is the probe's success story —
+                            R² <strong>0.99</strong>, near-perfectly decodable,
+                            and a clean-slice linear readout hits R² 1.0. By the
+                            probe's lights, frequency is <em>done</em>. That
+                            single number is correct, and it hides the
+                            interesting part.
+                        </p>
+                        <p>
+                            Look at the shape and the model's frequency "ruler"
+                            is a curve <strong>coiled ×49</strong> — its arc
+                            length is forty-nine times the straight-line distance
+                            between its ends — so walking the manifold recovers
+                            order that Euclidean distance scrambles
+                            (geodesic gain +0.29). And near the Nyquist limit,
+                            where a sine is sampled only two-to-four times per
+                            cycle, that ruler <em>folds</em>: the high-frequency
+                            tail sprays into extra dimensions and loses
+                            resolution — the effect we dissected in
+                            <a href="about-manifolds.html#sine_frequency_hz">Part
+                            1</a>. A scalar R² averages right over all of it.
+                        </p>
+                    </div>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="v">1.000</div>
+                            <div class="l">linear-readout R² — "solved"</div>
+                        </div>
+                        <div class="stat">
+                            <div class="v">×49</div>
+                            <div class="l">arc length ÷ end-to-end distance</div>
+                        </div>
+                        <div class="stat">
+                            <div class="v">+0.29</div>
+                            <div class="l">geodesic gain over straight-line order</div>
+                        </div>
+                    </div>
+                    <figure class="fig" data-chart="coil">
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    Toto's sine-frequency manifold · PCA → 2D,
+                                    coloured low → high
+                                </div>
+                                <div class="fig-sub">
+                                    The probe reads this off a line. The line is
+                                    a coil.
+                                </div>
+                            </div>
+                            <div class="strip-legend">
+                                low <span class="strip-bar"></span> high
+                            </div>
+                        </div>
+                        <div class="chart" id="freq-coil"></div>
+                        <figcaption>
+                            The probe is right that you <em>can</em> read
+                            frequency off a straight direction. What it can't
+                            tell you is that the path is a coil 49 times longer
+                            than it looks, and that it folds where the sampling
+                            runs out. The scalar says "done." The shape says
+                            "here's the catch."
+                        </figcaption>
+                    </figure>
+                </section>
+
+                <!-- SECTION 5: METHODS -->
+                <section class="block" id="methods">
+                    <div class="col">
+                        <h2>
+                            <span class="num">In context</span>Probes,
+                            attribution, and SAEs
+                        </h2>
+                        <p>
+                            The three cases map onto a simple grid. A linear
+                            probe answers one axis — <em>is it linearly
+                            decodable?</em> The geometry answers the other —
+                            <em>is it organised the way the world is?</em> Read
+                            together they pin down what a single score leaves
+                            ambiguous.
+                        </p>
+                        <table class="grid2">
+                            <tr>
+                                <td class="gh"></td>
+                                <td class="gh">geometry: organised</td>
+                                <td class="gh">geometry: collapsed</td>
+                            </tr>
+                            <tr>
+                                <td class="gh">probe high</td>
+                                <td>
+                                    <b>Frequency.</b> Decodable <em>and</em>
+                                    structured — but the scalar hides a coil that
+                                    folds at Nyquist.
+                                </td>
+                                <td>
+                                    decodable yet disorganised — a warning the
+                                    probe alone can't raise.
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="gh">probe low</td>
+                                <td>
+                                    <b>Phase.</b> Present but bent into a circle
+                                    — the probe calls it noise.
+                                </td>
+                                <td>
+                                    <b>Amplitude</b> (standardising models).
+                                    Genuinely gone — probe and geometry agree.
+                                </td>
+                            </tr>
+                        </table>
+                        <p>
+                            What about the other tools the question named?
+                            Honestly: Aionoscope has run the linear probe — that
+                            is the comparison we can make with data — and has
+                            <em>not</em> run sparse autoencoders or
+                            attribution, so for those we can only reason about
+                            what they'd see.
+                            <strong>Attribution</strong> answers a different
+                            question — which <em>inputs</em> moved a
+                            <em>forecast</em> — not how a factor is arranged
+                            inside the representation; it isn't looking at the
+                            circle. <strong>Sparse autoencoders</strong>
+                            decompose activations into <em>sparse linear</em>
+                            features; a circle is not a sparse linear feature, so
+                            an SAE would either miss it or shatter it into many
+                            fragmentary atoms — the same blind spot as the probe,
+                            at higher cost. The geometry measures organisation
+                            and topology directly — order, closure, neighbour
+                            faithfulness, intrinsic dimension — which is exactly
+                            the axis a linear readout collapses.
+                        </p>
+                    </div>
+                    <div class="note">
+                        <h3>What this shows — and what it doesn't</h3>
+                        <ul>
+                            <li>
+                                The probe is still the right
+                                <strong>first</strong> instrument: it is fast,
+                                assumption-light, and genuinely good at
+                                <em>presence</em>. Geometry is a complement, not
+                                a replacement — reach for it when a probe says
+                                "no" and you need to know <em>why</em>.
+                            </li>
+                            <li>
+                                Geometry is <strong>not magic</strong>. Case 2's
+                                amplitude is the proof: when the information is
+                                truly gone, the manifold collapses and agrees
+                                with the probe. A clean shape means the factor is
+                                there; a collapsed one means it isn't.
+                            </li>
+                            <li>
+                                Scores are <strong>best-of-all-layers</strong>
+                                (Part 1's rationale: the cleanest geometry
+                                usually lives mid-network). Probe R² is the
+                                benchmark's oracle best-layer value, one factor
+                                active (<code>num_enabled = 1</code>) unless
+                                noted.
+                            </li>
+                            <li>
+                                It's one synthetic, controlled view — single
+                                factor swept on a fine grid, everything else
+                                held fixed, at 500 Hz. The verdicts are about
+                                these representations under this readout; the
+                                <a href="manifolds.html">dashboard</a> lets you
+                                check any model yourself.
+                            </li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- COLLAB -->
+                <section class="block">
+                    <div class="collab">
+                        <p class="eyebrow">Open research · a community effort</p>
+                        <h2>This is research in progress — come build it with us</h2>
+                        <p>
+                            Everything here is early, evolving, and deliberately
+                            open. Representation geometry for time-series models
+                            is far too interesting — and too big — to keep to
+                            ourselves. Collaboration, questions, pushback, and
+                            wild ideas are all very welcome.
+                        </p>
+                        <ul>
+                            <li>
+                                <strong>Want a probe-vs-geometry readout for
+                                your model?</strong>
+                                We're happy to add architectures, checkpoints,
+                                and families.
+                            </li>
+                            <li>
+                                <strong>Think a probe failure is real
+                                absence, not geometry?</strong>
+                                Bring the case — disagreement is how this gets
+                                sharper.
+                            </li>
+                            <li>
+                                <strong>Have an SAE or attribution comparison
+                                to run?</strong>
+                                We'd love to make the empirical version of this
+                                post with you.
+                            </li>
+                            <li>
+                                <strong>Spotted a bug or a misleading
+                                metric?</strong>
+                                Tell us — we'll fix it.
+                            </li>
+                        </ul>
+                        <p>
+                            If any of that resonates, send a message. The open
+                            research wiki below has the full writeup and how to
+                            reach us.
+                        </p>
+                        <div class="actions">
+                            <a
+                                class="cta"
+                                href="https://alex-wiki.langotime.ai/ideas/aionoscope-manifold-reconstruction-benchmark"
+                                target="_blank"
+                                rel="noopener"
+                                >Open research wiki &amp; contact →</a
+                            >
+                            <span class="quiet"
+                                >alex-wiki.langotime.ai/ideas/aionoscope-manifold-reconstruction-benchmark</span
+                            >
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <footer>
+            <div class="wrap">
+                <div class="col" style="max-width: 760px">
+                    <h2 style="margin-top: 0">Go read the geometry yourself</h2>
+                    <p style="color: var(--ink-soft)">
+                        We put the benchmark's own linear probe head-to-head with
+                        the manifold geometry on three factors. The dashboard has
+                        seven generative factors across forty-five foundation
+                        models, every layer, with the 2D/3D centroid views, layer
+                        curves, and distance diagnostics. Pin up to four side by
+                        side and run your own probe-vs-shape comparison.
+                    </p>
+                    <p>
+                        <a class="cta" href="manifolds.html"
+                            >Open full dashboard with manifolds for 45 time-series
+                            foundation models</a
+                        >
+                    </p>
+                    <p class="respect">
+                        New here? Start with
+                        <a href="about-manifolds.html"
+                            >Part 1 — The shape of a signal</a
+                        >, which explains the protocol, the metrics, and how to
+                        read every chart;
+                        <a href="about-manifolds-2.html">Part 2</a> asks whether
+                        shape scales, and
+                        <a href="about-manifolds-3.html">Part 3</a> watches it
+                        form over training. With gratitude to Goodfire's
+                        <a
+                            href="https://www.goodfire.ai/research/neural-geometry"
+                            target="_blank"
+                            rel="noopener"
+                            >Neural Geometry</a
+                        >
+                        series, whose framing set the direction for this work.
+                    </p>
+                    <p class="smallprint">
+                        Langotime Aionoscope · linear probe = single pooled
+                        <code>nn.Linear</code>, oracle best layer,
+                        <code>num_enabled = 1</code> · manifold metrics from the
+                        controlled-factor-slice protocol <code>manifold_v0</code>
+                        · all numbers computed in Python, this page only plots
+                        stored artifacts.
+                    </p>
+                </div>
+            </div>
+        </footer>
+        <script>
+            // ====================================================================
+            // about-manifolds-4 — probes vs geometry. One precomputed asset,
+            // one fetch. Reuses Part 1/2 helpers verbatim; adds five renderers.
+            // ====================================================================
+
+            // ---------- blog-only asset ----------
+            var BLOG_REMOTE =
+                "https://manifolds-data.aionoscope.langotime.ai/blog/about-manifolds/v20260606/";
+            function blogUrl(rel) {
+                var host = window.location.hostname;
+                var isLocal =
+                    window.location.protocol === "file:" ||
+                    host === "localhost" ||
+                    host === "127.0.0.1" ||
+                    host === "::1" ||
+                    host === "[::1]";
+                var base =
+                    typeof window.BLOG_DATA_BASE_URL === "string"
+                        ? window.BLOG_DATA_BASE_URL
+                        : isLocal
+                          ? "about-manifolds-4-assets/"
+                          : BLOG_REMOTE;
+                if (!String(base).endsWith("/")) base = String(base) + "/";
+                return new URL(rel, new URL(base, window.location.href)).toString();
+            }
+
+            // ---------- shared palette ----------
+            var C = {
+                blue: "#2563eb",
+                red: "#dc2626",
+                teal: "#0f766e",
+                grey: "#9aa7b3",
+                coord: ["#2563eb", "#14b8a6", "#f59e0b", "#dc2626"],
+            };
+            var GROUP_COLOR = {
+                recovered: C.blue,
+                phase: C.red,
+                absent: C.grey,
+            };
+
+            function fmt(v) {
+                if (v === null || v === undefined) return "n/a";
+                if (typeof v === "number") {
+                    if (!Number.isFinite(v)) return "n/a";
+                    var a = Math.abs(v);
+                    if (a >= 10000 || (a > 0 && a < 0.001))
+                        return v.toExponential(2);
+                    return Math.round(v * 1000) / 1000;
+                }
+                return String(v);
+            }
+
+            // ---------- chart plumbing ----------
+            var instances = {};
+            function getChart(id) {
+                var el = document.getElementById(id);
+                if (!el) return null;
+                if (instances[id] && !instances[id].isDisposed())
+                    return instances[id];
+                el.innerHTML = "";
+                instances[id] = echarts.init(el, null, { renderer: "canvas" });
+                return instances[id];
+            }
+            function msg(id, text, warn) {
+                var el = document.getElementById(id);
+                if (el)
+                    el.innerHTML =
+                        '<div class="chart-msg' +
+                        (warn ? " warn" : "") +
+                        '">' +
+                        text +
+                        "</div>";
+            }
+            function spin(id) {
+                var el = document.getElementById(id);
+                if (el)
+                    el.innerHTML =
+                        '<div class="chart-msg"><span class="spinner"></span>loading data…</div>';
+            }
+            function fetchJSON(url) {
+                return fetch(url, { cache: "force-cache" }).then(function (r) {
+                    if (!r.ok) throw new Error("HTTP " + r.status);
+                    return r.json();
+                });
+            }
+            var LOAD_HELP =
+                "Could not load the data. Local previews expect <code>about-manifolds-4-assets/about-manifolds-4-data.json</code>; hosted Pages streams it from the blog data CDN. You can also point <code>window.BLOG_DATA_BASE_URL</code> at your own copy.";
+
+            // single fetch for the whole page
+            var D = null;
+            var dataReady = fetchJSON(blogUrl("about-manifolds-4-data.json")).then(
+                function (d) {
+                    D = d;
+                    return d;
+                },
+            );
+
+            // ---------- generic XY chart (lines / scatter, value or log x) ----------
+            function xyChart(id, series, opts) {
+                opts = opts || {};
+                var chart = getChart(id);
+                if (!chart) return;
+                chart.setOption(
+                    {
+                        animation: false,
+                        grid: {
+                            left: 60,
+                            right: 20,
+                            top: opts.legend ? 42 : 18,
+                            bottom: 50,
+                        },
+                        legend: opts.legend
+                            ? { top: 4, type: "scroll", textStyle: { fontSize: 12 } }
+                            : undefined,
+                        tooltip: {
+                            trigger: opts.tooltip === "item" ? "item" : "axis",
+                            valueFormatter: function (v) {
+                                return v == null ? "n/a" : fmt(v);
+                            },
+                            formatter:
+                                opts.tooltip === "item"
+                                    ? function (p) {
+                                          var v = p.value || [];
+                                          var head = p.data[2]
+                                              ? "<b>" + p.data[2] + "</b>"
+                                              : "<b>" + p.seriesName + "</b>";
+                                          return (
+                                              head +
+                                              "<br>" +
+                                              fmt(v[0]) +
+                                              "M params<br>" +
+                                              (opts.yName || "value") +
+                                              ": " +
+                                              fmt(v[1])
+                                          );
+                                      }
+                                    : undefined,
+                        },
+                        xAxis: {
+                            type: opts.xType || "value",
+                            name: opts.xName || "",
+                            nameLocation: "middle",
+                            nameGap: 32,
+                            min: opts.xMin,
+                            max: opts.xMax,
+                            axisLabel: { fontSize: 11 },
+                            splitLine: { lineStyle: { color: "#f0eee7" } },
+                        },
+                        yAxis: {
+                            type: "value",
+                            name: opts.yName || "",
+                            nameGap: 14,
+                            nameTextStyle: { align: "left" },
+                            min: opts.yMin,
+                            max: opts.yMax,
+                            axisLabel: { fontSize: 11 },
+                            splitLine: { lineStyle: { color: "#f0eee7" } },
+                        },
+                        series: series.map(function (s) {
+                            var isScatter = s.type === "scatter";
+                            return {
+                                name: s.name,
+                                type: isScatter ? "scatter" : "line",
+                                data: s.data,
+                                showSymbol: true,
+                                symbol: "circle",
+                                symbolSize: s.symbolSize || (isScatter ? 12 : 7),
+                                smooth: isScatter ? false : s.smooth !== false,
+                                lineStyle: isScatter
+                                    ? undefined
+                                    : {
+                                          width: s.width || 2.5,
+                                          color: s.color,
+                                          type: s.dash ? "dashed" : "solid",
+                                      },
+                                itemStyle: {
+                                    color: s.color,
+                                    opacity: s.opacity == null ? 1 : s.opacity,
+                                    borderColor: "#fff",
+                                    borderWidth: isScatter ? 1.2 : 0,
+                                },
+                                markLine: s.markLine
+                                    ? {
+                                          silent: true,
+                                          symbol: "none",
+                                          lineStyle: {
+                                              color: "#9aa7b3",
+                                              type: "dashed",
+                                              width: 1,
+                                          },
+                                          label: {
+                                              show: true,
+                                              formatter: s.markLine.label,
+                                              color: "#75879a",
+                                              fontSize: 11,
+                                              position: "insideEndTop",
+                                          },
+                                          data: s.markLine.data,
+                                      }
+                                    : undefined,
+                                z: s.z || 2,
+                            };
+                        }),
+                    },
+                    true,
+                );
+            }
+
+            // ---------- horizontal bar chart (new) ----------
+            function barChart(id, items, opts) {
+                opts = opts || {};
+                var chart = getChart(id);
+                if (!chart) return;
+                chart.setOption(
+                    {
+                        animation: false,
+                        grid: {
+                            left: opts.left || 128,
+                            right: opts.right || 30,
+                            top: opts.top || 8,
+                            bottom: opts.bottom || 42,
+                        },
+                        tooltip: {
+                            trigger: "item",
+                            formatter: function (p) {
+                                return (
+                                    "<b>" +
+                                    items[p.dataIndex].label +
+                                    "</b><br>" +
+                                    (opts.valName || "R²") +
+                                    ": " +
+                                    fmt(p.value)
+                                );
+                            },
+                        },
+                        xAxis: {
+                            type: "value",
+                            min: opts.xMin,
+                            max: opts.xMax,
+                            name: opts.xName || "",
+                            nameLocation: "middle",
+                            nameGap: 28,
+                            axisLabel: { fontSize: 11 },
+                            splitLine: { lineStyle: { color: "#f0eee7" } },
+                        },
+                        yAxis: {
+                            type: "category",
+                            data: items.map(function (i) {
+                                return i.label;
+                            }),
+                            axisTick: { show: false },
+                            axisLine: { lineStyle: { color: "#d8d3c7" } },
+                            axisLabel: {
+                                fontSize: opts.labelSize || 11,
+                                color: "#44566a",
+                            },
+                        },
+                        series: [
+                            {
+                                type: "bar",
+                                barWidth: opts.barWidth,
+                                data: items.map(function (i) {
+                                    return {
+                                        value: i.value,
+                                        itemStyle: {
+                                            color: i.color,
+                                            borderRadius: [0, 3, 3, 0],
+                                        },
+                                    };
+                                }),
+                                markLine:
+                                    opts.mark != null
+                                        ? {
+                                              silent: true,
+                                              symbol: "none",
+                                              lineStyle: {
+                                                  color: "#9aa7b3",
+                                                  type: "dashed",
+                                                  width: 1,
+                                              },
+                                              label: {
+                                                  show: true,
+                                                  formatter: opts.markLabel || "",
+                                                  position: "insideEndTop",
+                                                  color: "#75879a",
+                                                  fontSize: 11,
+                                              },
+                                              data: [{ xAxis: opts.mark }],
+                                          }
+                                        : undefined,
+                            },
+                        ],
+                    },
+                    true,
+                );
+            }
+
+            // ---------- manifold thumbnail (ported from Part 1) ----------
+            function renderManifoldMini(id, emb, coords) {
+                var chart = getChart(id);
+                if (!chart) return;
+                var data = emb.map(function (pt, idx) {
+                    return [pt[0], pt[1], coords[idx], idx];
+                });
+                var cv = coords.filter(function (x) {
+                    return Number.isFinite(x);
+                });
+                var low = cv.length ? Math.min.apply(null, cv) : 0,
+                    high = cv.length ? Math.max.apply(null, cv) : 1;
+                chart.setOption(
+                    {
+                        animation: false,
+                        grid: { left: 7, right: 7, top: 7, bottom: 7 },
+                        tooltip: {
+                            trigger: "item",
+                            formatter: function (pr) {
+                                var v = pr.value || [];
+                                return "grid " + v[3] + "<br>value: " + fmt(v[2]);
+                            },
+                        },
+                        visualMap: {
+                            show: false,
+                            type: "continuous",
+                            min: low,
+                            max: high === low ? low + 1 : high,
+                            dimension: 2,
+                            inRange: { color: C.coord },
+                        },
+                        xAxis: { type: "value", scale: true, show: false },
+                        yAxis: { type: "value", scale: true, show: false },
+                        series: [
+                            {
+                                type: "line",
+                                data: data,
+                                showSymbol: false,
+                                silent: true,
+                                emphasis: { disabled: true },
+                                lineStyle: { width: 0.8, color: "#c2ccd6" },
+                                z: 1,
+                            },
+                            {
+                                type: "scatter",
+                                data: data,
+                                symbolSize: data.length < 5 ? 15 : 3.4,
+                                itemStyle: { opacity: 0.78 },
+                                z: 2,
+                            },
+                        ],
+                    },
+                    true,
+                );
+            }
+
+            // ---------- figure renderers ----------
+            function probeBar(fig) {
+                var el = fig.querySelector(".chart");
+                if (!el) return;
+                var id = el.id;
+                spin(id);
+                dataReady
+                    .then(function (S) {
+                        var items = S.probe_basement.targets.map(function (t) {
+                            return {
+                                label: t.label,
+                                value: t.median_r2,
+                                color: GROUP_COLOR[t.group] || C.grey,
+                            };
+                        });
+                        barChart(id, items, {
+                            xName: "linear-probe R²  (best layer · median of 37 models)",
+                            xMin: -0.05,
+                            xMax: 1.0,
+                            left: 150,
+                            labelSize: 10,
+                            barWidth: "62%",
+                            mark: 0.2,
+                            markLabel: "R² = 0.2",
+                        });
+                    })
+                    .catch(function () {
+                        msg(id, LOAD_HELP, true);
+                    });
+            }
+
+            function ringStrip(fig) {
+                var host = fig.querySelector("[data-strip]");
+                if (!host) return;
+                host.innerHTML =
+                    '<div class="chart-msg"><span class="spinner"></span>loading data…</div>';
+                dataReady
+                    .then(function (S) {
+                        host.innerHTML = "";
+                        var grid = document.createElement("div");
+                        grid.className = "strip-grid";
+                        host.appendChild(grid);
+                        S.rings.forEach(function (r) {
+                            var cell = document.createElement("div");
+                            cell.className = "strip-cell";
+                            var lab = document.createElement("div");
+                            lab.className = "strip-lab";
+                            lab.textContent = r.label;
+                            var sub = document.createElement("div");
+                            sub.className = "strip-sub";
+                            sub.innerHTML =
+                                "probe R² <b>" +
+                                fmt(r.probe_r2) +
+                                "</b> · circ-order <b>" +
+                                fmt(r.circular_order) +
+                                "</b>";
+                            var ch = document.createElement("div");
+                            ch.className = "chart strip-chart";
+                            ch.id = "ring-" + r.model.replace(/\W/g, "");
+                            cell.appendChild(lab);
+                            cell.appendChild(sub);
+                            cell.appendChild(ch);
+                            grid.appendChild(cell);
+                            var pts = r.pts.concat([r.pts[0]]);
+                            var coord = r.coord.concat([r.coord[0]]);
+                            renderManifoldMini(ch.id, pts, coord);
+                        });
+                    })
+                    .catch(function () {
+                        host.innerHTML =
+                            '<div class="chart-msg warn">' + LOAD_HELP + "</div>";
+                    });
+            }
+
+            function heroTwin(fig) {
+                var host = fig.querySelector("[data-hero]");
+                if (!host) return;
+                host.innerHTML =
+                    '<div class="chart-msg"><span class="spinner"></span>loading data…</div>';
+                dataReady
+                    .then(function (S) {
+                        host.innerHTML = "";
+                        var grid = document.createElement("div");
+                        grid.className = "twin";
+                        host.appendChild(grid);
+                        var H = S.hero;
+                        function cell(title, sub, suffix) {
+                            var c = document.createElement("div");
+                            c.className = "strip-cell";
+                            var l = document.createElement("div");
+                            l.className = "strip-lab";
+                            l.textContent = title;
+                            var s = document.createElement("div");
+                            s.className = "strip-sub";
+                            s.innerHTML = sub;
+                            var ch = document.createElement("div");
+                            ch.className = "chart";
+                            ch.style.height = "340px";
+                            ch.id = "hero-" + suffix;
+                            c.appendChild(l);
+                            c.appendChild(s);
+                            c.appendChild(ch);
+                            grid.appendChild(c);
+                            return ch.id;
+                        }
+                        var pid = cell(
+                            "Phase  →  a ring",
+                            "circular-order <b>" +
+                                fmt(H.phase.circular_order) +
+                                "</b> · the embedding travels a full loop",
+                            "phase",
+                        );
+                        var ppts = H.phase.pts.concat([H.phase.pts[0]]);
+                        var pcoord = H.phase.coord.concat([H.phase.coord[0]]);
+                        renderManifoldMini(pid, ppts, pcoord);
+                        var aid = cell(
+                            "Amplitude  →  one point",
+                            "the embedding <b>barely moves</b> · the whole sweep collapses to a point",
+                            "amp",
+                        );
+                        // amplitude centroids barely move (drift ~2e-5) -> a single dot
+                        renderManifoldMini(aid, [[0, 0]], [0.7]);
+                    })
+                    .catch(function () {
+                        host.innerHTML =
+                            '<div class="chart-msg warn">' + LOAD_HELP + "</div>";
+                    });
+            }
+
+            function ampSplit(fig) {
+                var el = fig.querySelector(".chart");
+                if (!el) return;
+                var id = el.id;
+                spin(id);
+                dataReady
+                    .then(function (S) {
+                        var keep = [],
+                            norm = [];
+                        S.amp_split.forEach(function (r) {
+                            var pt = [r.paramsM, r.amp_probe_r2, r.label];
+                            if (r.normalizes) norm.push(pt);
+                            else keep.push(pt);
+                        });
+                        xyChart(
+                            id,
+                            [
+                                {
+                                    name: "keeps raw scale",
+                                    type: "scatter",
+                                    color: C.blue,
+                                    data: keep,
+                                    symbolSize: 13,
+                                },
+                                {
+                                    name: "standardising front-end",
+                                    type: "scatter",
+                                    color: C.grey,
+                                    data: norm,
+                                    symbolSize: 13,
+                                },
+                            ],
+                            {
+                                xName: "parameters (millions · log scale)",
+                                xType: "log",
+                                xMin: 0.1,
+                                xMax: 4000,
+                                yName: "amplitude probe R²",
+                                yMin: -0.2,
+                                yMax: 1.08,
+                                legend: true,
+                                tooltip: "item",
+                            },
+                        );
+                    })
+                    .catch(function () {
+                        msg(id, LOAD_HELP, true);
+                    });
+            }
+
+            function coil(fig) {
+                var el = fig.querySelector(".chart");
+                if (!el) return;
+                var id = el.id;
+                spin(id);
+                dataReady
+                    .then(function (S) {
+                        renderManifoldMini(id, S.freq.pts, S.freq.coord);
+                    })
+                    .catch(function () {
+                        msg(id, LOAD_HELP, true);
+                    });
+            }
+
+            var LOADERS = {
+                probeBar: probeBar,
+                ringStrip: ringStrip,
+                heroTwin: heroTwin,
+                ampSplit: ampSplit,
+                coil: coil,
+            };
+
+            // ---------- TOC + read-time + lazy init (ported from Part 2) ----------
+            function slugify(s) {
+                return s
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-+|-+$/g, "");
+            }
+            function readMinutes(root) {
+                var words = 0;
+                root.querySelectorAll("p, li, h2, h3, figcaption").forEach(
+                    function (n) {
+                        if (n.closest(".toc")) return;
+                        var t = n.textContent.replace(/\s+/g, " ").trim();
+                        if (t) words += t.split(" ").length;
+                    },
+                );
+                var figures = root.querySelectorAll("figure").length;
+                return Math.max(1, Math.round(words / 200 + figures * 0.25));
+            }
+            function buildMeta() {
+                var main = document.querySelector("main");
+                if (!main) return;
+                var rt = document.getElementById("read-time");
+                if (rt) rt.textContent = "≈ " + readMinutes(main) + " min read";
+                var list = document.getElementById("toc-list");
+                if (!list) return;
+                main.querySelectorAll("h2, .note h3").forEach(function (h) {
+                    var num = h.querySelector(".num");
+                    var rawNum = num ? num.textContent : "";
+                    var label = rawNum.replace(/\s+/g, " ").trim();
+                    var title = (
+                        rawNum ? h.textContent.replace(rawNum, "") : h.textContent
+                    )
+                        .replace(/\s+/g, " ")
+                        .trim();
+                    var sec = h.closest("section") || h;
+                    if (!sec.id) sec.id = slugify(label || title);
+                    var a = document.createElement("a");
+                    a.href = "#" + sec.id;
+                    var box = document.createElement("span");
+                    box.className = "toc-text";
+                    if (label) {
+                        var kn = document.createElement("span");
+                        kn.className = "toc-kicker";
+                        kn.textContent = label;
+                        box.appendChild(kn);
+                    }
+                    var tn = document.createElement("span");
+                    tn.className = "toc-title";
+                    tn.textContent = title;
+                    box.appendChild(tn);
+                    a.appendChild(box);
+                    var mn = document.createElement("span");
+                    mn.className = "toc-min";
+                    mn.textContent = readMinutes(sec) + " min";
+                    a.appendChild(mn);
+                    var li = document.createElement("li");
+                    li.appendChild(a);
+                    list.appendChild(li);
+                });
+            }
+            function init() {
+                buildMeta();
+                var figs = Array.prototype.slice.call(
+                    document.querySelectorAll("figure.fig[data-chart]"),
+                );
+                var io = new IntersectionObserver(
+                    function (entries) {
+                        entries.forEach(function (en) {
+                            if (!en.isIntersecting) return;
+                            var fig = en.target;
+                            io.unobserve(fig);
+                            if (fig.__loaded) return;
+                            fig.__loaded = true;
+                            var fn = LOADERS[fig.getAttribute("data-chart")];
+                            if (fn)
+                                try {
+                                    fn(fig);
+                                } catch (e) {
+                                    /* swallow */
+                                }
+                        });
+                    },
+                    { rootMargin: "240px 0px" },
+                );
+                figs.forEach(function (f) {
+                    io.observe(f);
+                });
+                window.addEventListener("resize", function () {
+                    Object.keys(instances).forEach(function (k) {
+                        if (instances[k] && !instances[k].isDisposed())
+                            instances[k].resize();
+                    });
+                });
+            }
+            if (document.readyState === "loading")
+                document.addEventListener("DOMContentLoaded", init);
+            else init();
+        </script>
+    </body>
+</html>
