@@ -22,6 +22,19 @@
             src="https://cdn.jsdelivr.net/npm/echarts-gl@2/dist/echarts-gl.min.js"
             onerror="window.__glLoadFailed = true"
         ></script>
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css"
+        />
+        <script
+            defer
+            src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js"
+        ></script>
+        <script
+            defer
+            src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/contrib/auto-render.min.js"
+            onload="renderMathInElement(document.body, { delimiters: [ {left:'\\[',right:'\\]',display:true}, {left:'\\(',right:'\\)',display:false} ] });"
+        ></script>
         <style>
             :root {
                 color-scheme: light;
@@ -326,6 +339,91 @@
                 color: var(--ink-faint);
                 margin-top: 8px;
                 line-height: 1.35;
+            }
+
+            /* ---- collapsible asides: footnotes (.fn) + drawers (.drawer) ---- */
+            body {
+                counter-reset: fn;
+            }
+            details.fn {
+                display: inline;
+            }
+            details.fn > summary {
+                display: inline;
+                list-style: none;
+                cursor: pointer;
+                counter-increment: fn;
+            }
+            details.fn > summary::-webkit-details-marker {
+                display: none;
+            }
+            details.fn > summary::after {
+                content: counter(fn);
+                vertical-align: super;
+                font: 600 0.62em var(--sans);
+                color: var(--accent);
+                padding: 0 1px 0 2px;
+            }
+            details.fn[open] > summary::after {
+                background: var(--line);
+                border-radius: 3px;
+            }
+            details.fn > .fn-body {
+                display: block;
+                max-width: 680px;
+                margin: 10px 0;
+                padding: 4px 0 4px 16px;
+                border-left: 2px solid var(--accent);
+                font-family: var(--serif);
+                font-style: italic;
+                font-size: 0.95rem;
+                line-height: 1.55;
+                color: var(--ink-soft);
+            }
+            details.drawer {
+                margin: 28px auto;
+                max-width: 720px;
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: 12px;
+                overflow: hidden;
+            }
+            details.drawer > summary {
+                list-style: none;
+                cursor: pointer;
+                padding: 13px 18px;
+                font: 600 13px/1 var(--sans);
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+                color: var(--accent);
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            details.drawer > summary::-webkit-details-marker {
+                display: none;
+            }
+            details.drawer > summary::before {
+                content: "▸";
+                transition: transform 0.15s ease;
+            }
+            details.drawer[open] > summary::before {
+                transform: rotate(90deg);
+            }
+            details.drawer[open] > summary {
+                border-bottom: 1px solid var(--line);
+            }
+            .drawer-body {
+                padding: 16px 18px;
+                font-family: var(--serif);
+                color: var(--ink-soft);
+                line-height: 1.6;
+            }
+            .drawer-body p {
+                margin: 0 0 10px;
+            }
+            .drawer-body .katex-display {
+                margin: 14px 0;
             }
 
             /* ---- figures / charts ---- */
@@ -854,7 +952,11 @@
                             <li>
                                 <strong>Build the manifold.</strong> Each grid
                                 point gives one activation vector — its
-                                <em>centroid</em>. Ordered by the swept value,
+                                <em>centroid</em><details class="fn"><summary></summary><span class="fn-body">We're using one sample per grid point here, so the "centroid" is actually just a single activation vector. We
+                                keep the name "centroid" to be in line with the general
+                                protocol, where several samples are collected at each
+                                grid point and averaged.</span></details>.
+                                Ordered by the swept value,
                                 those centroids trace a path through
                                 representation space. That path is the object we
                                 score.
@@ -867,6 +969,24 @@
                                 loop when it should?
                             </li>
                         </ul>
+
+                        <details class="drawer">
+                            <summary>How the centroid is computed</summary>
+                            <div class="drawer-body">
+                                <p>
+                                    For a grid point \(g\) with the set of samples
+                                    \(S_g\) collected at it, the centroid is the
+                                    mean of their activation vectors:
+                                </p>
+                                \[ c_g \;=\; \frac{1}{|S_g|}\sum_{i \in S_g} x_i \]
+                                <p>
+                                    The slices in this post use one sample per grid
+                                    point, so \(|S_g| = 1\) and \(c_g = x_g\): the
+                                    centroid is exactly that single activation
+                                    vector, with nothing averaged away.
+                                </p>
+                            </div>
+                        </details>
 
                         <p>
                             We do this for
