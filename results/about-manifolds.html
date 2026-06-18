@@ -978,6 +978,137 @@
                             being quantised to that patch grid instead of to
                             time.
                         </p>
+                    </div>
+
+                    <figure class="fig">
+                        <div class="fig-head">
+                            <div>
+                                <div class="fig-title">
+                                    How Toto turns a signal into tokens
+                                </div>
+                                <div class="fig-sub">
+                                    A continuous signal is cut into fixed
+                                    32-sample patches — each patch becomes one
+                                    token
+                                </div>
+                            </div>
+                        </div>
+                        <svg
+                            class="tk-svg"
+                            viewBox="0 0 900 278"
+                            role="img"
+                            aria-labelledby="tkT tkD"
+                            style="width: 100%; height: auto; display: block; margin: 8px 0 4px;"
+                        >
+                            <title id="tkT">
+                                How Toto tokenizes a signal into patches
+                            </title>
+                            <desc id="tkD">
+                                A continuous impulse signal is divided by a
+                                32-sample patch grid into eight patches; each
+                                patch becomes one token. The spike's patch and
+                                its position inside that patch are highlighted.
+                            </desc>
+                            <defs>
+                                <style>
+                                    .tk-lab{font-family:var(--font-techno,sans-serif);font-size:11px;fill:var(--ink-faint,#8a8a8a);letter-spacing:.06em;}
+                                    .tk-cap{font-family:var(--font-techno,sans-serif);font-size:10px;letter-spacing:.06em;fill:var(--accent,#ff4d00);}
+                                    .tk-note{font-family:var(--font-sans,sans-serif);font-size:11.5px;fill:var(--ink-soft,#444);}
+                                    .tk-tok{font-family:var(--font-mono,monospace);font-size:13px;fill:var(--ink-soft,#444);}
+                                    .tk-rule{font-family:var(--font-techno,sans-serif);font-size:9.5px;letter-spacing:.04em;fill:var(--ink-faint,#8a8a8a);}
+                                </style>
+                                <marker id="tkArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9" fill="none" stroke="var(--line-strong,#b8b8b8)" stroke-width="1.6"/></marker>
+                                <marker id="tkArrowA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9" fill="none" stroke="var(--accent,#ff4d00)" stroke-width="1.6"/></marker>
+                            </defs>
+
+                            <rect x="552" y="46" width="102" height="70" fill="var(--accent,#ff4d00)" fill-opacity="0.07"/>
+
+                            <text class="tk-lab" x="42" y="28">INPUT SIGNAL — ONE VALUE PER TIME STEP</text>
+
+                            <g stroke="var(--line-strong,#b8b8b8)" stroke-width="1" stroke-dasharray="3 4">
+                                <line x1="42" y1="42" x2="42" y2="124"/>
+                                <line x1="144" y1="42" x2="144" y2="124"/>
+                                <line x1="246" y1="42" x2="246" y2="124"/>
+                                <line x1="348" y1="42" x2="348" y2="124"/>
+                                <line x1="450" y1="42" x2="450" y2="124"/>
+                                <line x1="552" y1="42" x2="552" y2="124"/>
+                                <line x1="654" y1="42" x2="654" y2="124"/>
+                                <line x1="756" y1="42" x2="756" y2="124"/>
+                                <line x1="858" y1="42" x2="858" y2="124"/>
+                            </g>
+
+                            <line x1="42" y1="116" x2="858" y2="116" stroke="var(--ink-faint,#8a8a8a)" stroke-width="1.4"/>
+
+                            <line x1="613" y1="116" x2="613" y2="58" stroke="var(--accent,#ff4d00)" stroke-width="2.5"/>
+                            <circle cx="613" cy="58" r="3.6" fill="var(--accent,#ff4d00)"/>
+
+                            <line x1="48" y1="108" x2="138" y2="108" stroke="var(--ink-faint,#8a8a8a)" stroke-width="1"/>
+                            <line x1="48" y1="104" x2="48" y2="112" stroke="var(--ink-faint,#8a8a8a)" stroke-width="1"/>
+                            <line x1="138" y1="104" x2="138" y2="112" stroke="var(--ink-faint,#8a8a8a)" stroke-width="1"/>
+                            <text class="tk-rule" x="93" y="100" text-anchor="middle">32 samples</text>
+
+                            <line x1="553" y1="104" x2="611" y2="104" stroke="var(--accent,#ff4d00)" stroke-width="1"/>
+                            <line x1="553" y1="100" x2="553" y2="108" stroke="var(--accent,#ff4d00)" stroke-width="1"/>
+                            <line x1="611" y1="100" x2="611" y2="108" stroke="var(--accent,#ff4d00)" stroke-width="1"/>
+
+                            <g>
+                                <line x1="93" y1="126" x2="93" y2="173" stroke="var(--line-strong,#b8b8b8)" stroke-width="1.2" marker-end="url(#tkArrow)"/>
+                                <line x1="195" y1="126" x2="195" y2="173" stroke="var(--line-strong,#b8b8b8)" stroke-width="1.2" marker-end="url(#tkArrow)"/>
+                                <line x1="297" y1="126" x2="297" y2="173" stroke="var(--line-strong,#b8b8b8)" stroke-width="1.2" marker-end="url(#tkArrow)"/>
+                                <line x1="399" y1="126" x2="399" y2="173" stroke="var(--line-strong,#b8b8b8)" stroke-width="1.2" marker-end="url(#tkArrow)"/>
+                                <line x1="501" y1="126" x2="501" y2="173" stroke="var(--line-strong,#b8b8b8)" stroke-width="1.2" marker-end="url(#tkArrow)"/>
+                                <line x1="603" y1="126" x2="603" y2="173" stroke="var(--accent,#ff4d00)" stroke-width="1.6" marker-end="url(#tkArrowA)"/>
+                                <line x1="705" y1="126" x2="705" y2="173" stroke="var(--line-strong,#b8b8b8)" stroke-width="1.2" marker-end="url(#tkArrow)"/>
+                                <line x1="807" y1="126" x2="807" y2="173" stroke="var(--line-strong,#b8b8b8)" stroke-width="1.2" marker-end="url(#tkArrow)"/>
+                            </g>
+
+                            <g>
+                                <rect x="57" y="178" width="72" height="34" rx="9" fill="var(--paper,#fff)" stroke="var(--line-strong,#b8b8b8)"/>
+                                <rect x="159" y="178" width="72" height="34" rx="9" fill="var(--paper,#fff)" stroke="var(--line-strong,#b8b8b8)"/>
+                                <rect x="261" y="178" width="72" height="34" rx="9" fill="var(--paper,#fff)" stroke="var(--line-strong,#b8b8b8)"/>
+                                <rect x="363" y="178" width="72" height="34" rx="9" fill="var(--paper,#fff)" stroke="var(--line-strong,#b8b8b8)"/>
+                                <rect x="465" y="178" width="72" height="34" rx="9" fill="var(--paper,#fff)" stroke="var(--line-strong,#b8b8b8)"/>
+                                <rect x="567" y="178" width="72" height="34" rx="9" fill="var(--accent,#ff4d00)" fill-opacity="0.12" stroke="var(--accent,#ff4d00)" stroke-width="1.5"/>
+                                <rect x="669" y="178" width="72" height="34" rx="9" fill="var(--paper,#fff)" stroke="var(--line-strong,#b8b8b8)"/>
+                                <rect x="771" y="178" width="72" height="34" rx="9" fill="var(--paper,#fff)" stroke="var(--line-strong,#b8b8b8)"/>
+                                <text class="tk-tok" x="93" y="195" text-anchor="middle" dominant-baseline="central">t1</text>
+                                <text class="tk-tok" x="195" y="195" text-anchor="middle" dominant-baseline="central">t2</text>
+                                <text class="tk-tok" x="297" y="195" text-anchor="middle" dominant-baseline="central">t3</text>
+                                <text class="tk-tok" x="399" y="195" text-anchor="middle" dominant-baseline="central">t4</text>
+                                <text class="tk-tok" x="501" y="195" text-anchor="middle" dominant-baseline="central">t5</text>
+                                <text class="tk-tok" x="603" y="195" text-anchor="middle" dominant-baseline="central" fill="var(--accent,#ff4d00)">t6</text>
+                                <text class="tk-tok" x="705" y="195" text-anchor="middle" dominant-baseline="central">t7</text>
+                                <text class="tk-tok" x="807" y="195" text-anchor="middle" dominant-baseline="central">t8</text>
+                            </g>
+
+                            <text class="tk-lab" x="42" y="232">WHAT THE TRANSFORMER SEES — ONE TOKEN PER PATCH</text>
+
+                            <path d="M615,59 L652,67" fill="none" stroke="var(--accent,#ff4d00)" stroke-width="1"/>
+                            <text class="tk-cap" x="656" y="64">WHERE INSIDE (FINE)</text>
+                            <text class="tk-note" x="656" y="79">→ the comb's teeth</text>
+
+                            <line x1="603" y1="214" x2="603" y2="236" stroke="var(--accent,#ff4d00)" stroke-width="1"/>
+                            <text class="tk-cap" x="603" y="250" text-anchor="middle">WHICH PATCH (COARSE)</text>
+                            <text class="tk-note" x="603" y="265" text-anchor="middle">→ the dominant 98.5% axis</text>
+                        </svg>
+                        <figcaption>
+                            Toto never sees the series one step at a time. It
+                            slices the window into fixed-length
+                            <strong>patches</strong> — 32 samples each — and
+                            hands the transformer
+                            <strong>one token per patch</strong>. So a lone
+                            spike carries just two facts:
+                            <strong>which patch</strong> caught it — its coarse
+                            position, the part that later becomes the dominant
+                            98.5% axis — and
+                            <strong>where inside that patch</strong> it sits —
+                            its fine position, the spread that draws out each
+                            tooth of the comb. (Schematic: 8 patches shown; the
+                            window here is 512 samples = 16 patches.)
+                        </figcaption>
+                    </figure>
+
+                    <div class="col">
                         <p>
                             That folding is exactly why a naïve
                             <em>straight-line</em> distance lies — and it's the
