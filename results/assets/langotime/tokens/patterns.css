@@ -1,0 +1,86 @@
+/* ============================================================
+   LANGOTIME — SIGNATURE PATTERNS & MOTIFS
+   The brand's technical/blueprint vocabulary:
+   - telemetry grid field (faint squares)
+   - diagonal hatching
+   - crop / registration marks framing key elements
+   - techno eyebrow label
+   These ship as utility classes + tokens for consumers.
+   ============================================================ */
+
+:root {
+  --pattern-grid-color: var(--ink-150);
+  --pattern-grid-size: 28px;
+  --pattern-hatch-color: var(--ink-150);
+  --crop-mark-color: var(--ink-900);
+  --crop-mark-len: 14px;
+  --crop-mark-weight: 2px;
+}
+
+/* ---- Telemetry grid: faint square lattice ---- */
+.lt-grid-field {
+  background-image:
+    linear-gradient(to right, var(--pattern-grid-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--pattern-grid-color) 1px, transparent 1px);
+  background-size: var(--pattern-grid-size) var(--pattern-grid-size);
+}
+
+/* ---- Diagonal hatch (engineering stripe) ---- */
+.lt-hatch {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--pattern-hatch-color) 0,
+    var(--pattern-hatch-color) 1.5px,
+    transparent 1.5px,
+    transparent 9px
+  );
+}
+
+/* ---- Crop / registration frame ---- */
+/* Wrap any element; corner ticks sit just outside the box. */
+.lt-crop-frame {
+  position: relative;
+}
+.lt-crop-frame::before,
+.lt-crop-frame::after,
+.lt-crop-frame > .lt-crop-bl,
+.lt-crop-frame > .lt-crop-br {
+  content: "";
+  position: absolute;
+  width: var(--crop-mark-len);
+  height: var(--crop-mark-len);
+  pointer-events: none;
+}
+/* top-left */
+.lt-crop-frame::before {
+  top: -1px; left: -1px;
+  border-top: var(--crop-mark-weight) solid var(--crop-mark-color);
+  border-left: var(--crop-mark-weight) solid var(--crop-mark-color);
+}
+/* top-right */
+.lt-crop-frame::after {
+  top: -1px; right: -1px;
+  border-top: var(--crop-mark-weight) solid var(--crop-mark-color);
+  border-right: var(--crop-mark-weight) solid var(--crop-mark-color);
+}
+.lt-crop-frame > .lt-crop-bl {
+  bottom: -1px; left: -1px;
+  border-bottom: var(--crop-mark-weight) solid var(--crop-mark-color);
+  border-left: var(--crop-mark-weight) solid var(--crop-mark-color);
+}
+.lt-crop-frame > .lt-crop-br {
+  bottom: -1px; right: -1px;
+  border-bottom: var(--crop-mark-weight) solid var(--crop-mark-color);
+  border-right: var(--crop-mark-weight) solid var(--crop-mark-color);
+}
+
+/* ---- Techno eyebrow label ---- */
+.lt-eyebrow {
+  font-family: var(--font-techno);
+  font-size: var(--text-eyebrow);
+  font-weight: var(--weight-600, 600);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.lt-eyebrow--accent { color: var(--accent); }

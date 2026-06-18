@@ -1,0 +1,53 @@
+/* ============================================================
+   LANGOTIME — TYPOGRAPHY TOKENS
+   Bold grotesque for voice; squared techno for labels/eyebrows;
+   mono for data readouts.
+   ============================================================ */
+
+:root {
+  /* --- Families --- */
+  --font-sans:   "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-techno: "Chakra Petch", "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono:   "Space Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* --- Weights --- */
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-black:    800;
+
+  /* --- Font sizes (px) --- */
+  --text-display-1: 72px;   /* hero */
+  --text-display-2: 56px;
+  --text-h1: 44px;
+  --text-h2: 34px;
+  --text-h3: 26px;
+  --text-h4: 20px;
+  --text-title: 18px;
+  --text-body-lg: 18px;
+  --text-body: 16px;
+  --text-sm: 14px;
+  --text-xs: 13px;
+  --text-eyebrow: 13px;     /* techno, uppercase */
+  --text-mono: 14px;
+
+  /* --- Line heights --- */
+  --leading-tight: 1.04;    /* display */
+  --leading-snug: 1.15;     /* headings */
+  --leading-normal: 1.5;    /* body */
+  --leading-relaxed: 1.65;
+
+  /* --- Letter spacing --- */
+  --tracking-tighter: -0.03em;  /* big display */
+  --tracking-tight: -0.015em;   /* headings */
+  --tracking-normal: 0em;
+  --tracking-wide: 0.04em;
+  --tracking-eyebrow: 0.18em;   /* techno eyebrows / wordmark feel */
+
+  /* --- Semantic role aliases --- */
+  --font-display: var(--font-sans);
+  --font-heading: var(--font-sans);
+  --font-body: var(--font-sans);
+  --font-label: var(--font-techno);
+}

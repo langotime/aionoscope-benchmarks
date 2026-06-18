@@ -1,0 +1,13 @@
+/* ============================================================
+   LANGOTIME — FONTS
+   Webfonts via Google Fonts (closest matches to the live site).
+   SUBSTITUTION NOTE (flag to brand owner):
+   - Body/Display:  "Hanken Grotesk"  ~ matches the bold grotesque
+                    headline on lango-time.com
+   - Techno/Label:  "Chakra Petch"    ~ matches the squared,
+                    chamfered LANGOTIME wordmark letterforms
+   - Mono/Data:     "Space Mono"      ~ telemetry/data readouts
+   Replace with the brand's licensed binaries when available.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&family=Chakra+Petch:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');

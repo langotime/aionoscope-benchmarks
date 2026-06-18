@@ -12,309 +12,11 @@
         />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,16..72,400;0,16..72,500;0,16..72,600;1,16..72,400&display=swap"
-            rel="stylesheet"
-        />
         <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
-        <style>
-            :root {
-                color-scheme: light;
-                --ink: #16202b;
-                --ink-soft: #44566a;
-                --ink-faint: #75879a;
-                --bg: #fbfaf7;
-                --panel: #ffffff;
-                --line: #e7e3da;
-                --line-strong: #d8d3c7;
-                --accent: #0f766e;
-                --blue: #2563eb;
-                --red: #dc2626;
-                --amber: #d97706;
-                --serif: "Newsreader", Georgia, "Times New Roman", serif;
-                --sans:
-                    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
-                    Roboto, sans-serif;
-            }
-            * { box-sizing: border-box; }
-            html { scroll-behavior: smooth; }
-            body {
-                margin: 0;
-                background: var(--bg);
-                color: var(--ink);
-                font-family: var(--sans);
-                font-size: 18px;
-                line-height: 1.72;
-                -webkit-font-smoothing: antialiased;
-                text-rendering: optimizeLegibility;
-            }
-            .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
-            .col { max-width: 720px; margin: 0 auto; }
-
-            /* ---- hero ---- */
-            header.hero {
-                position: relative;
-                overflow: hidden;
-                background:
-                    radial-gradient(1200px 520px at 12% -10%, #d9f2ee 0%, rgba(217, 242, 238, 0) 60%),
-                    radial-gradient(1000px 480px at 95% 0%, #e7edff 0%, rgba(231, 237, 255, 0) 55%),
-                    linear-gradient(180deg, #fbfaf7 0%, #fbfaf7 100%);
-                border-bottom: 1px solid var(--line);
-            }
-            .hero-inner { padding: 92px 24px 60px; }
-            .eyebrow {
-                font-size: 13px;
-                font-weight: 600;
-                letter-spacing: 0.14em;
-                text-transform: uppercase;
-                color: var(--accent);
-                margin: 0 0 22px;
-            }
-            h1 {
-                font-family: var(--serif);
-                font-weight: 500;
-                font-size: clamp(2.3rem, 5.2vw, 3.7rem);
-                line-height: 1.06;
-                letter-spacing: -0.012em;
-                margin: 0 0 24px;
-                color: var(--ink);
-            }
-            .lede {
-                font-family: var(--serif);
-                font-size: clamp(1.18rem, 2.3vw, 1.42rem);
-                line-height: 1.55;
-                color: var(--ink-soft);
-                margin: 0 0 8px;
-            }
-            .byline {
-                margin-top: 30px;
-                font-size: 14px;
-                color: var(--ink-faint);
-                display: flex;
-                flex-wrap: wrap;
-                gap: 8px 14px;
-                align-items: center;
-            }
-            .byline .dot {
-                width: 4px; height: 4px; border-radius: 50%;
-                background: var(--line-strong);
-            }
-            .byline a { color: var(--accent); text-decoration: none; }
-            .byline a:hover { text-decoration: underline; }
-            .read-time { font-weight: 500; color: var(--ink-soft); }
-            .read-time:empty, .read-time:empty + .read-dot { display: none; }
-
-            /* ---- contents card ---- */
-            .toc {
-                background: var(--panel);
-                border: 1px solid var(--line);
-                border-radius: 14px;
-                padding: 20px 26px;
-                margin: 30px auto 8px;
-                max-width: 720px;
-            }
-            .toc-head {
-                font-family: var(--sans);
-                font-size: 13px; font-weight: 600;
-                letter-spacing: 0.14em; text-transform: uppercase;
-                color: var(--accent); margin: 0 0 6px;
-            }
-            .toc ol { margin: 0; padding: 0; list-style: none; counter-reset: toc; }
-            .toc li { border-top: 1px solid var(--line); counter-increment: toc; }
-            .toc li:first-child { border-top: 0; }
-            .toc a {
-                display: flex; gap: 14px; align-items: baseline;
-                padding: 10px 0; text-decoration: none; color: var(--ink);
-            }
-            .toc a::before {
-                content: counter(toc, decimal-leading-zero);
-                flex: 0 0 auto;
-                font-family: var(--sans); font-size: 13px; font-weight: 600;
-                color: var(--accent); font-variant-numeric: tabular-nums;
-            }
-            .toc-text { display: flex; flex-direction: column; gap: 1px; }
-            .toc-kicker {
-                font-family: var(--sans); font-size: 11px; font-weight: 600;
-                letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint);
-            }
-            .toc-title { font-family: var(--serif); font-size: 1.05rem; }
-            .toc-min {
-                flex: 0 0 auto; margin-left: auto;
-                font-family: var(--sans); font-size: 12px; font-weight: 500;
-                color: var(--ink-faint); font-variant-numeric: tabular-nums; white-space: nowrap;
-            }
-            .toc a:hover .toc-title { color: var(--accent); }
-            section[id] { scroll-margin-top: 18px; }
-
-            /* ---- article body ---- */
-            main { padding: 8px 0 40px; }
-            section.block { padding: 30px 0; }
-            h2 {
-                font-family: var(--serif); font-weight: 600;
-                font-size: clamp(1.7rem, 3.2vw, 2.15rem);
-                line-height: 1.16; letter-spacing: -0.01em; margin: 40px 0 6px;
-            }
-            h2 .num {
-                display: block;
-                font-family: var(--sans); font-size: 13px; font-weight: 600;
-                letter-spacing: 0.14em; text-transform: uppercase;
-                color: var(--accent); margin-bottom: 12px;
-            }
-            h3 {
-                font-family: var(--sans); font-weight: 600; font-size: 1.18rem;
-                margin: 34px 0 4px; color: var(--ink);
-            }
-            p { margin: 18px 0; }
-            a { color: var(--accent); }
-            strong { font-weight: 600; color: var(--ink); }
-            em { color: var(--ink); }
-            .col ul { margin: 18px 0; padding-left: 22px; }
-            .col li { margin: 8px 0; }
-            code {
-                font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
-                font-size: 0.86em; background: #f1efe8; border: 1px solid var(--line);
-                padding: 1px 6px; border-radius: 5px; color: #355;
-            }
-            .pull {
-                font-family: var(--serif); font-size: 1.5rem; line-height: 1.4;
-                font-weight: 500; color: var(--accent);
-                border-left: 3px solid var(--accent);
-                padding: 6px 0 6px 24px; margin: 40px auto; max-width: 720px;
-            }
-
-            /* stat callouts */
-            .stats {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                gap: 14px; margin: 34px auto 6px; max-width: 760px;
-            }
-            .stat {
-                background: var(--panel); border: 1px solid var(--line);
-                border-radius: 12px; padding: 16px 18px;
-            }
-            .stat .v {
-                font-family: var(--serif); font-size: 1.9rem; font-weight: 600;
-                line-height: 1; color: var(--accent);
-            }
-            .stat .l { font-size: 13px; color: var(--ink-faint); margin-top: 8px; line-height: 1.35; }
-
-            /* ---- figures / charts ---- */
-            figure.fig {
-                margin: 40px auto; max-width: 1000px;
-                background: var(--panel); border: 1px solid var(--line);
-                border-radius: 16px; padding: 18px 18px 14px;
-                box-shadow: 0 1px 2px rgba(20, 30, 40, 0.03);
-            }
-            .fig-head {
-                display: flex; align-items: baseline; justify-content: space-between;
-                gap: 12px; flex-wrap: wrap; margin: 4px 4px 10px;
-            }
-            .fig-title { font-family: var(--sans); font-weight: 600; font-size: 1.02rem; color: var(--ink); }
-            .fig-sub { font-size: 13px; color: var(--ink-faint); }
-            .chart { width: 100%; height: 440px; }
-            .chart.short { height: 360px; }
-            .chart.tall { height: 520px; }
-            .twin { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-            .twin .chart { height: 360px; }
-            .panel-cap {
-                font-size: 12.5px; font-weight: 600; color: var(--ink-soft);
-                text-align: center; margin: 2px 2px 4px;
-            }
-            @media (max-width: 720px) { .twin { grid-template-columns: 1fr; } }
-            figcaption {
-                font-size: 14.5px; line-height: 1.6; color: var(--ink-soft);
-                margin: 12px 6px 4px; padding-top: 12px; border-top: 1px solid var(--line);
-            }
-            figcaption b { color: var(--ink); font-weight: 600; }
-
-            .chart-msg {
-                display: flex; align-items: center; justify-content: center;
-                height: 100%; text-align: center; color: var(--ink-faint);
-                font-size: 14px; padding: 24px; line-height: 1.5;
-            }
-            .chart-msg.warn { color: #8a5a00; }
-            .spinner {
-                width: 22px; height: 22px;
-                border: 3px solid #e3ddcf; border-top-color: var(--accent);
-                border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 12px;
-            }
-            @keyframes spin { to { transform: rotate(360deg); } }
-
-            /* ---- block diagrams (CSS, not charts) ---- */
-            .diagram {
-                display: flex; flex-wrap: wrap; align-items: center;
-                justify-content: center; gap: 7px; margin: 6px 2px;
-            }
-            .dbox {
-                border: 1px solid var(--line-strong); border-radius: 10px;
-                padding: 9px 13px; font-size: 13px; font-weight: 600;
-                color: var(--ink); background: #fff; text-align: center; line-height: 1.25;
-            }
-            .dbox.accent { background: #e8f3f0; border-color: #bcdcd5; color: #0b5a53; }
-            .dbox.ghost { border-style: dashed; color: var(--ink-soft); font-weight: 500; background: #faf9f6; }
-            .dbox small { display: block; font-weight: 500; font-size: 11px; color: var(--ink-faint); margin-top: 2px; }
-            .darrow { color: var(--ink-faint); font-size: 17px; flex: none; }
-            .dpill {
-                display: inline-block; font-size: 10.5px; font-weight: 600;
-                letter-spacing: 0.04em; text-transform: uppercase;
-                color: #8a5a00; background: #fbf1dd; border: 1px solid #f0dcae;
-                border-radius: 999px; padding: 1px 8px; margin-left: 7px;
-            }
-            .dnote {
-                font-size: 13.5px; color: var(--ink-soft); line-height: 1.55;
-                text-align: center; margin: 12px auto 2px; max-width: 660px;
-            }
-
-            /* note / caveat boxes */
-            .note {
-                background: #f5f8f7; border: 1px solid #d6e6e2;
-                border-left: 3px solid var(--accent); border-radius: 10px;
-                padding: 4px 22px; margin: 26px auto; max-width: 720px;
-            }
-            .note h3 { margin-top: 18px; }
-
-            /* collaboration / get-involved callout */
-            .collab {
-                position: relative; overflow: hidden;
-                background:
-                    radial-gradient(820px 360px at 100% -30%, #d9f2ee 0%, rgba(217, 242, 238, 0) 62%),
-                    radial-gradient(620px 280px at -10% 120%, #e7edff 0%, rgba(231, 237, 255, 0) 60%),
-                    linear-gradient(180deg, #ffffff 0%, #fbfdfc 100%);
-                border: 1px solid #cfe5e0; border-radius: 18px;
-                padding: 32px 36px 30px; margin: 8px auto; max-width: 760px;
-                box-shadow: 0 4px 22px rgba(15, 118, 110, 0.07);
-            }
-            .collab .eyebrow { margin-bottom: 14px; }
-            .collab h2 { margin: 0 0 4px; }
-            .collab p { margin: 14px 0; }
-            .collab ul { margin: 16px 0 22px; padding-left: 0; list-style: none; }
-            .collab li { position: relative; padding-left: 28px; margin: 10px 0; }
-            .collab li::before {
-                content: ""; position: absolute; left: 4px; top: 11px;
-                width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
-            }
-            .collab .actions { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: center; margin-top: 8px; }
-            .collab .quiet { font-size: 14px; color: var(--ink-faint); }
-            .collab .quiet a { color: var(--accent); }
-
-            /* footer */
-            footer {
-                border-top: 1px solid var(--line); margin-top: 40px;
-                padding: 48px 24px 80px; background: #f6f4ee;
-            }
-            .cta {
-                display: inline-flex; align-items: center; gap: 10px;
-                background: var(--accent); color: #fff; text-decoration: none;
-                font-weight: 600; padding: 13px 22px; border-radius: 11px; font-size: 15px;
-            }
-            .cta:hover { background: #0c5f58; }
-            .cta.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line-strong); }
-            .cta.ghost:hover { background: #eef5f3; }
-            .respect { font-size: 15px; color: var(--ink-soft); margin-top: 28px; }
-            .respect a { color: var(--accent); }
-            .smallprint { font-size: 13px; color: var(--ink-faint); margin-top: 22px; }
-            hr.soft { border: 0; border-top: 1px solid var(--line); margin: 36px auto; max-width: 720px; }
-        </style>
+        <script src="assets/js/chart-theme.js"></script>
+        <link rel="stylesheet" href="assets/langotime/styles.css" />
+        <link rel="stylesheet" href="assets/css/about-lenepa.css" />
+        <link rel="stylesheet" href="assets/css/about-base.css" />
     </head>
     <body>
         <header class="hero">
@@ -892,8 +594,8 @@
             (function () {
                 "use strict";
                 var C = {
-                    blue: "#2563eb", red: "#dc2626", teal: "#0f766e",
-                    amber: "#d97706", slate: "#64748b", green: "#16a34a",
+                    blue: "#2d7ff9", red: "#e5484d", teal: "#ff4d00",
+                    amber: "#f2a30f", slate: "#6b6b6b", green: "#16a34a",
                 };
                 var LOAD_HELP =
                     "Couldn't load the chart data. If you opened this file " +
@@ -908,7 +610,7 @@
                     if (instances[id] && !instances[id].isDisposed())
                         return instances[id];
                     el.innerHTML = "";
-                    var c = echarts.init(el, null, { renderer: "canvas" });
+                    var c = echarts.init(el, "langotime", { renderer: "canvas" });
                     instances[id] = c;
                     return c;
                 }
@@ -985,10 +687,10 @@
                     if (spec.marks && spec.marks.length && series.length) {
                         series[series.length - 1].markLine = {
                             silent: true, symbol: "none",
-                            lineStyle: { color: "#cbd5e1", type: "dashed", width: 1 },
+                            lineStyle: { color: "#d2d2d2", type: "dashed", width: 1 },
                             label: {
                                 show: true, position: "insideEndTop",
-                                fontSize: 11, color: "#64748b",
+                                fontSize: 11, color: "#6b6b6b",
                                 formatter: function (p) { return p.name; },
                             },
                             data: spec.marks.map(function (m) {
@@ -1010,7 +712,7 @@
                                 name: spec.xName, nameLocation: "middle", nameGap: 32,
                                 min: spec.xMin, max: spec.xMax,
                                 interval: isLayer ? 1 : undefined,
-                                splitLine: { lineStyle: { color: "#f0eee7" } },
+                                splitLine: { lineStyle: { color: "#ffffff" } },
                                 axisLabel: {
                                     fontSize: 11,
                                     formatter: function (v) {
@@ -1024,9 +726,9 @@
                             yAxis: {
                                 type: "value", name: spec.yName,
                                 nameLocation: "middle", nameGap: 46,
-                                nameTextStyle: { fontSize: 11.5, color: "#475569" },
+                                nameTextStyle: { fontSize: 11.5, color: "#444444" },
                                 min: spec.yMin, max: spec.yMax,
-                                splitLine: { lineStyle: { color: "#f0eee7" } },
+                                splitLine: { lineStyle: { color: "#ffffff" } },
                             },
                             series: series,
                         },
@@ -1064,16 +766,16 @@
                             xAxis: {
                                 type: "value", min: spec.min, max: spec.max,
                                 name: spec.xName, nameLocation: "middle", nameGap: 32,
-                                nameTextStyle: { fontSize: 11.5, color: "#475569" },
-                                splitLine: { lineStyle: { color: "#f0eee7" } },
+                                nameTextStyle: { fontSize: 11.5, color: "#444444" },
+                                splitLine: { lineStyle: { color: "#ffffff" } },
                                 axisLabel: { formatter: "{value}%", fontSize: 11 },
                             },
                             yAxis: {
                                 type: "category", inverse: true, data: cats,
                                 axisTick: { show: false },
-                                axisLine: { lineStyle: { color: "#d8d3c7" } },
+                                axisLine: { lineStyle: { color: "#d2d2d2" } },
                                 axisLabel: {
-                                    fontSize: 13.5, fontWeight: 600, color: "#16202b",
+                                    fontSize: 13.5, fontWeight: 600, color: "#0a0a0a",
                                 },
                             },
                             series: [
@@ -1081,7 +783,7 @@
                                     type: "bar", data: data, barWidth: "52%",
                                     label: {
                                         show: true, position: "right",
-                                        fontSize: 12.5, color: "#44566a",
+                                        fontSize: 12.5, color: "#444444",
                                         formatter: function (p) {
                                             return (p.data.acc.toFixed(2) +
                                                 "%  ·  " + p.data.params);

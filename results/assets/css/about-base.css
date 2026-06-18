@@ -1,0 +1,93 @@
+/* ============================================================
+   ABOUT PAGES — shared Langotime rebrand layer.
+   Linked AFTER langotime/styles.css AND AFTER each about-<page>.css,
+   so it wins the cascade for brand-level surfaces.
+
+   Strategy: the editorial pages theme themselves through CSS
+   variables (--ink, --bg, --accent, --serif, --sans, …). We re-map
+   those names onto Langotime tokens here once, which rebrands every
+   about page at the root, then override the few brand-defining
+   surfaces that bypass variables (hero gradients, eyebrow, CTA).
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+
+  /* editorial variable names  ->  Langotime tokens */
+  --ink:         var(--ink-900);
+  --ink-soft:    var(--ink-600);
+  --ink-faint:   var(--ink-400);
+  --bg:          var(--paper);
+  --panel:       var(--surface-card);
+  --line:        var(--border-default);
+  --line-strong: var(--ink-300);
+  --accent:      var(--orange-500);
+  --blue:        var(--blue-500);
+  --red:         var(--red-500);
+  --amber:       var(--amber-500);
+  --serif:       var(--font-sans);   /* brand has no serif — Hanken Grotesk carries display */
+  --sans:        var(--font-sans);
+}
+
+/* ---- Headings: brand grotesque voice, tight tracking ---- */
+h1 { font-weight: var(--weight-black); letter-spacing: var(--tracking-tighter); }
+h2, h3 { letter-spacing: var(--tracking-tight); }
+
+/* ---- Techno eyebrow / kicker / figure sublabels ---- */
+.eyebrow, .toc-kicker, .fig-sub {
+  font-family: var(--font-techno);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+}
+
+/* ---- Hero: replace editorial radial gradients with a flat
+        blueprint field — faint telemetry grid + hatch fade. ---- */
+header.hero {
+  background: var(--paper);
+  border-bottom: var(--border-width) solid var(--border-default);
+}
+header.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--ink-150) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--ink-150) 1px, transparent 1px);
+  background-size: var(--pattern-grid-size, 28px) var(--pattern-grid-size, 28px);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 72%);
+  mask-image: linear-gradient(180deg, #000 0%, transparent 72%);
+  opacity: 0.55;
+  pointer-events: none;
+}
+header.hero::after {
+  content: "";
+  position: absolute;
+  top: 0; right: 0;
+  width: 38%; height: 100%;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--ink-150) 0, var(--ink-150) 1.5px,
+    transparent 1.5px, transparent 10px
+  );
+  -webkit-mask-image: linear-gradient(to left, #000, transparent);
+  mask-image: linear-gradient(to left, #000, transparent);
+  pointer-events: none;
+}
+.hero-inner { position: relative; z-index: 1; }
+
+/* ---- Primary CTA: pill, orange, restrained glow on hover ---- */
+.cta {
+  border-radius: var(--radius-pill);
+  font-family: var(--font-techno);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  transition:
+    transform var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+.cta:not(.ghost):hover { box-shadow: var(--shadow-accent); }
+.cta:active { transform: scale(var(--press-scale)); }
+
+/* ---- Inline code / data readouts: mono ---- */
+code, kbd, samp { font-family: var(--font-mono); }

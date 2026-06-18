@@ -7,6 +7,11 @@ This folder contains two very different things:
   manifold viewer; its generated `manifest.json` and large JSON data live in
   Cloudflare R2.
 - `models/*.json`: generated benchmark artifacts consumed by the dashboard.
+- `assets/`: shared styling for every page — the vendored Langotime Design System
+  (`assets/langotime/`), per-page stylesheets (`assets/css/`), and the ECharts theme
+  (`assets/js/`). The deploy unit is now "HTML + its `assets/`": this directory must
+  be deployed/uploaded alongside the pages so the relative `assets/...` links resolve
+  (including the Cloudflare Pages manifold shell).
 
 ## Critical decisions
 
@@ -24,16 +29,35 @@ When uploading R2 data, `results/manifolds/manifest.json` must be uploaded with
 a one-day cache lifetime, while the large per-target and plot JSON payloads keep
 their long immutable cache lifetime.
 
-### 1. Single-file static dashboard
+### 1. Static, framework-free pages with a shared design system
 
-Keep the dashboard as one self-contained HTML document with inline CSS and inline JavaScript in `results/dashboard.html`.
+Every page in `results/` is plain static HTML with inline JavaScript and
+**external** CSS. Styling lives under `results/assets/`, not in inline `<style>`
+blocks (this supersedes the original inline-CSS rule):
 
-- No framework.
-- No bundler.
-- No build step.
-- No split frontend app structure.
+- `assets/langotime/` — the vendored Langotime Design System (`styles.css` +
+  `tokens/`): the single source of brand tokens (color, type, spacing, motifs)
+  and webfonts. Treat as read-only vendored input.
+- `assets/css/` — per-surface stylesheets. `about-base.css` is the shared rebrand
+  layer for the `about-*` articles, plus one file per page. `dashboard.css` is
+  shared by `dashboard.html` and `dashboard-v2.html`. `manifolds.css` for the viewer.
+- `assets/js/chart-theme.js` — the `langotime` ECharts theme; pages init charts
+  with `echarts.init(el, "langotime", …)`.
 
-The dashboard should remain easy to open from a plain static file server and easy to audit in one file.
+Still holds: no framework, no bundler, no build step, no split frontend app, and
+JavaScript stays inline per page — each page is still easy to open from a plain
+static file server. Link order per page: the design system first, then the page's
+own stylesheet; `about-*` pages link `about-base.css` last as the brand override
+layer.
+
+When restyling, work through tokens, not literals. The `about-*` pages theme via
+CSS variables that `about-base.css` re-maps onto Langotime tokens, so change those
+(or the tokens) rather than hardcoding colors; the palette is coral-orange
+`#FF4D00`, the ink ramp, white paper, and telemetry hues, with fonts Hanken Grotesk
+/ Chakra Petch / Space Mono. Note that **chart colors are not CSS**: ECharts series
+colors live in each page's inline `option` objects. Defaults come from the
+`langotime` theme in `chart-theme.js`; any explicit per-series color must be a
+Langotime palette value, never the old editorial teal/slate.
 
 ### 2. External libraries stay minimal and explicit
 

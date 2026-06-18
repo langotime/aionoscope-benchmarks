@@ -1,0 +1,86 @@
+/* ============================================================
+   LANGOTIME — COLOR TOKENS
+   Minimal by design: near-black ink, white paper, one vivid
+   coral-orange accent. Bright, memorable, restrained.
+   ============================================================ */
+
+:root {
+  /* --- Brand accent: coral-orange (sampled from site #FF4D00) --- */
+  --orange-700: #B33500;
+  --orange-600: #D94000;   /* press */
+  --orange-500: #FF4D00;   /* PRIMARY accent */
+  --orange-400: #FF6E33;   /* hover-light / illustration */
+  --orange-300: #FF9466;
+  --orange-200: #FFC3A6;
+  --orange-100: #FFE2D4;   /* tint surface */
+  --orange-50:  #FFF2EB;   /* faint wash */
+
+  /* --- Ink: the near-black-to-white neutral ramp --- */
+  --ink-900: #0A0A0A;      /* logo, primary text */
+  --ink-800: #161616;
+  --ink-700: #2A2A2A;
+  --ink-600: #444444;
+  --ink-500: #6B6B6B;      /* secondary text */
+  --ink-400: #8A8A8A;      /* muted / captions (site subtext) */
+  --ink-300: #B8B8B8;
+  --ink-250: #D2D2D2;
+  --ink-200: #E2E2E2;      /* default borders */
+  --ink-150: #ECECEC;
+  --ink-100: #F4F4F4;      /* sunken surface */
+  --ink-50:  #FAFAFA;
+  --paper:   #FFFFFF;
+
+  /* --- Telemetry / chart support hues (use sparingly) --- */
+  --green-500:  #19A974;   /* "✔" results, healthy */
+  --green-100:  #DCF5EC;
+  --red-500:    #E5484D;   /* anomaly / alert */
+  --red-100:    #FBE3E4;
+  --amber-500:  #F2A30F;   /* warning */
+  --amber-100:  #FCEFD2;
+  --blue-500:   #2D7FF9;   /* info / secondary series */
+  --blue-100:   #DCEAFE;
+
+  /* ============================================================
+     SEMANTIC ALIASES — reference these in product code
+     ============================================================ */
+
+  /* Text */
+  --text-strong:   var(--ink-900);
+  --text-body:     var(--ink-800);
+  --text-secondary:var(--ink-500);
+  --text-muted:    var(--ink-400);
+  --text-inverse:  var(--paper);
+  --text-accent:   var(--orange-500);
+  --text-link:     var(--ink-900);
+
+  /* Surfaces */
+  --surface-page:    var(--paper);
+  --surface-card:    var(--paper);
+  --surface-sunken:  var(--ink-50);
+  --surface-muted:   var(--ink-100);
+  --surface-inverse: var(--ink-900);
+  --surface-accent:  var(--orange-500);
+  --surface-accent-tint: var(--orange-50);
+
+  /* Borders */
+  --border-subtle:  var(--ink-150);
+  --border-default: var(--ink-200);
+  --border-strong:  var(--ink-900);
+  --border-accent:  var(--orange-500);
+
+  /* Accent roles */
+  --accent:          var(--orange-500);
+  --accent-hover:    var(--orange-400);
+  --accent-press:    var(--orange-600);
+  --accent-contrast: var(--paper);
+  --accent-tint:     var(--orange-50);
+
+  /* Feedback */
+  --success: var(--green-500);
+  --danger:  var(--red-500);
+  --warning: var(--amber-500);
+  --info:    var(--blue-500);
+
+  /* Focus */
+  --focus-ring: var(--orange-500);
+}

@@ -1,0 +1,66 @@
+/* ============================================================
+   LANGOTIME — SPACING, RADII, SHADOW, MOTION, LAYOUT
+   The brand is flat & technical: borders over shadows,
+   pill buttons, lightly-rounded panels, blueprint precision.
+   ============================================================ */
+
+:root {
+  /* --- Spacing scale (4px base) --- */
+  --space-0: 0px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+  --space-10: 64px;
+  --space-11: 80px;
+  --space-12: 96px;
+  --space-13: 128px;
+  --space-14: 160px;
+
+  /* --- Radii --- */
+  --radius-none: 0px;
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;     /* default card */
+  --radius-lg: 18px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;  /* buttons, chips */
+
+  /* role aliases */
+  --radius-button: var(--radius-pill);
+  --radius-card: var(--radius-md);
+  --radius-input: var(--radius-sm);
+  --radius-panel: var(--radius-lg);
+
+  /* --- Borders --- */
+  --border-width: 1.5px;
+  --border-width-strong: 2px;
+
+  /* --- Shadows (used sparingly; flat brand) --- */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px rgba(10,10,10,0.06);
+  --shadow-md: 0 4px 16px rgba(10,10,10,0.08);
+  --shadow-lg: 0 18px 48px rgba(10,10,10,0.12);
+  --shadow-accent: 0 10px 30px rgba(255,77,0,0.28);  /* orange glow for primary CTAs */
+  --shadow-inset-hair: inset 0 0 0 1px var(--ink-150);
+
+  /* --- Motion --- */
+  --duration-fast: 120ms;   /* @kind other */
+  --duration-base: 200ms;   /* @kind other */
+  --duration-slow: 320ms;   /* @kind other */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);   /* @kind other */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);     /* @kind other */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1); /* @kind other */
+  --press-scale: 0.97;      /* @kind other */
+
+  /* --- Layout --- */
+  --container-max: 1200px;
+  --container-narrow: 760px;
+  --gutter: clamp(20px, 5vw, 64px);     /* @kind spacing */
+  --section-y: clamp(64px, 9vw, 128px); /* @kind spacing */
+}
