@@ -14,3 +14,4 @@ __pycache__/
 /results/manifolds/
 /results/about-manifolds-assets/
 *.egg-info/
+/.scratchpad/
