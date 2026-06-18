@@ -264,6 +264,50 @@
                     </div>
                 </section>
 
+                <!-- WHAT IT MEASURES / DOESN'T -->
+                <section class="block" id="what-this-measures">
+                    <div class="col">
+                        <h2>
+                            <span class="num">Scope &amp; caveats</span
+                            >What Langotime Aionoscope measures — and what it
+                            doesn't
+                        </h2>
+                        <ul>
+                            <li>
+                                This is a
+                                <strong>representation-geometry</strong>
+                                evaluation, not a steering or
+                                causal-intervention result. We read frozen
+                                activations; we never replace them or continue
+                                generation from an edited state.
+                            </li>
+                            <li>
+                                It <strong>complements</strong> the
+                                linear-probe leaderboard — it does not replace
+                                it. A manifold can be clean but curved, or
+                                decodable but tangled; the two views answer
+                                different questions.
+                            </li>
+                            <li>
+                                The numbers are honest about
+                                <strong
+                                    >geometry, not downstream accuracy</strong
+                                >. A high projection R² means a coordinate is
+                                recoverable by following the manifold — not that
+                                the model forecasts well.
+                            </li>
+                            <li>
+                                It is deliberately <strong>simple</strong>:
+                                controlled one-factor sweeps with everything
+                                else switched off, classical PCA and
+                                shortest-path geodesics. No UMAP or t-SNE in the
+                                metrics — only as optional eye-candy, never as a
+                                score.
+                            </li>
+                        </ul>
+                    </div>
+                </section>
+
                 <!-- HOW THE SCORES ARE COMPUTED -->
                 <details class="drawer" id="how-scores">
                     <summary>How the four scores are computed</summary>
@@ -1953,49 +1997,6 @@
                         </figcaption>
                     </figure>
 
-                </section>
-
-                <!-- WHAT IT IS / ISN'T -->
-                <section class="block" id="what-this-measures">
-                    <div class="note">
-                        <div class="col" style="max-width: none">
-                            <h3>What Langotime Aionoscope measures — and what it doesn't</h3>
-                            <ul>
-                                <li>
-                                    This is a
-                                    <strong>representation-geometry</strong>
-                                    evaluation, not a steering or
-                                    causal-intervention result. We read frozen
-                                    activations; we never replace them or
-                                    continue generation from an edited state.
-                                </li>
-                                <li>
-                                    It <strong>complements</strong> the
-                                    linear-probe leaderboard — it does not
-                                    replace it. A manifold can be clean but
-                                    curved, or decodable but tangled; the two
-                                    views answer different questions.
-                                </li>
-                                <li>
-                                    The numbers are honest about
-                                    <strong
-                                        >geometry, not downstream
-                                        accuracy</strong
-                                    >. A high projection R² means a coordinate
-                                    is recoverable by following the manifold —
-                                    not that the model forecasts well.
-                                </li>
-                                <li>
-                                    It is deliberately <strong>simple</strong>:
-                                    controlled one-factor sweeps with everything
-                                    else switched off, classical PCA and
-                                    shortest-path geodesics. No UMAP or t-SNE in
-                                    the metrics — only as optional eye-candy,
-                                    never as a score.
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
                 </section>
 
                 <!-- GET INVOLVED -->
