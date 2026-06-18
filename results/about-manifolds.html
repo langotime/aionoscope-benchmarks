@@ -916,6 +916,25 @@
 
                     <div class="col">
                         <p>
+                            It helps to be explicit about how Toto reads a
+                            signal, since that's the whole cause — and it's
+                            tempting to picture the model taking one number at a
+                            time. It doesn't. Just as a language model splits
+                            text into tokens, Toto splits the series into
+                            fixed-length <strong>patches</strong> — 32 samples
+                            each — and the transformer sees
+                            <em>one token per patch</em>, not one per time step.
+                            A patch is the model's smallest unit of time, so a
+                            single spike can't say exactly <em>when</em> it
+                            occurred; its patch records only
+                            <strong>which patch</strong> it fell in and
+                            <strong>where inside that patch</strong> it sat — the
+                            two coordinates this whole example turns on.
+                            Everything jumpy you just watched is the geometry
+                            being quantised to that patch grid instead of to
+                            time.
+                        </p>
+                        <p>
                             That folding is exactly why a naïve
                             <em>straight-line</em> distance lies — and it's the
                             single most important idea in the suite, so it's
@@ -1004,10 +1023,12 @@
                     <div class="col">
                         <p>
                             And here is where it gets pretty. By layer 21 the
-                            two things the tokenizer was really measuring have
-                            pulled apart into separate axes — and the whole
-                            manifold becomes a <strong>ring</strong>. Rotate it
-                            (it defaults to 3-D).
+                            two things the tokenizer was really measuring —
+                            which patch, and where inside it — have pulled apart
+                            onto separate, orthogonal axes. The manifold turns
+                            into a <strong>comb</strong>: a row of teeth strung
+                            along one dominant axis. Rotate it (it defaults to
+                            3-D).
                         </p>
                     </div>
 
@@ -1030,7 +1051,7 @@
                                 </div>
                                 <div class="fig-sub">
                                     Left, the impulse; right, the disentangled
-                                    patch × phase ring. Rotate it.
+                                    patch-number × within-patch comb. Rotate it.
                                 </div>
                             </div>
                         </div>
@@ -1090,14 +1111,19 @@
                             axis carries <b>98.5%</b> of the variance and is
                             simply <strong>which patch</strong> the spike is in
                             — coarse position, now a clean linear ruler; that's
-                            the axis that "straightened" the score above. Going
-                            <em>around</em> the ring is
+                            the axis that "straightened" the score above.
+                            <em>Along</em> each tooth is
                             <strong>where inside the patch</strong> the spike
-                            sits — the fine position the model can only register
-                            as a repeating phase. The triangle was these two
-                            folded together; here they're orthogonal. (The ring
-                            looks this bold because each 3-D axis is auto-scaled
-                            — the phase loop is small next to the patch axis.)
+                            sits — the fine position, running from one patch
+                            edge to the other. It's a <em>position</em>, not a
+                            phase: each tooth is an open segment, not a closed
+                            loop — a coordinate that wrapped around would shut
+                            into a ring, and this one doesn't. The triangle was
+                            these two folded together; here they're orthogonal —
+                            which patch <em>across</em> the comb, where-inside
+                            <em>along</em> each tooth. (The teeth look this
+                            prominent because each 3-D axis is auto-scaled — the
+                            within-patch spread is tiny next to the patch axis.)
                         </figcaption>
                     </figure>
 
