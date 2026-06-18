@@ -205,24 +205,6 @@
                             </li>
                         </ul>
 
-                        <details class="drawer">
-                            <summary>How the centroid is computed</summary>
-                            <div class="drawer-body">
-                                <p>
-                                    For a grid point \(g\) with the set of samples
-                                    \(S_g\) collected at it, the centroid is the
-                                    mean of their activation vectors:
-                                </p>
-                                \[ c_g \;=\; \frac{1}{|S_g|}\sum_{i \in S_g} x_i \]
-                                <p>
-                                    The slices in this post use one sample per grid
-                                    point, so \(|S_g| = 1\) and \(c_g = x_g\): the
-                                    centroid is exactly that single activation
-                                    vector, with nothing averaged away.
-                                </p>
-                            </div>
-                        </details>
-
                         <p>
                             We do this for
                             <strong>45 foundation models</strong> (Toto, Moirai,
