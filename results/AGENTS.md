@@ -16,7 +16,7 @@ This folder contains several different things:
 - `models/*.json` and `models-v2/*.json`: generated benchmark artifacts consumed
   by the dashboard shells.
 - `assets/`: shared styling for the dashboard and manifold viewer — the vendored
-  Langotime Design System (`assets/langotime/`), per-page stylesheets
+  Langotime Design System (`assets/langotime/`), dashboard/viewer stylesheets
   (`assets/css/`), and the ECharts theme (`assets/js/`). The deploy unit is now
   "HTML + `_redirects` + `assets/`": this directory must be deployed/uploaded
   alongside the pages so the relative `assets/...` links resolve.
@@ -49,8 +49,7 @@ blocks (this supersedes the original inline-CSS rule):
   and webfonts. Treat as read-only vendored input.
 - `assets/css/` — per-surface stylesheets. `dashboard.css` is shared by
   `dashboard.html` and `dashboard-v2.html`. `manifolds.css` is for the viewer.
-  Historical article CSS may remain temporarily but should not be referenced by
-  new benchmark pages.
+  Article CSS moved to `blog-langotime-ai`; do not restore `about-*.css` here.
 - `assets/js/chart-theme.js` — the `langotime` ECharts theme; pages init charts
   with `echarts.init(el, "langotime", …)`.
 
