@@ -69,8 +69,13 @@ checked-in hosted viewer is `results/manifolds.html`; Cloudflare Pages deploys
 it from the Git-backed `aionoscope-benchmarks` Pages project. When served from
 localhost or `file:`, the viewer reads local JSON from `results/manifolds/`;
 when served from Pages, it fetches the large JSON corpus from Cloudflare R2 at
-`https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260603T142443Z/`.
+`https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260619T143710Z/`.
 See `docs/manifold-r2-pages.md` before changing the hosted manifold setup.
+
+The old checked-in article pages were moved to `https://blog.langotime.ai/`.
+Cloudflare Pages keeps the legacy benchmark URLs alive through
+`results/_redirects`; do not add `results/about-*.html` article pages back to
+this repository.
 
 The LeNEPA-CauKer2M training-checkpoint sweep is generated separately so each
 checkpoint keeps its own subdirectory and JSON identity:

@@ -613,7 +613,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
       <h1>__TITLE__</h1>
       <p class="header-copy">Static reader for controlled manifold-slice artifacts. Metrics are computed in Python over all stored grid points; the browser only renders the selected record.</p>
     </div>
-    <a class="about-link" href="about-manifolds.html">About manifolds &rarr;</a>
+    <a class="about-link" href="https://blog.langotime.ai/about-manifolds.html">About manifolds &rarr;</a>
   </header>
   <main>
     <div class="controls">
@@ -650,7 +650,7 @@ _VIEWER_TEMPLATE = """<!doctype html>
     let signalRaf = null;
     let metricsCollapsed = false;
     let distanceBlockOpen = false;
-    const REMOTE_MANIFOLD_DATA_BASE_URL = "https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260603T142443Z/";
+    const REMOTE_MANIFOLD_DATA_BASE_URL = "https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260619T143710Z/";
     function defaultManifoldDataBaseUrl() {
       const host = window.location.hostname;
       if (
