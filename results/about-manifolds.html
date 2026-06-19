@@ -2252,7 +2252,7 @@
                 // Same contract as the viewer (results/manifolds.html): record-relative paths
                 // use local generated artifacts during local preview and R2 on hosted Pages.
                 var REMOTE_BASE =
-                    "https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260603T142443Z/";
+                    "https://manifolds-data.aionoscope.langotime.ai/manifolds/v20260619T143710Z/";
                 function defaultBase() {
                     var host = window.location.hostname;
                     if (
@@ -2483,7 +2483,7 @@
                             '<div class="chart-msg"><span class="spinner"></span>loading live data…</div>';
                 }
                 function fetchJSON(url) {
-                    return fetch(url, { cache: "force-cache" }).then(
+                    return fetch(url).then(
                         function (r) {
                             if (!r.ok) throw new Error("HTTP " + r.status);
                             return r.json();
