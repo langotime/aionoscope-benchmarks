@@ -76,15 +76,8 @@ body {
 
 /* ---- Surfaces ---- */
 
-.index-section-title {
-  font-family: var(--font-techno);
-  font-size: var(--text-eyebrow);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: var(--text-muted);
-  padding-bottom: var(--space-4);
-  border-bottom: var(--border-width) solid var(--border-default);
+.index-main {
+  border-top: var(--border-width) solid var(--border-default);
 }
 
 .surface-list {
@@ -151,17 +144,6 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   color: var(--accent);
-}
-
-.surface-aside {
-  margin-top: var(--space-4);
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-.surface-aside a {
-  color: var(--text-strong);
-  text-decoration: underline;
 }
 
 /* ---- Footer ---- */
