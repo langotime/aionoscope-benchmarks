@@ -9,9 +9,17 @@ is a small landing page that fans out to the three surfaces, and it owns that
 navigation: each surface links back to the index rather than to its siblings.
 
 - `results/index.html` — index
-- `results/dashboard-v2.html` — current benchmark dashboard (`models-v2/*.json`)
-- `results/dashboard.html` — earlier benchmark dashboard (`models/*.json`)
-- `results/manifolds.html` — manifold viewer
+- `results/dashboard-v2.html` — Aionoscope Linear Probe Dashboard v2, the current
+  surface (`models-v2/*.json`)
+- `results/dashboard.html` — Aionoscope Linear Probe Dashboard, the earlier
+  surface (`models/*.json`)
+- `results/manifolds.html` — Aionoscope Manifold Viewer
+
+Both dashboard surfaces are named after the instrument and deliberately avoid the
+word "benchmark": the index headline contrasts a benchmark with what Aionoscope
+shows. The internal vocabulary is unchanged — the repository, the sweeps, and the
+`dataset.benchmark_family` / `benchmark_version` result fields still say
+benchmark.
 
 Every page loads the shared Langotime Design System from
 `https://langotime.ai/design-system/v1/styles.css`. It is never vendored into
