@@ -1,6 +1,22 @@
 # Dashboard Guide
 
-The dashboard is a static site rooted at `results/`.
+The dashboard is part of a static site rooted at `results/`.
+
+## Site Map
+
+`results/index.html` is the site index at `https://aionoscope.langotime.ai/`. It
+is a small landing page that fans out to the three surfaces, and it owns that
+navigation: each surface links back to the index rather than to its siblings.
+
+- `results/index.html` — index
+- `results/dashboard-v2.html` — current benchmark dashboard (`models-v2/*.json`)
+- `results/dashboard.html` — earlier benchmark dashboard (`models/*.json`)
+- `results/manifolds.html` — manifold viewer
+
+Every page loads the shared Langotime Design System from
+`https://langotime.ai/design-system/v1/styles.css`. It is never vendored into
+this repository, and per-surface CSS must use design-system tokens instead of
+re-declaring brand literals.
 
 ## Discovery Contract
 

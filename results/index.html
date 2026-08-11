@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aionoscope — Langotime</title>
+  <meta name="description" content="Aionoscope runs frozen-feature offline probes on foundational time-series models. Read the benchmark results and the representation geometry behind them.">
+  <link rel="canonical" href="https://aionoscope.langotime.ai/">
+  <link rel="stylesheet" href="https://langotime.ai/design-system/v1/styles.css">
+  <link rel="stylesheet" href="assets/css/index.css">
+</head>
+<body>
+  <div class="index-shell">
+    <header class="index-header">
+      <nav class="index-nav" aria-label="Primary">
+        <a class="index-brand" href="/">Aionoscope</a>
+        <span class="index-nav-links">
+          <a href="https://langotime.ai/">Langotime.ai</a>
+          <a href="https://blog.langotime.ai/">Blog</a>
+          <a href="https://github.com/langotime/aionoscope-benchmarks">Source</a>
+        </span>
+      </nav>
+
+      <p class="lt-eyebrow lt-eyebrow--accent">Instrument</p>
+      <h1 class="index-title">
+        A benchmark tells you which model scored better.<br>
+        <span class="index-title-accent">Aionoscope shows you what it learned.</span>
+      </h1>
+      <p class="index-lede">
+        Aionoscope runs frozen-feature offline probes on the balanced Aiono
+        basic-components dataset against foundational time-series models, and
+        writes one JSON result per run. Two surfaces read those artifacts: the
+        dashboard for the numbers, the viewer for the representation geometry
+        they came from.
+      </p>
+    </header>
+
+    <main class="index-main">
+      <h2 class="index-section-title">Surfaces</h2>
+      <ul class="surface-list">
+        <li>
+          <a class="surface-card" href="dashboard-v2.html">
+            <span class="surface-kicker">Benchmark</span>
+            <span class="surface-name">Foundational Benchmark Dashboard</span>
+            <span class="surface-copy">
+              Per-model probe metrics across the balanced basic-components
+              dataset: best-layer selection, encoder runtime, and through-layer
+              parameter counts, aggregated in the browser from the generated
+              JSON results.
+            </span>
+            <span class="surface-go" aria-hidden="true">Open &rarr;</span>
+          </a>
+          <p class="surface-aside">
+            Current results are v2. <a href="dashboard.html">The v1 dashboard</a>
+            stays available for the earlier result corpus.
+          </p>
+        </li>
+        <li>
+          <a class="surface-card" href="manifolds.html">
+            <span class="surface-kicker">Geometry</span>
+            <span class="surface-name">Aionoscope Manifold Viewer</span>
+            <span class="surface-copy">
+              Static reader for controlled manifold-slice artifacts. Metrics are
+              computed in Python over all stored grid points; the browser only
+              renders the selected record.
+            </span>
+            <span class="surface-go" aria-hidden="true">Open &rarr;</span>
+          </a>
+          <p class="surface-aside">
+            Background reading:
+            <a href="https://blog.langotime.ai/about-manifolds.html">About manifolds</a>.
+          </p>
+        </li>
+      </ul>
+    </main>
+
+    <footer class="index-footer">
+      <p>
+        <a href="https://blog.langotime.ai/about-aionoscope.html">About Aionoscope</a>
+        <a href="https://github.com/langotime/aionoscope-benchmarks">Benchmark source</a>
+        <a href="https://langotime.ai/">Langotime</a>
+      </p>
+      <p class="index-footer-note">
+        AI for metrics, not text.
+      </p>
+    </footer>
+  </div>
+</body>
+</html>

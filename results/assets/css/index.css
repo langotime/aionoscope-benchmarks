@@ -1,0 +1,212 @@
+/* Aionoscope site index.
+   Every value here comes from the Langotime design system tokens loaded by
+   https://langotime.ai/design-system/v1/styles.css — no brand literals. */
+
+body {
+  /* The design system's own body colour declaration is unreliable because
+     --text-body is defined both as a colour and as a font size; set it here. */
+  color: var(--text-strong);
+  background: var(--surface-page);
+}
+
+.index-shell {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: var(--space-7) var(--gutter) var(--space-9);
+}
+
+/* ---- Header ---- */
+
+.index-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-6);
+  border-bottom: var(--border-width) solid var(--border-default);
+}
+
+.index-brand {
+  font-family: var(--font-techno);
+  font-size: var(--text-eyebrow);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-strong);
+}
+
+.index-nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  font-family: var(--font-techno);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.index-nav-links a {
+  color: var(--text-muted);
+}
+
+.index-header {
+  padding-bottom: var(--space-8);
+}
+
+.lt-eyebrow {
+  margin: var(--space-8) 0 var(--space-4);
+}
+
+.index-title {
+  max-width: 22ch;
+  font-size: var(--text-display-2);
+}
+
+.index-title-accent {
+  color: var(--accent);
+}
+
+.index-lede {
+  max-width: var(--container-narrow);
+  margin-top: var(--space-5);
+  font-size: var(--text-body-lg);
+  line-height: var(--leading-relaxed);
+  color: var(--text-secondary);
+}
+
+/* ---- Surfaces ---- */
+
+.index-section-title {
+  font-family: var(--font-techno);
+  font-size: var(--text-eyebrow);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  padding-bottom: var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-default);
+}
+
+.surface-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-7);
+  margin: var(--space-7) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.surface-list > li {
+  display: flex;
+  flex-direction: column;
+}
+
+.surface-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: var(--space-7);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-card);
+  background: var(--surface-card);
+  color: var(--text-strong);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.surface-card:hover {
+  border-color: var(--ink-900);
+  transform: translateY(-2px);
+  color: var(--text-strong);
+}
+
+.surface-kicker {
+  font-family: var(--font-techno);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+}
+
+.surface-name {
+  margin-top: var(--space-3);
+  font-family: var(--font-heading);
+  font-size: var(--text-h2);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+}
+
+.surface-copy {
+  margin-top: var(--space-4);
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+.surface-go {
+  margin-top: var(--space-6);
+  font-family: var(--font-techno);
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+
+.surface-aside {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.surface-aside a {
+  color: var(--text-strong);
+  text-decoration: underline;
+}
+
+/* ---- Footer ---- */
+
+.index-footer {
+  margin-top: var(--space-9);
+  padding-top: var(--space-6);
+  border-top: var(--border-width) solid var(--border-default);
+  font-family: var(--font-techno);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.index-footer p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+}
+
+.index-footer a {
+  color: var(--text-muted);
+}
+
+.index-footer-note {
+  margin-top: var(--space-4);
+  color: var(--text-muted);
+}
+
+@media (max-width: 640px) {
+  .index-title {
+    font-size: var(--text-h1);
+  }
+
+  .surface-name {
+    font-size: var(--text-title);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .surface-card {
+    transition: none;
+  }
+
+  .surface-card:hover {
+    transform: none;
+  }
+}

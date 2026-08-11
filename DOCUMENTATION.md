@@ -179,7 +179,10 @@ Serve the static dashboard:
 python -m http.server 8000
 ```
 
-Then open `http://localhost:8000/results/dashboard.html`.
+Then open `http://localhost:8000/results/` for the site index, or
+`http://localhost:8000/results/dashboard.html` for the dashboard directly. The
+shared design system is fetched from `https://langotime.ai/design-system/v1/`,
+so a run without network access renders unstyled while staying functional.
 
 ## Config Files
 

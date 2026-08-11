@@ -3,7 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from aionoscope_benchmarks.constants import REPO_ROOT, RESULTS_ROOT
-from aionoscope_benchmarks.repo_checks import check_no_checked_in_plan_markdown, validate_repo_contracts
+from aionoscope_benchmarks.repo_checks import (
+    DESIGN_SYSTEM_STYLESHEET,
+    SITE_SURFACES,
+    check_no_checked_in_plan_markdown,
+    check_site_shell,
+    validate_repo_contracts,
+)
 from aionoscope_benchmarks.results import write_model_result
 
 
@@ -30,6 +36,31 @@ def test_checked_in_plan_markdown_check_flags_temp_plan_dir(tmp_path: Path) -> N
 
     assert len(failures) == 1
     assert "001_example.md" in failures[0].message
+
+
+def test_site_shell_check_passes() -> None:
+    assert check_site_shell() == []
+
+
+def test_every_page_uses_the_hosted_design_system_and_no_local_copy() -> None:
+    assert not (RESULTS_ROOT / "assets" / "langotime").exists()
+
+    for page in (Path("results/index.html"), *SITE_SURFACES):
+        markup = (REPO_ROOT / page).read_text(encoding="utf-8")
+        assert DESIGN_SYSTEM_STYLESHEET in markup
+        assert "assets/langotime/" not in markup
+
+
+def test_index_owns_navigation_between_surfaces() -> None:
+    index_markup = (RESULTS_ROOT / "index.html").read_text(encoding="utf-8")
+
+    for surface in SITE_SURFACES:
+        assert f'href="{surface.name}"' in index_markup
+        surface_markup = (REPO_ROOT / surface).read_text(encoding="utf-8")
+        assert 'href="index.html"' in surface_markup
+        for other in SITE_SURFACES:
+            if other != surface:
+                assert f'href="{other.name}"' not in surface_markup
 
 
 def test_legacy_article_pages_are_cloudflare_redirects() -> None:

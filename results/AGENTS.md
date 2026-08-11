@@ -2,6 +2,10 @@
 
 This folder contains several different things:
 
+- `index.html`: the site index at `https://aionoscope.langotime.ai/`. It is a
+  small static landing page that fans out to the dashboards and the manifold
+  viewer, and owns that navigation: surfaces link back to it rather than
+  cross-linking to each other.
 - `dashboard.html`: the checked-in dashboard shell for `models/*.json`.
 - `dashboard-v2.html`: the checked-in dashboard shell for `models-v2/*.json`.
   It intentionally mirrors `dashboard.html`; when changing shared dashboard UI,
@@ -15,11 +19,11 @@ This folder contains several different things:
   pages here.
 - `models/*.json` and `models-v2/*.json`: generated benchmark artifacts consumed
   by the dashboard shells.
-- `assets/`: shared styling for the dashboard and manifold viewer — the vendored
-  Langotime Design System (`assets/langotime/`), dashboard/viewer stylesheets
-  (`assets/css/`), and the ECharts theme (`assets/js/`). The deploy unit is now
-  "HTML + `_redirects` + `assets/`": this directory must be deployed/uploaded
-  alongside the pages so the relative `assets/...` links resolve.
+- `assets/`: per-surface stylesheets (`assets/css/`) and the ECharts theme
+  (`assets/js/`). The design system itself is NOT vendored here; see decision 1.
+  The deploy unit is "HTML + `_redirects` + `assets/`": this directory must be
+  deployed/uploaded alongside the pages so the relative `assets/...` links
+  resolve.
 
 ## Critical decisions
 
@@ -38,25 +42,37 @@ the manifest cache lifetime documented there, while the large per-target and
 plot JSON payloads use the documented browser/shared-cache TTLs. Do not restore
 the old one-year `immutable` policy for these JSON objects.
 
-### 1. Static, framework-free pages with a shared design system
+### 1. One shared, hosted design system — never a local copy
 
 Every page in `results/` is plain static HTML with inline JavaScript and
 **external** CSS. Styling lives under `results/assets/`, not in inline `<style>`
 blocks (this supersedes the original inline-CSS rule):
 
-- `assets/langotime/` — the vendored Langotime Design System (`styles.css` +
-  `tokens/`): the single source of brand tokens (color, type, spacing, motifs)
-  and webfonts. Treat as read-only vendored input.
+- The Langotime Design System is loaded from its canonical hosted location,
+  `https://langotime.ai/design-system/v1/styles.css`, which every Langotime
+  surface shares. It MUST NOT be vendored, copied, forked, or partially
+  duplicated into this repository: one system, one source. The design system is
+  the single source of brand tokens (color, type, spacing, motifs) and webfonts.
 - `assets/css/` — per-surface stylesheets. `dashboard.css` is shared by
   `dashboard.html` and `dashboard-v2.html`. `manifolds.css` is for the viewer.
-  Article CSS moved to `blog-langotime-ai`; do not restore `about-*.css` here.
+  `index.css` is for the site index. Article CSS moved to `blog-langotime-ai`;
+  do not restore `about-*.css` here.
 - `assets/js/chart-theme.js` — the `langotime` ECharts theme; pages init charts
   with `echarts.init(el, "langotime", …)`.
 
 Still holds: no framework, no bundler, no build step, no split frontend app, and
-JavaScript stays inline per page — each page is still easy to open from a plain
-static file server. Link order per page: the design system first, then the page's
-own stylesheet.
+JavaScript stays inline per page. Link order per page: the design system first,
+then the page's own stylesheet.
+
+Because the design system is fetched over the network, a page opened without
+network access renders unstyled. That is accepted: brand consistency across
+Langotime surfaces outranks offline fidelity. Page behavior and data loading
+MUST NOT depend on the design system being reachable.
+
+Per-surface stylesheets MUST express brand values as design-system tokens
+(`var(--ink-900)`, `var(--accent)`, `var(--space-6)`, …) and MUST NOT re-declare
+brand colors, type, or spacing as literals. A local `:root` alias mapped onto a
+token is fine; a hard-coded hex that duplicates a token is not.
 
 When restyling, work through tokens, not literals. Chart colors are not CSS:
 ECharts series colors live in each page's inline `option` objects. Defaults come

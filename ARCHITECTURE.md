@@ -117,6 +117,14 @@ one known latent factor at a time, collects layerwise frozen representations thr
 the same `FrozenTimeSeriesAdapter` boundary, and writes inspection artifacts under
 `results/manifolds/`.
 
+The deployed site is rooted at `results/`, with `results/index.html` as the index
+at `https://aionoscope.langotime.ai/`. The index owns navigation to the two
+dashboards and the manifold viewer; surfaces link back to it instead of to each
+other. All pages load the shared Langotime Design System from its canonical
+hosted URL, `https://langotime.ai/design-system/v1/styles.css`; it must never be
+vendored into this repository, and per-surface CSS must use its tokens rather
+than duplicating brand literals.
+
 Those artifacts are not `results/models/*.json` benchmark results and are not read by
 `results/dashboard.html`. The hosted static viewer is checked in as
 `results/manifolds.html` so the Git-backed Cloudflare Pages project can deploy it

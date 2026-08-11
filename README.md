@@ -273,7 +273,9 @@ Interactive browser view:
 python -m http.server 8000
 ```
 
-Then open `http://localhost:8000/results/dashboard.html`. The page loads
+Then open `http://localhost:8000/results/` for the site index, which links to the
+dashboards and the manifold viewer, or go straight to
+`http://localhost:8000/results/dashboard.html`. The page loads
 `results/models/*.json`, computes one selection-aware bubble chart plus the same
 6 radar panels and 4 layer curves in browser-side JavaScript with Apache
 ECharts, and lets you filter benchmark runs, switch the best-layer selector between
@@ -332,6 +334,7 @@ Artifacts:
 
 *   Active `v2` output directory: `results/models/<slug>__num_enabled_<k>.json`
 *   Historical `v1` reference: git history only
+*   Site index: `results/index.html` (`https://aionoscope.langotime.ai/`)
 *   Interactive dashboard: `results/dashboard.html`
 *   Sequential runner: `scripts/run_foundational_sequential.py`
 

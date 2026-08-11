@@ -33,7 +33,15 @@ REQUIRED_PATHS = (
     Path(".github/workflows/repo-checks.yml"),
     Path(".github/workflows/weekly-gardening.yml"),
     Path("results/AGENTS.md"),
+    Path("results/index.html"),
     Path("results/dashboard.html"),
+)
+DESIGN_SYSTEM_STYLESHEET = "https://langotime.ai/design-system/v1/styles.css"
+SITE_INDEX = Path("results/index.html")
+SITE_SURFACES = (
+    Path("results/dashboard-v2.html"),
+    Path("results/dashboard.html"),
+    Path("results/manifolds.html"),
 )
 AGENTS_REQUIRED_TOKENS = (
     "docs/index.md",
@@ -181,6 +189,55 @@ def check_no_dev_deploy_manifest() -> list[CheckFailure]:
             )
         ]
     return []
+
+
+def check_site_shell() -> list[CheckFailure]:
+    """The site is one hosted design system plus an index that owns navigation."""
+    failures: list[CheckFailure] = []
+    for relative_path in (SITE_INDEX, *SITE_SURFACES):
+        markup = _read_text(REPO_ROOT / relative_path)
+        if DESIGN_SYSTEM_STYLESHEET not in markup:
+            failures.append(
+                CheckFailure(
+                    code="design-system-link",
+                    message=(
+                        f"{relative_path.as_posix()} must load the shared design system "
+                        f"from {DESIGN_SYSTEM_STYLESHEET}"
+                    ),
+                )
+            )
+        if "assets/langotime/" in markup:
+            failures.append(
+                CheckFailure(
+                    code="design-system-copy",
+                    message=(
+                        f"{relative_path.as_posix()} references a vendored design-system "
+                        "copy; the design system must stay hosted, never copied in."
+                    ),
+                )
+            )
+
+    index_markup = _read_text(REPO_ROOT / SITE_INDEX)
+    for surface in SITE_SURFACES:
+        if f'href="{surface.name}"' not in index_markup:
+            failures.append(
+                CheckFailure(
+                    code="index-navigation",
+                    message=f"{SITE_INDEX.as_posix()} must link to {surface.name}",
+                )
+            )
+        surface_markup = _read_text(REPO_ROOT / surface)
+        if f'href="{SITE_INDEX.name}"' not in surface_markup:
+            failures.append(
+                CheckFailure(
+                    code="index-navigation",
+                    message=(
+                        f"{surface.as_posix()} must link back to {SITE_INDEX.name}; "
+                        "surfaces route through the index, not to each other."
+                    ),
+                )
+            )
+    return failures
 
 
 def check_markdown_links() -> list[CheckFailure]:
@@ -517,6 +574,7 @@ def validate_repo_contracts() -> list[CheckFailure]:
     failures: list[CheckFailure] = []
     failures.extend(check_required_paths())
     failures.extend(check_no_dev_deploy_manifest())
+    failures.extend(check_site_shell())
     failures.extend(check_markdown_links())
     failures.extend(check_agent_guide())
     failures.extend(check_agent_context_docs())
