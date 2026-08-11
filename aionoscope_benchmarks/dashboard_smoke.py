@@ -104,7 +104,7 @@ def run_dashboard_smoke(*, results_root: Path = RESULTS_ROOT, max_files: int = 3
         _copy_dev_results_tree(results_root, served_root)
         with _serve_directory(served_root) as base_url:
             served_dashboard_html = _fetch_text(f"{base_url}/dashboard.html")
-            if "<title>Aionoscope Benchmarks Dashboard</title>" not in served_dashboard_html:
+            if "<title>Aionoscope Linear Probe Dashboard</title>" not in served_dashboard_html:
                 raise ValueError("Served dashboard HTML did not contain the expected title banner.")
             for filename in selected_files:
                 response_text = _fetch_text(f"{base_url}/models/{filename}")
