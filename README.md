@@ -3,7 +3,7 @@
 This file is human-facing onboarding. Agents should update it when public-facing workflow or scope changes, but they should gather repository context from `AGENTS.md`, `docs/index.md`, `ARCHITECTURE.md`, and `DOCUMENTATION.md` instead.
 
 Separate benchmark repo for running frozen-feature offline probes on the balanced
-Aiono basic-components dataset against foundational models listed in
+Aiono basic-components generator against foundational models listed in
 `benchmark_models_list.md`.
 
 Current scope:
@@ -193,10 +193,11 @@ Because `constant` is one of the selectable components, some samples are effecti
 non-constant patterns. The `1/2/3`-component sweep is meant to expose how each model
 behaves as interference increases.
 
-### Why the dataset is called "balanced"
+### Why the generator is called "balanced"
 
 "Balanced" here means the component sampler is unweighted across the component list.
-There is no manual class-weight skew that makes a few signal types dominate the dataset.
+There is no manual class-weight skew that makes a few signal types dominate the
+generated data.
 This gives a cleaner probe benchmark for comparing representations across many different
 signal families.
 
