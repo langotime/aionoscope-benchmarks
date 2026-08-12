@@ -10,6 +10,19 @@ Live site: **<https://aionoscope.langotime.ai/>** — the
 [linear probe dashboard](https://aionoscope.langotime.ai/dashboard-v2.html) and the
 [manifold viewer](https://aionoscope.langotime.ai/manifolds.html).
 
+## Papers
+
+Both were accepted at the MILETS workshop at KDD 2026, by Alexander Chemeris,
+Ming Jin, and Randall Balestriero:
+
+- [Aionoscope: Debugging Latent-State Accessibility in Time-Series Representations](https://arxiv.org/abs/2607.00956)
+  (`arXiv:2607.00956`) — accepted as an **oral**. This repository is the
+  benchmark harness behind it.
+- [LeNEPA: No-Augmentation Next-Latent Prediction for Time-Series Representation Learning](https://arxiv.org/abs/2607.00958)
+  (`arXiv:2607.00958`) — accepted as a **poster**. The `LeNEPA-Aiono`,
+  `LeNEPA-CauKer2M`, and `LeNEPA-CauKer2M-20k` entries in
+  `benchmark_models_list.md` are that model.
+
 Current scope:
 
 - foundational models plus explicit calibration baselines

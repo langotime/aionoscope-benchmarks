@@ -146,6 +146,61 @@ body {
   color: var(--accent);
 }
 
+/* ---- Papers ---- */
+
+.papers {
+  margin-top: var(--space-9);
+  padding-top: var(--space-6);
+  border-top: var(--border-width) solid var(--border-default);
+}
+
+.papers-title {
+  font-family: var(--font-techno);
+  font-size: var(--text-eyebrow);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+}
+
+.paper-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-6);
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.paper-venue {
+  font-family: var(--font-techno);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--accent);
+}
+
+.paper-name {
+  margin-top: var(--space-3);
+  font-size: var(--text-body-lg);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-snug);
+}
+
+.paper-name a {
+  color: var(--text-strong);
+}
+
+.paper-name a:hover {
+  color: var(--accent);
+}
+
+.paper-meta {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
 /* ---- Footer ---- */
 
 .index-footer {
