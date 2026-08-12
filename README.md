@@ -6,6 +6,10 @@ Separate benchmark repo for running frozen-feature offline probes on the balance
 Aiono basic-components generator against foundational models listed in
 `benchmark_models_list.md`.
 
+Live site: **<https://aionoscope.langotime.ai/>** — the
+[linear probe dashboard](https://aionoscope.langotime.ai/dashboard-v2.html) and the
+[manifold viewer](https://aionoscope.langotime.ai/manifolds.html).
+
 Current scope:
 
 - foundational models plus explicit calibration baselines
